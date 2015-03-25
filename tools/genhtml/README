@@ -1,0 +1,39 @@
+Introduction:
+
+  genhtml parses the LaTeX sources of the draft, and generates a HTML version.
+
+Prerequisites:
+
+  Various Hackage packages.
+
+Usage:
+
+  In this directory, run:
+
+    runhaskell genhtml.hs
+
+  This generates 14882/ with lots of .html files in it.
+
+Todo:
+
+  - tables
+  - rest of stdlib
+  - indentation for itemdescrs
+  - index
+  - pictures
+  - footnote numbers
+  - subsubsubsection headers get too small
+  - cabalize
+  - math
+  - don't break sentences for footnotes
+  - "see also"
+  - html validation
+  - minipages side-by-side
+  - annex numbering
+  - upright text in grammar
+  - layout in compatibility annex
+  - itemizeds in preambles
+  - at signs in code around "unspecified"
+  - comments in code supposed to be italic
+  - paragraphs include wrong code in library chapters
+  - definition numbering

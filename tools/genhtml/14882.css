@@ -1,0 +1,102 @@
+body {
+	margin: 4em;
+}
+
+ul { list-style-type: none; }
+a { text-decoration: none; }
+
+ul > li:before {
+	content: "\2014";
+	position: absolute;
+	margin-left: -1.5em; 
+}
+
+:target { background-color: #E9FBE9; }
+
+a.abbr_ref { float: right; }
+
+.secnum { padding-right: 1.5em; }
+
+a.paranumber {
+	display: block;
+	position: absolute;
+	left: 2.5em;
+	font-size: small;
+}
+
+div.para { text-align: justify; }
+
+.ncsimplebnf {
+	font-style: italic;
+	display: block;
+	margin: 1.2em;
+}
+
+.ncbnf {
+	font-style: italic;
+	display: block;
+	margin: 1.2em;
+}
+
+.bnf {
+	font-style: italic;
+	display: block;
+	margin: 1.2em;
+}
+
+.poo { background: red; }
+span.grammarterm { font-style: italic; }
+span.term { font-style: italic; }
+span.mathit { font-style: italic; }
+span.terminal { font-family: monospace; font-style: normal; }
+span.nonterminal { font-style: italic; }
+span.tcode { font-family: monospace; }
+span.cvqual { font-style: italic; }
+span.textit { font-style: italic; }
+span.defn { font-style: italic; }
+
+span.synopsis {
+	font-weight: bold;
+	margin-top: 0.5em;
+	display: block;
+}
+
+span.definition {
+	font-weight: bold;
+	display: block;
+}
+
+span.minipage {
+	display: block;
+}
+
+span.itemdecl {
+	font-family: monospace;
+	margin-bottom: 1.2em;
+	margin-left: 0em;
+	margin-top: 0em;
+	white-space: pre;
+	display: block;
+}
+
+.codeblock {
+	font-family: monospace;
+	margin-bottom: 1.2em;
+	margin-left: 1.2em;
+	margin-top: 0em;
+	white-space: pre;
+	display: block;
+}
+
+span.enternote:before    { font-style: italic; content: " [" "\00a0" "Note:" "\00a0"; }
+span.enterexample:before { font-style: italic; content: " [" "\00a0" "Example:" "\00a0"; }
+span.exitnote:before     { font-style: italic; content: "\2014\00a0" "end" "\00a0" "note" "\00a0" "] "; }
+span.exitexample:before  { font-style: italic; content: "\2014\00a0" "end" "\00a0" "example" "\00a0" "] "; }
+
+span.footnote:before { content: "Footnote: \00a0"; }
+
+span.footnote {
+	font-size: small;
+	display: block;
+	margin: 2em;
+}
