@@ -90,6 +90,7 @@ isItemize _ = False
 isEnumerate :: LaTeX -> Bool
 isEnumerate (TeXEnv "enumerate" _ _) = True
 isEnumerate (TeXEnv "enumeraten" _ _) = True
+isEnumerate (TeXEnv "enumeratea" _ _) = True
 isEnumerate _ = False
 
 isComment :: LaTeX -> Bool
@@ -125,10 +126,8 @@ parseItems _ = error "need items or nothing"
 
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
-parsePara (TeXEnv "enumeraten" [] items : more) =
-	Enumerated (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
-parsePara (TeXEnv "enumerate" [] items : more) =
-	Enumerated (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
+parsePara (e@(TeXEnv _ [] items) : more)
+	| isEnumerate e = Enumerated (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
 parsePara (TeXEnv "itemize" [] items : more) =
 	Itemized (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
 parsePara x = LatexElements v : parsePara more
