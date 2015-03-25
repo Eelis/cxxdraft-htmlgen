@@ -11,6 +11,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
 import Data.Monoid (Monoid(mappend), mconcat)
+import Data.Char (isAlphaNum)
 import Control.Monad (forM_)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++))
@@ -132,6 +133,7 @@ instance Render LaTeX where
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = "{" ++ render t ++ "}"
+	render (TeXMath Square t         ) = render t
 	render (TeXMath Dollar t         ) = render t
 	render (TeXComm "ref" [FixArg (TeXRaw x)]) = xml "a" [("href", "../" ++ x)] ("[" ++ x ++ "]")
 	render (TeXComm "impldef" _) = "implementation-defined"
@@ -190,13 +192,13 @@ data SectionPath = SectionPath
 numberSubsecs :: SectionPath -> [Section] -> [(SectionPath, Section)]
 numberSubsecs (SectionPath k ns) = zip [SectionPath k (ns ++ [i]) | i <- [1..]]
 
-renderSection :: Maybe Text -> Bool -> (SectionPath, Section) -> (Text, Bool)
+renderSection :: Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
 renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 	| full = (, True) $
-		xml "div" [("id", abbreviation)] $ header ++
+		xml "div" [("id", render abbreviation)] $ header ++
 		xml "p" [] (render preamble) ++
 		mconcat (map
-			(renderParagraph (if parasEmitted then abbreviation ++ "-" else ""))
+			(renderParagraph (if parasEmitted then render abbreviation ++ "-" else ""))
 			(zip [1..] paragraphs)) ++
 		mconcat (fst . renderSection Nothing True . numberSubsecs path subsections)
 	| not anysubcontent = ("", False)
@@ -211,11 +213,11 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 			(if full
 				then render $ anchor{
 					aClass = "secnum",
-					aHref  = "#" ++ abbreviation,
+					aHref  = "#" ++ render abbreviation,
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
-			++ render (linkToSection hrefPrefix abbreviation)
+			++ render (linkToSection hrefPrefix (render abbreviation))
 		anysubcontent =
 			or $ map (snd . renderSection specific True)
 			   $ numberSubsecs path subsections
@@ -232,7 +234,7 @@ instance Render SectionPath where
 				| k == NormalChapter = Text.pack (show (head ns))
 				| otherwise = Text.pack [['A'..] !! (head ns - 1)]
 
-abbreviations :: Section -> [Text]
+abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
 withPaths :: [Chapter] -> [(SectionPath, Section)]
@@ -242,10 +244,10 @@ withPaths chapters = f normals ++ f annexes
 		f x = (\(i, (k, s)) -> (SectionPath k [i], s)) . zip [1..] x
 		(normals, annexes) = span ((== NormalChapter) . fst) chapters
 
-sectionFileContent :: [Chapter] -> Text -> Text
+sectionFileContent :: [Chapter] -> LaTeX -> Text
 sectionFileContent chapters abbreviation =
 	fileContent
-		("[" ++ abbreviation ++ "]")
+		("[" ++ render abbreviation ++ "]")
 		(mconcat $ fst . map (renderSection (Just abbreviation) False) (withPaths chapters))
 		".."
 
@@ -258,11 +260,11 @@ tocFileContent chapters =
 	where
 		section :: (SectionPath, Section) -> Text
 		section (sectionPath, Section{..}) =
-			xml "div" [("id", abbreviation)] $
+			xml "div" [("id", render abbreviation)] $
 			h Nothing (length $ sectionNums sectionPath) (
 				xml "small" [] (
 				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, linkToSection "" abbreviation))) ++
+				render (sectionName, linkToSection "" (render abbreviation)))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fileContent :: Text -> Text -> Text -> Text
@@ -295,10 +297,13 @@ writeStuff chapters = do
 
 	TextIO.writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
 
-	let allAbbrs = concatMap abbreviations (snd . chapters)
+	let
+		okC c = isAlphaNum c || c == '.'
+		ok x = and (map okC (Text.unpack (render x)))
+		allAbbrs = filter ok (concatMap abbreviations (snd . chapters))
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
-		let dir = outputDir ++ "/" ++ Text.unpack abbreviation
+		let dir = outputDir ++ "/" ++ Text.unpack (render abbreviation)
 		createDirectoryIfMissing True dir
 		TextIO.writeFile (dir ++ "/index.html") $ sectionFileContent chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"

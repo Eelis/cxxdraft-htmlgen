@@ -4,12 +4,12 @@ module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter,
 
 import Text.LaTeX.Base.Parser
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
-import Data.Text (Text, replace)
+import Data.Text (replace)
 import qualified Data.Text as Text
 import Data.Monoid (mconcat)
 import qualified Prelude
 import qualified Data.Text.IO
-import Prelude hiding (take, length, (.), head, tail, takeWhile)
+import Prelude hiding (take, length, (.), head, takeWhile)
 import Data.Char (isSpace)
 import Control.Arrow (first)
 
@@ -27,7 +27,7 @@ data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving Eq
 
 data LinearSection = LinearSection
-	{ lsectionAbbreviation :: Text
+	{ lsectionAbbreviation :: LaTeX
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
 	, lsectionPreamble :: [LaTeX]
@@ -37,7 +37,7 @@ data LinearSection = LinearSection
 type Chapter = (ChapterKind, Section)
 
 data Section = Section
-	{ abbreviation :: Text
+	{ abbreviation :: LaTeX
 	, sectionName :: LaTeX
 	, preamble :: [LaTeX]
 	, paragraphs :: [Paragraph]
@@ -142,7 +142,7 @@ parseParas x = ([], x)
 
 parseSections :: [LaTeX] -> ([LinearSection], [LaTeX])
 parseSections (TeXComm "normannex" [
-                               FixArg (TeXRaw lsectionAbbreviation),
+                               FixArg lsectionAbbreviation,
                                FixArg lsectionName]
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
@@ -151,7 +151,7 @@ parseSections (TeXComm "normannex" [
 		(lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "infannex" [
-                               FixArg (TeXRaw lsectionAbbreviation),
+                               FixArg lsectionAbbreviation,
                                FixArg lsectionName]
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
@@ -160,7 +160,7 @@ parseSections (TeXComm "infannex" [
 		(lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
-                               OptArg (TeXRaw lsectionAbbreviation),
+                               OptArg lsectionAbbreviation,
                                FixArg lsectionName]
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
@@ -172,13 +172,18 @@ parseSections x = ([], x)
 
 files :: [FilePath]
 files = [ "../../source/" ++ chap ++ ".tex"
-        | chap <- words $
+        | chap <-  words $
             "intro lex basic conversions expressions statements " ++
             "declarations declarators classes derived access special " ++
             "overloading templates exceptions preprocessor lib-intro " ++
             "support diagnostics utilities strings locales containers " ++
-            "algorithms iostreams atomics " ++
-            "grammar limits compatibility future charname xref"]
+            "iterators algorithms numerics iostreams regex atomics threads " ++
+            "grammar limits compatibility future charname xref" ]
+
+killVerb :: String -> String
+killVerb ('\\':'v':'e':'r':'b':'|':x) = "<verb>" ++ killVerb (tail $ dropWhile (/= '|') x)
+killVerb (x:y) = x : killVerb y
+killVerb [] = []
 
 load14882 :: IO [Chapter]
 load14882 = do
@@ -208,6 +213,8 @@ load14882 = do
 			$ replace "\\rSec3" "\\rSec[3]"
 			$ replace "\\rSec4" "\\rSec[4]"
 			$ replace "\\rSec5" "\\rSec[5]"
+			$ replace "\\bigl[" "\\bigl ["
+			$ Text.pack $ killVerb $ Text.unpack
 			$ s
 
 	return (treeizeChapters sections)
