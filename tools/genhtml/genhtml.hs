@@ -147,22 +147,22 @@ instance Render LaTeX where
 	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, ")"]
 	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, "]"]
 	render (TeXComm x s)
-		| x `elem` kill                = ""
-		| null s, Just y <-
-		   lookup x simpleMacros       = y
-		| otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
+	    | x `elem` kill                = ""
+	    | null s, Just y <-
+	       lookup x simpleMacros       = y
+	    | otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
 	render (TeXCommS s               )
-		| s `elem` literal             = Text.pack s
-		| Just x <-
-			lookup s simpleMacros      = x
-		| s `elem` kill                = ""
-		| otherwise                    = spanTag (Text.pack s) ""
+	    | s `elem` literal             = Text.pack s
+	    | Just x <-
+	       lookup s simpleMacros       = x
+	    | s `elem` kill                = ""
+	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ render t
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
 	render (TeXEnv e u t)
-		| e `elem` makeSpan            = spanTag (Text.pack e) (render t)
-		| e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
-		| otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
+	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
+	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
+	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
 	render x                           = error $ show x
 
 instance Render Element where
