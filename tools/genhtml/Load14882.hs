@@ -13,7 +13,7 @@ import Prelude hiding (take, length, (.), head, takeWhile)
 import Data.Char (isSpace)
 import Control.Arrow (first)
 
-data Element = LatexElements [LaTeX] | Itemized [Paragraph] | Enumerated [Paragraph]
+data Element = LatexElements [LaTeX] | Enumerated String [Paragraph]
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
@@ -30,8 +30,7 @@ data LinearSection = LinearSection
 	{ lsectionAbbreviation :: LaTeX
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
-	, lsectionPreamble :: [LaTeX]
-		-- TODO: shouldn't this (and below) be a Paragraph, so it can have itemizeds?
+	, lsectionPreamble :: Paragraph
 	, lsectionParagraphs :: [Paragraph] }
 
 type Chapter = (ChapterKind, Section)
@@ -39,7 +38,7 @@ type Chapter = (ChapterKind, Section)
 data Section = Section
 	{ abbreviation :: LaTeX
 	, sectionName :: LaTeX
-	, preamble :: [LaTeX]
+	, preamble :: Paragraph
 	, paragraphs :: [Paragraph]
 	, subsections :: [Section] }
 
@@ -83,15 +82,10 @@ rmseqs (TeXEnv "itemdescr" [] x) = rmseqs x
 rmseqs (TeXEnv "paras" [] x) = rmseqs x
 rmseqs x = [x]
 
-isItemize :: LaTeX -> Bool
-isItemize (TeXEnv "itemize" _ _) = True
-isItemize _ = False
-
-isEnumerate :: LaTeX -> Bool
-isEnumerate (TeXEnv "enumerate" _ _) = True
-isEnumerate (TeXEnv "enumeraten" _ _) = True
-isEnumerate (TeXEnv "enumeratea" _ _) = True
-isEnumerate _ = False
+isEnumerate :: LaTeX -> Maybe String
+isEnumerate (TeXEnv s _ _)
+	| s `elem` ["enumeraten", "enumeratea", "enumerate", "itemize", "description"] = Just s
+isEnumerate _ = Nothing
 
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
@@ -115,23 +109,27 @@ isJunk (TeXComm "indexlibrary" _) = True
 isJunk (TeXComment _) = True
 isJunk _ = False
 
+isItem :: LaTeX -> Bool
+isItem (TeXCommS "item") = True
+isItem (TeXComm "item" _) = True
+isItem (TeXComm "stage" _) = True
+isItem _ = False
+	-- Todo: render the different kinds of items properly
+
 parseItems :: [LaTeX] -> [Paragraph]
 parseItems [] = []
-parseItems (TeXCommS "item" : more) = parsePara a : parseItems b
+parseItems (x : more)
+	| isItem x = parsePara a : parseItems b
 	where
-		(a, b) = span (not . itemEnd) more
-		itemEnd (TeXCommS "item") = True
-		itemEnd _ = False
+		(a, b) = span (not . isItem) more
 parseItems _ = error "need items or nothing"
 
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
 parsePara (e@(TeXEnv _ [] items) : more)
-	| isEnumerate e = Enumerated (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
-parsePara (TeXEnv "itemize" [] items : more) =
-	Itemized (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
+	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
 parsePara x = LatexElements v : parsePara more
-	where (v, more) = span (\y -> not (isItemize y || isEnumerate y)) x
+	where (v, more) = span ((== Nothing) . isEnumerate) x
 
 parseParas :: [LaTeX] -> ([Paragraph], [LaTeX])
 parseParas (TeXCommS "pnum" : more)
@@ -147,7 +145,7 @@ parseSections (TeXComm "normannex" [
 		= first (LinearSection{..} :) (parseSections more'')
 	where
 		lsectionKind = NormativeAnnexSection
-		(lsectionPreamble, more') = span (not . isParaEnd) more
+		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "infannex" [
                                FixArg lsectionAbbreviation,
@@ -156,7 +154,7 @@ parseSections (TeXComm "infannex" [
 		= first (LinearSection{..} :) (parseSections more'')
 	where
 		lsectionKind = InformativeAnnexSection
-		(lsectionPreamble, more') = span (not . isParaEnd) more
+		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
                                OptArg lsectionAbbreviation,
@@ -165,7 +163,7 @@ parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
 		= first (LinearSection{..} :) (parseSections more'')
 	where
 		lsectionKind = NormalSection $ read $ Text.unpack level
-		(lsectionPreamble, more') = span (not . isParaEnd) more
+		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)
 

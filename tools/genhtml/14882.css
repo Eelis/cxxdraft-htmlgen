@@ -45,6 +45,7 @@ div.para { text-align: justify; }
 }
 
 .poo { background: red; }
+
 span.grammarterm { font-style: italic; }
 span.term { font-style: italic; }
 span.mathit { font-style: italic; }
@@ -54,6 +55,8 @@ span.tcode { font-family: monospace; }
 span.cvqual { font-style: italic; }
 span.textit { font-style: italic; }
 span.defn { font-style: italic; }
+
+span.mname { font-family: monospace; }
 
 span.synopsis {
 	font-weight: bold;

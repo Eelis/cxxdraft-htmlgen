@@ -142,7 +142,7 @@ instance Render LaTeX where
 			xml "a" [("id", abbr), ("class", "abbr_ref")] abbr ++ "<br/>" ++ name
 	render (TeXComm "xname" [FixArg (TeXRaw "far")]) = "__far"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
-	render (TeXComm "mname" [FixArg (TeXRaw s)]) = mconcat ["__", s, "__"]
+	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "mname" $ "__" ++ s ++ "__"
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [s, ":"]
 	render (TeXComm "bigoh" [FixArg (TeXRaw s)]) = "O(" ++ s ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
@@ -169,8 +169,15 @@ instance Render LaTeX where
 
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
-	render (Itemized ps) = xml "ul" [] $ mconcat $ map (xml "li" [] . render) ps
-	render (Enumerated ps) = xml "ol" [] $ mconcat $ map (xml "li" [] . render) ps
+	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
+		where
+			t = case ek of
+				"enumeraten" -> xml "ol" []
+				"enumeratea" -> xml "ol" []
+				"enumerate" -> xml "ol" []
+				"itemize" -> xml "ul" []
+				"description" -> xml "ul" []
+				_ -> undefined
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =
