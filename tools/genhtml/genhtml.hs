@@ -69,6 +69,7 @@ simpleMacros =
 	, ("sync"          , "<i>Synchronization:</i> ")
 	, ("errors"        , "<i>Error conditions:</i> ")
 	, ("xref"          , "See also:")
+	, ("seebelow"      , "see below")
 	, ("unspec"        , "<i>unspecified</i>")
 	, ("Cpp"           , "C++")
 	, ("sum"           , "∑")
@@ -96,8 +97,8 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv :: [String]
-makeSpan = words "codeblock ncbnf bnf indented ncsimplebnf ttfamily itemdecl itemdescr minipage"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf codeblock bnf indented paras ttfamily"
+makeSpan = words "ncbnf bnf indented ncsimplebnf ttfamily itemdescr minipage"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf bnf indented paras ttfamily"
 
 
 data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
@@ -156,6 +157,8 @@ instance Render LaTeX where
 			lookup s simpleMacros      = x
 		| s `elem` kill                = ""
 		| otherwise                    = spanTag (Text.pack s) ""
+	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ render t
+	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
 	render (TeXEnv e u t)
 		| e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 		| e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
