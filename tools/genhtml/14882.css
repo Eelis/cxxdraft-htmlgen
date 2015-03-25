@@ -103,3 +103,45 @@ span.footnote {
 	display: block;
 	margin: 2em;
 }
+
+table {
+	border: 1px solid black;
+	border-collapse: collapse;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: left;
+}
+
+td, th {
+	padding-left: 1em;
+	padding-right: 1em;
+}
+
+tr.rowsep {
+	border-top: 1px solid black;
+}
+
+th {
+	border-bottom: 1px solid black;
+}
+
+span.centry {
+	font-weight: bold;
+}
+
+	
+div.table {
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+	width: 90%;
+}
+
+span.tabletitle {
+	text-align: center;
+	font-style: italic;
+	display: inline-block;
+	margin-top: 1em;
+	margin-bottom: 1em;
+}
+

@@ -8,6 +8,8 @@ import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter,
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..))
 import Data.Text (Text)
+import Data.Char (isSpace)
+import qualified Data.List as List
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
 import Data.Monoid (Monoid(mappend), mconcat)
@@ -44,6 +46,11 @@ texFromArg (FixArg t) = t
 texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
+
+columnSeparatorMagic, removeStartMagic, removeEndMagic :: Text
+columnSeparatorMagic = "\^^"  -- record separator
+removeStartMagic = "\STX"
+removeEndMagic = "\ETX"
 
 simpleMacros :: [(String, Text)]
 simpleMacros =
@@ -95,12 +102,26 @@ simpleMacros =
 	, ("equiv"         , "&equiv;")
 	, ("opt"           , "<sub><small>opt</small></sub>")
 	, ("expos"         , "<i>exposition-only</i>")
+	, ("macro"         , "<span class=\"centry\">Macro:</span>")
+	, ("macros"        , "<span class=\"centry\">Macros:</span>")
+	, ("function"      , "<span class=\"centry\">Function:</span>")
+	, ("functions"     , "<span class=\"centry\">Functions:</span>")
+	, ("mfunctions"    , "<span class=\"centry\">Math Functions:</span>")
+	, ("cfunctions"    , "<span class=\"centry\">Classification/comparison Functions:</span>")
+	, ("type"          , "<span class=\"centry\">Type:</span>")
+	, ("types"         , "<span class=\"centry\">Types:</span>")
+	, ("values"        , "<span class=\"centry\">Values:</span>")
+	, ("struct"        , "<span class=\"centry\">Struct:</span>")
+	, ("endfirsthead"  , removeStartMagic)
+	, ("endhead"       , removeEndMagic)
 	]
 
 makeSpan, makeDiv :: [String]
 makeSpan = words "ncbnf bnf indented ncsimplebnf ttfamily itemdescr minipage"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf bnf indented paras ttfamily"
-
+makeTable = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
+makeTh = words "lhdr rhdr chdr"
+makeRowsep = words "rowsep capsep hline"
 
 data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
 
@@ -127,7 +148,7 @@ instance Render LaTeX where
 	render (TeXRaw x                 ) = Text.replace "~" " "
 	                                   $ Text.replace ">" "&gt;"
 	                                   $ Text.replace "<" "&lt;"
-	                                   $ Text.replace "&" "&amp;"
+	                                   $ Text.replace "&" columnSeparatorMagic
 	                                   $ x
 	render (TeXComment _             ) = ""
 	render (TeXLineBreak _ _         ) = "<br/>"
@@ -148,8 +169,10 @@ instance Render LaTeX where
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, ")"]
 	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, "]"]
+	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
+	    | x `elem` makeTh              = case s of [FixArg y] -> xml "th" [] $ render y
 	    | null s, Just y <-
 	       lookup x simpleMacros       = y
 	    | otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
@@ -157,6 +180,7 @@ instance Render LaTeX where
 	    | s `elem` literal             = Text.pack s
 	    | Just x <-
 	       lookup s simpleMacros       = x
+	    | s `elem` makeRowsep          = "</td></tr><tr class=\"rowsep\"><td>"
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ render t
@@ -164,6 +188,7 @@ instance Render LaTeX where
 	render (TeXEnv e u t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
+	    | e `elem` makeTable           = tableDiv e u $ cleanupTable $ tableHeader e u ++ (postprocessTable $ render t)
 	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
 	render x                           = error $ show x
 
@@ -178,6 +203,72 @@ instance Render Element where
 				"itemize" -> xml "ul" []
 				"description" -> xml "ul" []
 				_ -> undefined
+
+tableDiv :: String -> [TeXArg] -> Text -> Text
+tableDiv command args content =
+	xml "div" [("class", "table")] $
+	xml "a" [("id", xref)] "" ++ spanTag "tabletitle" title ++ xml "table" [] content
+	where
+		(title, xref) = extract command args
+		extract (List.stripPrefix "libsyntab" -> Just _) [(FixArg title), (FixArg (TeXRaw xref))] =
+			("Header " ++ (spanTag "tcode" $ "&lt;" ++ render title ++ "&gt;") ++ " synopsis", xref)
+		extract _ ((FixArg title) : (FixArg (TeXRaw xref)) : _) = (render title, xref)
+		extract _ _ = (Text.empty, Text.empty)
+
+removeConsecWhitespace :: Text -> Text
+removeConsecWhitespace = Text.unwords . filter (not . Text.null) . Text.split isSpace
+
+cleanupTable :: Text -> Text
+cleanupTable = 
+	Text.replace "<td > <td " "<td " .
+	Text.replace "</td> </td>" "</td>" .
+	Text.replace "<tr ><td > </td></tr>" "" .
+	Text.replace "<tr ></tr>" "" .
+ 	Text.replace "<td > <th >" "<th>" .
+ 	Text.replace "</th> </td>" "</th>" .
+ 	removeConsecWhitespace
+
+removeDeadContent :: Text -> Text
+removeDeadContent t =
+	case Text.breakOn removeStartMagic t of
+		(begin, end) | not $ Text.null end -> begin ++ (removeDeadContent $ Text.drop 1 end')
+			where (_, end') = Text.breakOn removeEndMagic end
+		(s, "") -> s
+
+postprocessTable :: Text -> Text
+postprocessTable =
+	xml "tr" [] . xml "td" [] . 
+	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace columnSeparatorMagic "</td><td >" .
+	removeDeadContent
+
+tableHeader :: String -> [TeXArg] -> Text
+tableHeader (List.stripPrefix "libsyntab" -> Just suffix) _ =
+	case suffix of
+		(List.stripPrefix "add" -> Just n) -> hdr n
+		(List.stripPrefix "f" -> Just n) -> hdr n
+		_ -> hdr suffix
+	where
+		hdr n =
+			xml "tr" [] (xml "th" [] "Type" ++ xml "th" [("colspan", Text.pack . show $ read n - 1)] "Name(s)")
+
+tableHeader "libsumtabbase" [_, _, (FixArg h1), (FixArg h2)] =
+	xml "tr" [] (
+		xml "th" [("colspan", "2")] (render h1) ++ (xml "th" [] $ render h2))
+
+tableHeader command args =
+	xml "tr" [] . Text.concat . map (xml "th" []) $ hdr command args
+	where
+		hdr :: String -> [TeXArg] -> [Text]
+		hdr (List.stripPrefix "long" -> Just h) args = hdr h args
+		hdr "libsumtab" _ = ["", "Subclause", "Header(s)"]
+		hdr "libefftab" _ = ["Element", "Effect(s) if set"]
+		hdr "libefftabmean" _ = ["Element", "Meaning"]
+		hdr "libefftabvalue" _ = ["Element", "Value"]
+		hdr "liberrtab" _ = ["Value", "Error condition"]
+		hdr "LibEffTab" [_, _, (FixArg h), _] = ["Element", render h]
+		hdr "libtab2" [_, _, _, (FixArg h1), (FixArg h2)] = [render h1, render h2]
+		hdr "tokentable" [_, _, (FixArg h1), (FixArg h2)] = [render h1, render h2, render h1, render h2, render h1, render h2]
+		hdr _ _ = []
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =
