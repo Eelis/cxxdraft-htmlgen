@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns #-}
 
-module Load14882 (Element(..), Paragraph, Section(..), load14882) where
+module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882) where
 
 import Text.LaTeX.Base.Parser
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
@@ -9,7 +9,7 @@ import qualified Data.Text as Text
 import Data.Monoid (mconcat)
 import qualified Prelude
 import qualified Data.Text.IO
-import Prelude hiding (take, length, last, (.), head, tail, takeWhile)
+import Prelude hiding (take, length, (.), head, tail, takeWhile)
 import Data.Char (isSpace)
 import Control.Arrow (first)
 
@@ -20,13 +20,21 @@ data Element = LatexElements [LaTeX] | Itemized [Paragraph] | Enumerated [Paragr
 
 type Paragraph = [Element]
 
+data SectionKind = NormalSection { _level :: Int } | InformativeAnnexSection | NormativeAnnexSection
+	deriving Eq
+
+data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
+	deriving Eq
+
 data LinearSection = LinearSection
-	{ lsectionLevel :: Int
-	, lsectionAbbreviation :: Text
+	{ lsectionAbbreviation :: Text
+	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
 	, lsectionPreamble :: [LaTeX]
 		-- TODO: shouldn't this (and below) be a Paragraph, so it can have itemizeds?
 	, lsectionParagraphs :: [Paragraph] }
+
+type Chapter = (ChapterKind, Section)
 
 data Section = Section
 	{ abbreviation :: Text
@@ -35,16 +43,36 @@ data Section = Section
 	, paragraphs :: [Paragraph]
 	, subsections :: [Section] }
 
-treeIze :: [LinearSection] -> [Section]
-treeIze [] = []
-treeIze (LinearSection{lsectionLevel=n,..} : more) =
-		Section{..} : treeIze more'
+lsectionLevel :: LinearSection -> Int
+lsectionLevel (lsectionKind -> NormalSection l) = l
+lsectionLevel _ = 0
+
+treeizeChapters :: [LinearSection] -> [Chapter]
+treeizeChapters [] = []
+treeizeChapters (LinearSection{..} : more) =
+		(chapterKind, Section{..}) : treeizeChapters more'
+	where
+		chapterKind
+			| lsectionKind == InformativeAnnexSection = InformativeAnnex
+			| lsectionKind == NormativeAnnexSection = NormativeAnnex
+			| otherwise = NormalChapter
+		abbreviation = lsectionAbbreviation
+		paragraphs = lsectionParagraphs
+		sectionName = lsectionName
+		preamble = lsectionPreamble
+		(treeizeSections -> subsections, more') = span ((> 0) . lsectionLevel) more
+
+treeizeSections :: [LinearSection] -> [Section]
+treeizeSections [] = []
+treeizeSections (s@LinearSection{..} : more) =
+		Section{..} : treeizeSections more'
 	where
 		abbreviation = lsectionAbbreviation
 		paragraphs = lsectionParagraphs
 		sectionName = lsectionName
 		preamble = lsectionPreamble
-		(treeIze -> subsections, more') = span ((> n) . lsectionLevel) more
+		n = lsectionLevel s
+		(treeizeSections -> subsections, more') = span ((> n) . lsectionLevel) more
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -119,7 +147,7 @@ parseSections (TeXComm "normannex" [
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
 	where
-		lsectionLevel = 0
+		lsectionKind = NormativeAnnexSection
 		(lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "infannex" [
@@ -128,7 +156,7 @@ parseSections (TeXComm "infannex" [
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
 	where
-		lsectionLevel = 0
+		lsectionKind = InformativeAnnexSection
 		(lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
@@ -137,7 +165,7 @@ parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
               : more)
 		= first (LinearSection{..} :) (parseSections more'')
 	where
-		lsectionLevel = read $ Text.unpack level
+		lsectionKind = NormalSection $ read $ Text.unpack level
 		(lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)
@@ -152,7 +180,7 @@ files = [ "../../source/" ++ chap ++ ".tex"
             "algorithms iostreams atomics " ++
             "grammar limits compatibility future charname xref"]
 
-load14882 :: IO [Section]
+load14882 :: IO [Chapter]
 load14882 = do
 
 	s <- mconcat . mapM Data.Text.IO.readFile files
@@ -182,4 +210,4 @@ load14882 = do
 			$ replace "\\rSec5" "\\rSec[5]"
 			$ s
 
-	return (treeIze sections)
+	return (treeizeChapters sections)

@@ -4,7 +4,7 @@
 	TupleSections,
 	ViewPatterns #-}
 
-import Load14882 (Element(..), Paragraph, Section(..), load14882)
+import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..))
 import Data.Text (Text)
@@ -13,7 +13,7 @@ import qualified Data.Text.IO as TextIO
 import Data.Monoid (Monoid(mappend), mconcat)
 import Control.Monad (forM_)
 import qualified Prelude
-import Prelude hiding (take, last, (.), head, tail, takeWhile, (++))
+import Prelude hiding (take, last, (.), (++))
 import System.IO (hFlush, stdout)
 import System.Directory (createDirectoryIfMissing, copyFile)
 
@@ -182,78 +182,88 @@ linkToSection hrefPrefix abbr = anchor{
 	aHref  = hrefPrefix ++ abbr,
 	aText  = "[" ++ abbr ++ "]"}
 
-type SecNum = (Either Int Char, [Int])
+data SectionPath = SectionPath
+	{ chapterKind :: ChapterKind
+	, sectionNums :: [Int]
+	}
 
-numberSubsecs :: SecNum -> [Section] -> [(SecNum, Section)]
-numberSubsecs (e, x) = zip [(e, x ++ [i]) | i <- [1..]]
+numberSubsecs :: SectionPath -> [Section] -> [(SectionPath, Section)]
+numberSubsecs (SectionPath k ns) = zip [SectionPath k (ns ++ [i]) | i <- [1..]]
 
-secNumLength :: SecNum -> Int
-secNumLength (_, x) = 1 + length x
-
-renderSection :: Maybe Text -> Bool -> (SecNum, Section) -> (Text, Bool)
-renderSection specific parasEmitted (secNum, Section{..})
+renderSection :: Maybe Text -> Bool -> (SectionPath, Section) -> (Text, Bool)
+renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 	| full = (, True) $
 		xml "div" [("id", abbreviation)] $ header ++
 		xml "p" [] (render preamble) ++
 		mconcat (map
 			(renderParagraph (if parasEmitted then abbreviation ++ "-" else ""))
 			(zip [1..] paragraphs)) ++
-		mconcat (fst . renderSection Nothing True . numberSubsecs secNum subsections)
+		mconcat (fst . renderSection Nothing True . numberSubsecs path subsections)
 	| not anysubcontent = ("", False)
 	| otherwise =
 		( header ++
-		  mconcat (fst . renderSection specific False . numberSubsecs secNum subsections)
+		  mconcat (fst . renderSection specific False . numberSubsecs path subsections)
 		, anysubcontent )
 	where
 		hrefPrefix = if specific == Just abbreviation then "../#" else "../"
 		full = specific == Nothing || specific == Just abbreviation
-		header = h Nothing (secNumLength secNum) $
+		header = h Nothing (length sectionNums) $
 			(if full
 				then render $ anchor{
 					aClass = "secnum",
 					aHref  = "#" ++ abbreviation,
-					aText  = secNumText secNum }
-				else spanTag "secnum" (secNumText secNum))
+					aText  = render path }
+				else spanTag "secnum" (render path))
 			++ render sectionName
 			++ render (linkToSection hrefPrefix abbreviation)
 		anysubcontent =
 			or $ map (snd . renderSection specific True)
-			   $ numberSubsecs secNum subsections
+			   $ numberSubsecs path subsections
 
-secNumText :: SecNum -> Text
-secNumText (e, x) =
-	Text.intercalate "." (
-		Text.pack (either show (:[]) e) :
-		Text.pack . show . x)
+
+instance Render SectionPath where
+	render (SectionPath k ns)
+		| k == InformativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(informative)<br/>"
+		| k == NormativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(normative)<br/>"
+		| otherwise = Text.intercalate "." (chap : Text.pack . show . tail ns)
+		where
+			chap :: Text
+			chap
+				| k == NormalChapter = Text.pack (show (head ns))
+				| otherwise = Text.pack [['A'..] !! (head ns - 1)]
 
 abbreviations :: Section -> [Text]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
-chapterNums :: [SecNum]
-chapterNums = (, []) . ((Left . [1..26]) ++ (Right . ['A'..])) -- todo
+withPaths :: [Chapter] -> [(SectionPath, Section)]
+withPaths chapters = f normals ++ f annexes
+	where
+		f :: [(ChapterKind, Section)] -> [(SectionPath, Section)]
+		f x = (\(i, (k, s)) -> (SectionPath k [i], s)) . zip [1..] x
+		(normals, annexes) = span ((== NormalChapter) . fst) chapters
 
-sectionFileContent :: [Section] -> Text -> Text
+sectionFileContent :: [Chapter] -> Text -> Text
 sectionFileContent chapters abbreviation =
 	fileContent
 		("[" ++ abbreviation ++ "]")
-		(mconcat (fst . map (renderSection (Just abbreviation) False) (zip chapterNums chapters)))
+		(mconcat $ fst . map (renderSection (Just abbreviation) False) (withPaths chapters))
 		".."
 
-tocFileContent :: [Section] -> Text
+tocFileContent :: [Chapter] -> Text
 tocFileContent chapters =
 		fileContent
 			"14882: Contents"
-			(mconcat (map section (zip chapterNums chapters)))
+			(mconcat (map section (withPaths chapters)))
 			"."
 	where
-		section :: (SecNum, Section) -> Text
-		section (secNum, Section{..}) =
+		section :: (SectionPath, Section) -> Text
+		section (sectionPath, Section{..}) =
 			xml "div" [("id", abbreviation)] $
-			h Nothing (secNumLength secNum) (
+			h Nothing (length $ sectionNums sectionPath) (
 				xml "small" [] (
-				spanTag "secnum" (secNumText secNum) ++
+				spanTag "secnum" (render sectionPath) ++
 				render (sectionName, linkToSection "" abbreviation))) ++
-			mconcat (map section (numberSubsecs secNum subsections))
+			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
@@ -267,14 +277,14 @@ fileContent title body pathHome =
 		"<body>" ++ body ++ "</body>" ++
 	"</html>"
 
-readStuff :: IO [Section]
+readStuff :: IO [Chapter]
 readStuff = do
 	putStr "Reading... "; hFlush stdout
 	chapters <- load14882
 	putStrLn $ show (length chapters) ++ " chapters"
 	return chapters
 
-writeStuff :: [Section] -> IO ()
+writeStuff :: [Chapter] -> IO ()
 writeStuff chapters = do
 	let outputDir = "14882"
 	putStr $ "Writing to " ++ outputDir ++ "/ "; hFlush stdout
@@ -285,7 +295,7 @@ writeStuff chapters = do
 
 	TextIO.writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
 
-	let allAbbrs = concatMap abbreviations chapters
+	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
 		let dir = outputDir ++ "/" ++ Text.unpack abbreviation
