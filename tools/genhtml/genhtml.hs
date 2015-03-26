@@ -334,9 +334,8 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 linkToSection :: Text -> LaTeX -> Anchor
 linkToSection hrefPrefix abbr = anchor{
 	aClass = "abbr_ref",
-	aHref  = (if hrefPrefix == "" && (':' `elem` Text.unpack p) then "./" else hrefPrefix) ++ p,
+	aHref  = hrefPrefix ++ abbrAsPath abbr,
 	aText  = "[" ++ render abbr ++ "]"}
-		where p = abbrAsPath abbr
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -440,8 +439,14 @@ readStuff = do
 	putStrLn $ show (length chapters) ++ " chapters"
 	return chapters
 
+urlEncode :: Text -> Text
+urlEncode
+	= Text.replace "<" "%3c"
+	. Text.replace ">" "%3e"
+	. Text.replace ":" "%3a"
+
 abbrAsPath :: LaTeX -> Text
-abbrAsPath (TeXRaw x) = x
+abbrAsPath (TeXRaw x) = urlEncode x
 abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
 abbrAsPath (TeXCommS "dcr") = "--"
 abbrAsPath _ = undefined
