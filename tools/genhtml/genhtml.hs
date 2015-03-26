@@ -91,6 +91,7 @@ simpleMacros =
 	, ("sim"           , "~")
 	, ("quad"          , "&emsp;&ensp;")
 	, ("uniquens"      , "<i>unique</i>") -- they use weird squiqqly letters
+	, ("impdef"        , "<i>implementation-defined</i>")
 	, ("unun"          , "__")
 	, ("^"             , "^")
 	, ("ldots"         , "&hellip;")
