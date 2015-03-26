@@ -331,11 +331,12 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 	render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i}) ++
 	render x
 
-linkToSection :: Text -> Text -> Anchor
+linkToSection :: Text -> LaTeX -> Anchor
 linkToSection hrefPrefix abbr = anchor{
 	aClass = "abbr_ref",
-	aHref  = hrefPrefix ++ abbr,
-	aText  = "[" ++ abbr ++ "]"}
+	aHref  = (if hrefPrefix == "" && (':' `elem` Text.unpack p) then "./" else hrefPrefix) ++ p,
+	aText  = "[" ++ render abbr ++ "]"}
+		where p = abbrAsPath abbr
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -370,7 +371,7 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
-			++ render (linkToSection hrefPrefix (render abbreviation))
+			++ render (linkToSection hrefPrefix abbreviation)
 		anysubcontent =
 			or $ map (snd . renderSection specific True)
 			   $ numberSubsecs path subsections
@@ -417,7 +418,7 @@ tocFileContent chapters =
 			h Nothing (length $ sectionNums sectionPath) (
 				xml "small" [] (
 				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, linkToSection "" (render abbreviation)))) ++
+				render (sectionName, linkToSection "" abbreviation))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fileContent :: Text -> Text -> Text -> Text
@@ -439,6 +440,12 @@ readStuff = do
 	putStrLn $ show (length chapters) ++ " chapters"
 	return chapters
 
+abbrAsPath :: LaTeX -> Text
+abbrAsPath (TeXRaw x) = x
+abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
+abbrAsPath (TeXCommS "dcr") = "--"
+abbrAsPath _ = undefined
+
 writeStuff :: [Chapter] -> IO ()
 writeStuff chapters = do
 	let outputDir = "14882"
@@ -450,13 +457,10 @@ writeStuff chapters = do
 
 	TextIO.writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
 
-	let
-		okC c = isAlphaNum c || c == '.'
-		ok x = and (map okC (Text.unpack (render x)))
-		allAbbrs = filter ok (concatMap abbreviations (snd . chapters))
+	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
-		let dir = outputDir ++ "/" ++ Text.unpack (render abbreviation)
+		let dir = outputDir ++ "/" ++ Text.unpack (abbrAsPath abbreviation)
 		createDirectoryIfMissing True dir
 		TextIO.writeFile (dir ++ "/index.html") $ sectionFileContent chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
