@@ -47,8 +47,8 @@ texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
 
-columnSeparatorMagic, removeStartMagic, removeEndMagic :: Text
-columnSeparatorMagic = "\^^"  -- record separator
+ampersandMagic, removeStartMagic, removeEndMagic :: Text
+ampersandMagic = "\^^"  -- record separator
 removeStartMagic = "\STX"
 removeEndMagic = "\ETX"
 lineBreakMagic = "\US"
@@ -150,7 +150,7 @@ instance Render LaTeX where
 	render (TeXRaw x                 ) = Text.replace "~" " "
 	                                   $ Text.replace ">" "&gt;"
 	                                   $ Text.replace "<" "&lt;"
-	                                   $ Text.replace "&" columnSeparatorMagic
+	                                   $ Text.replace "&" ampersandMagic
 	                                   $ x
 	render (TeXComment _             ) = ""
 	render (TeXCommS "br"            ) = lineBreakMagic
@@ -186,8 +186,8 @@ instance Render LaTeX where
 	    | s `elem` makeRowsep          = "</td></tr><tr class=\"rowsep\"><td>"
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ render t
-	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
+	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
+	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv e u t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
@@ -243,7 +243,7 @@ postprocessTable :: Text -> Text
 postprocessTable =
 	xml "tr" [] . xml "td" [] . 
 	Text.replace lineBreakMagic "<br/>" .
-	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace columnSeparatorMagic "</td><td >" .
+	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace ampersandMagic "</td><td >" .
 	removeDeadContent
 
 tableHeader :: String -> [TeXArg] -> Text
