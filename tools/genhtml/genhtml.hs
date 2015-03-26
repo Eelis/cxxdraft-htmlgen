@@ -52,6 +52,7 @@ ampersandMagic = "\^^"  -- record separator
 removeStartMagic = "\STX"
 removeEndMagic = "\ETX"
 lineBreakMagic = "\US"
+tabMagic = "\t"
 
 simpleMacros :: [(String, Text)]
 simpleMacros =
@@ -122,6 +123,7 @@ makeSpan, makeDiv :: [String]
 makeSpan = words "ncbnf bnf indented ncsimplebnf ttfamily itemdescr minipage"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf bnf indented paras ttfamily"
 makeTable = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
+makeBnfTable = words "bnfkeywordtab bnftab"
 makeTh = words "lhdr rhdr chdr"
 makeRowsep = words "rowsep capsep hline"
 
@@ -167,7 +169,7 @@ instance Render LaTeX where
 	render (TeXComm "xname" [FixArg (TeXRaw "far")]) = "__far"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "mname" $ "__" ++ s ++ "__"
-	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [s, ":"]
+	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [spanTag "nontermdef" s, ":"]
 	render (TeXComm "bigoh" [FixArg (TeXRaw s)]) = "O(" ++ s ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, ")"]
@@ -191,7 +193,8 @@ instance Render LaTeX where
 	render (TeXEnv e u t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
-	    | e `elem` makeTable           = tableDiv e u $ cleanupTable $ tableHeader e u ++ (postprocessTable $ render t)
+	    | e `elem` makeTable           = renderTable e u [] $ render t
+	    | e `elem` makeBnfTable        = renderBnfTable e u t
 	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
 	render x                           = error $ show x
 
@@ -207,10 +210,33 @@ instance Render Element where
 				"description" -> xml "ul" []
 				_ -> undefined
 
-tableDiv :: String -> [TeXArg] -> Text -> Text
-tableDiv command args content =
+renderBnfTable :: String -> [TeXArg] -> LaTeX -> Text
+renderBnfTable e u =
+	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX
+	where
+		processHTML = Text.replace tabMagic "&#9;" .  Text.replace lineBreakMagic "<br/>"
+
+		initialTab (Text.stripPrefix ">" -> Just rest) =
+			tabMagic ++ rest
+		initialTab other = other
+
+		preprocessTeX (TeXBraces t) = t
+		preprocessTeX (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
+			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ preprocessTeX rest)
+		preprocessTeX (TeXSeq (TeXCommS "") (TeXRaw s)) =
+			TeXSeq (TeXCommS "") (TeXRaw $ initialTab s)
+		preprocessTeX (TeXSeq a b) = TeXSeq (preprocessTeX a) (preprocessTeX b)
+		preprocessTeX (TeXEnv e a c) = TeXEnv e a (preprocessTeX c)
+		preprocessTeX other = other
+
+renderTable :: String -> [TeXArg] -> [(Text, Text)] -> Text -> Text
+renderTable e u attrs t =
+	tableDiv e u attrs $ cleanupTable $ tableHeader e u ++ postprocessTable t
+
+tableDiv :: String -> [TeXArg] -> [(Text, Text)] -> Text -> Text
+tableDiv command args attrs content =
 	xml "div" [("class", "table")] $
-	xml "a" [("id", xref)] "" ++ spanTag "tabletitle" title ++ xml "table" [] content
+	xml "a" [("id", xref)] "" ++ spanTag "tabletitle" title ++ xml "table" attrs content
 	where
 		(title, xref) = extract command args
 		extract (List.stripPrefix "libsyntab" -> Just _) [(FixArg title), (FixArg (TeXRaw xref))] =

@@ -55,6 +55,7 @@ span.tcode { font-family: monospace; }
 span.cvqual { font-style: italic; }
 span.textit { font-style: italic; }
 span.defn { font-style: italic; }
+span.nontermdef { font-style: italic; }
 
 span.mname { font-family: monospace; }
 
