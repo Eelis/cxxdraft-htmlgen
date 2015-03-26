@@ -355,7 +355,7 @@ renderSection :: Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
 renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 	| full = (, True) $
 		xml "div" [("id", render abbreviation)] $ header ++
-		xml "p" [] (render preamble) ++
+		render preamble ++
 		mconcat (map
 			(renderParagraph (if parasEmitted then render abbreviation ++ "-" else ""))
 			(zip [1..] paragraphs)) ++
