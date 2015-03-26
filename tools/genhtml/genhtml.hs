@@ -34,6 +34,10 @@ xml t attrs = (("<" ++ t ++ " " ++ Text.unwords (map f attrs) ++ ">") ++) . (++ 
 spanTag :: Text -> Text -> Text
 spanTag = xml "span" . (:[]) . ("class",)
 
+rangeElem :: Char -> Text -> Text -> Char -> Text
+rangeElem open from to close
+	= spanTag "range" $ Text.pack [open] ++ from ++ ", " ++ to ++ Text.pack [close]
+
 h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
@@ -174,8 +178,10 @@ instance Render LaTeX where
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [spanTag "nontermdef" s, ":"]
 	render (TeXComm "bigoh" [FixArg (TeXRaw s)]) = "O(" ++ s ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
-	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, ")"]
-	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = mconcat ["[", x, ", ", y, "]"]
+	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ')'
+	render (TeXComm "orange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ')'
+	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ']'
+	render (TeXComm "brange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ']'
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm x s)
 	    | x `elem` kill                = ""

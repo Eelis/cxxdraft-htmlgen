@@ -56,7 +56,7 @@ span.cvqual { font-style: italic; }
 span.textit { font-style: italic; }
 span.defn { font-style: italic; }
 span.nontermdef { font-style: italic; }
-
+span.range { font-family: monospace; }
 span.mname { font-family: monospace; }
 
 span.synopsis {
