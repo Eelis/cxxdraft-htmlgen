@@ -120,10 +120,11 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv :: [String]
-makeSpan = words "ncbnf bnf indented ncsimplebnf ttfamily itemdescr minipage"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf bnf indented paras ttfamily"
+makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily"
 makeTable = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
 makeBnfTable = words "bnfkeywordtab bnftab"
+makeBnfPre = words "bnf"
 makeTh = words "lhdr rhdr chdr"
 makeRowsep = words "rowsep capsep hline"
 
@@ -155,7 +156,7 @@ instance Render LaTeX where
 	                                   $ Text.replace "&" ampersandMagic
 	                                   $ x
 	render (TeXComment _             ) = ""
-	render (TeXCommS "br"            ) = lineBreakMagic
+	render (TeXCommS "br"            ) = "<br/>"
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = "{" ++ render t ++ "}"
@@ -193,8 +194,9 @@ instance Render LaTeX where
 	render (TeXEnv e u t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
-	    | e `elem` makeTable           = renderTable e u [] $ render t
+	    | e `elem` makeTable           = renderTable e u [] $ render $ preprocessTable t
 	    | e `elem` makeBnfTable        = renderBnfTable e u t
+	    | e `elem` makeBnfPre          = bnf t
 	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
 	render x                           = error $ show x
 
@@ -210,9 +212,30 @@ instance Render Element where
 				"description" -> xml "ul" []
 				_ -> undefined
 
+-- Explicit <br/>'s are redundant in <pre>, so strip them.
+preprocessPre :: LaTeX -> LaTeX
+preprocessPre (TeXCommS "br") = TeXEmpty
+preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
+preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
+preprocessPre rest = rest
+
+-- Tables need to handle line breaks specially.
+preprocessTable :: LaTeX -> LaTeX
+preprocessTable (TeXCommS "br") = TeXRaw lineBreakMagic
+preprocessTable (TeXComm c a) = TeXComm c (map preprocessArg a)
+preprocessTable (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
+preprocessTable (TeXSeq a b) = TeXSeq (preprocessTable a) (preprocessTable b)
+preprocessTable rest = rest
+
+preprocessArg (FixArg e) = FixArg (preprocessTable e)
+preprocessArg rest = rest
+
+bnf :: LaTeX -> Text
+bnf = xml "pre" [("class", "bnf")] . render . preprocessPre
+
 renderBnfTable :: String -> [TeXArg] -> LaTeX -> Text
 renderBnfTable e u =
-	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX
+	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX . preprocessPre
 	where
 		processHTML = Text.replace tabMagic "&#9;" .  Text.replace lineBreakMagic "<br/>"
 
