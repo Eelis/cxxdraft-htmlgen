@@ -127,6 +127,7 @@ makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf"
 makeTh = words "lhdr rhdr chdr"
 makeRowsep = words "rowsep capsep hline"
+makeCodeblock = words "codeblock codeblockdigitsep"
 
 data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
 
@@ -189,9 +190,9 @@ instance Render LaTeX where
 	    | s `elem` makeRowsep          = "</td></tr><tr class=\"rowsep\"><td>"
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "codeblock" [] t)   = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv e u t)
+		| e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
 	    | e `elem` makeTable           = renderTable e u [] $ render $ preprocessTable t
