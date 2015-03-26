@@ -47,7 +47,7 @@ texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
 
-ampersandMagic, removeStartMagic, removeEndMagic :: Text
+ampersandMagic, removeStartMagic, removeEndMagic, lineBreakMagic, tabMagic :: Text
 ampersandMagic = "\^^"  -- record separator
 removeStartMagic = "\STX"
 removeEndMagic = "\ETX"
@@ -119,7 +119,7 @@ simpleMacros =
 	, ("endhead"       , removeEndMagic)
 	]
 
-makeSpan, makeDiv :: [String]
+makeSpan, makeDiv, makeTable, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
 makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily"
 makeTable = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
