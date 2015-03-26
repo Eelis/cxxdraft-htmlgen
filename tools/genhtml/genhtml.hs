@@ -38,7 +38,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline"]
 literal = [" ", "cv", "#", "{", "}", "-", "~", "%", ",", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -51,6 +51,7 @@ columnSeparatorMagic, removeStartMagic, removeEndMagic :: Text
 columnSeparatorMagic = "\^^"  -- record separator
 removeStartMagic = "\STX"
 removeEndMagic = "\ETX"
+lineBreakMagic = "\US"
 
 simpleMacros :: [(String, Text)]
 simpleMacros =
@@ -151,6 +152,7 @@ instance Render LaTeX where
 	                                   $ Text.replace "&" columnSeparatorMagic
 	                                   $ x
 	render (TeXComment _             ) = ""
+	render (TeXCommS "br"            ) = lineBreakMagic
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = "{" ++ render t ++ "}"
@@ -223,6 +225,7 @@ cleanupTable =
 	Text.replace "<td > <td " "<td " .
 	Text.replace "</td> </td>" "</td>" .
 	Text.replace "<tr ><td > </td></tr>" "" .
+	Text.replace "<tr ><td ></td></tr>" "" .
 	Text.replace "<tr ></tr>" "" .
  	Text.replace "<td > <th >" "<th>" .
  	Text.replace "</th> </td>" "</th>" .
@@ -238,6 +241,7 @@ removeDeadContent t =
 postprocessTable :: Text -> Text
 postprocessTable =
 	xml "tr" [] . xml "td" [] . 
+	Text.replace lineBreakMagic "<br/>" .
 	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace columnSeparatorMagic "</td><td >" .
 	removeDeadContent
 
