@@ -123,10 +123,9 @@ simpleMacros =
 	, ("endhead"       , removeEndMagic)
 	]
 
-makeSpan, makeDiv, makeTable, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
+makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
 makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily"
-makeTable = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf"
 makeTh = words "lhdr rhdr chdr"
@@ -201,14 +200,15 @@ instance Render LaTeX where
 		| e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
-	    | e `elem` makeTable           = renderTable e u [] $ render $ preprocessTable t
-	    | e `elem` makeBnfTable        = renderBnfTable e u t
-	    | e `elem` makeBnfPre          = bnf t
 	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
 	render x                           = error $ show x
 
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
+	render (Bnf e t)
+		| e `elem` makeBnfTable = renderBnfTable t
+		| e `elem` makeBnfPre = bnf t
+	render (Table e u t) = renderTable e u [] $ render $ preprocessTable t
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
 		where
 			t = case ek of
@@ -240,8 +240,8 @@ preprocessArg rest = rest
 bnf :: LaTeX -> Text
 bnf = xml "pre" [("class", "bnf")] . render . preprocessPre
 
-renderBnfTable :: String -> [TeXArg] -> LaTeX -> Text
-renderBnfTable e u =
+renderBnfTable :: LaTeX -> Text
+renderBnfTable =
 	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX . preprocessPre
 	where
 		processHTML = Text.replace tabMagic "&#9;" .  Text.replace lineBreakMagic "<br/>"

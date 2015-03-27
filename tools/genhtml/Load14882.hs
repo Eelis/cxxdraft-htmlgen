@@ -13,7 +13,12 @@ import Prelude hiding (take, length, (.), head, takeWhile)
 import Data.Char (isSpace)
 import Control.Arrow (first)
 
-data Element = LatexElements [LaTeX] | Enumerated String [Paragraph]
+data Element
+	= LatexElements [LaTeX]
+	| Enumerated String [Paragraph]
+	| Bnf String LaTeX
+	| Table String [TeXArg] LaTeX
+	deriving Show
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
@@ -24,7 +29,7 @@ data SectionKind = NormalSection { _level :: Int } | InformativeAnnexSection | N
 	deriving Eq
 
 data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
-	deriving Eq
+	deriving (Eq, Show)
 
 data LinearSection = LinearSection
 	{ lsectionAbbreviation :: LaTeX
@@ -41,6 +46,7 @@ data Section = Section
 	, preamble :: Paragraph
 	, paragraphs :: [Paragraph]
 	, subsections :: [Section] }
+	deriving Show
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
@@ -87,6 +93,15 @@ isEnumerate (TeXEnv s _ _)
 	| s `elem` ["enumeraten", "enumeratea", "enumerate", "itemize", "description"] = Just s
 isEnumerate _ = Nothing
 
+isBnf :: LaTeX -> Bool
+isBnf (TeXEnv s _ _)
+	| s `elem` ["bnf", "bnfkeywordtab", "bnftab"] = True
+isBnf _ = False
+
+isTable :: LaTeX -> Bool
+isTable (TeXEnv s _ _) | s `elem` tables = True
+isTable _ = False
+
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
 isComment _ = False
@@ -116,6 +131,9 @@ isItem (TeXComm "stage" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
+tables :: [String]
+tables = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
+
 parseItems :: [LaTeX] -> [Paragraph]
 parseItems [] = []
 parseItems (x : more)
@@ -124,12 +142,17 @@ parseItems (x : more)
 		(a, b) = span (not . isItem) more
 parseItems _ = error "need items or nothing"
 
+isElementsEnd :: LaTeX -> Bool
+isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l
+
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
-parsePara (e@(TeXEnv _ [] items) : more)
-	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs items) : parsePara more
+parsePara (e@(TeXEnv k u stuff) : more)
+	| isTable e = Table k u stuff : parsePara more
+	| isBnf e = Bnf k stuff : parsePara more
+	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
 parsePara x = LatexElements v : parsePara more
-	where (v, more) = span ((== Nothing) . isEnumerate) x
+	where (v, more) = span (not . isElementsEnd) x
 
 parseParas :: [LaTeX] -> ([Paragraph], [LaTeX])
 parseParas (TeXCommS "pnum" : more)
@@ -169,7 +192,7 @@ parseSections x = ([], x)
 
 files :: [FilePath]
 files = [ "../../source/" ++ chap ++ ".tex"
-        | chap <-  words $
+        | chap <- words $
             "intro lex basic conversions expressions statements " ++
             "declarations declarators classes derived access special " ++
             "overloading templates exceptions preprocessor lib-intro " ++
