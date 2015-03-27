@@ -168,7 +168,8 @@ instance Render LaTeX where
 	render (TeXBraces t              ) = "{" ++ render t ++ "}"
 	render (TeXMath Square t         ) = render t
 	render (TeXMath Dollar t         ) = render t
-	render (TeXComm "ref" [FixArg (TeXRaw x)]) = xml "a" [("href", "../" ++ x)] ("[" ++ x ++ "]")
+	render (TeXComm "ref" [FixArg x])  = render $ linkToSection "" SectionToSection x
+	
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "xname" [FixArg (TeXRaw "far")]) = "__far"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
@@ -337,11 +338,31 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 		(render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i})) ++
 	render x
 
-linkToSection :: Text -> LaTeX -> Anchor
-linkToSection hrefPrefix abbr = anchor{
-	aClass = "abbr_ref",
-	aHref  = hrefPrefix ++ abbrAsPath abbr,
-	aText  = "[" ++ render abbr ++ "]"}
+data Link = TocToSection | SectionToToc | SectionToSection
+
+linkToSection :: Text -> Link -> LaTeX -> Anchor
+linkToSection clas link abbr = anchor{
+		aClass = clas,
+		aHref = case (sectionFileStyle, link) of
+			(Bare, SectionToToc) -> "./#" ++ u -- hmm
+			(Bare, TocToSection) -> u
+			(Bare, SectionToSection) ->u
+			(InSubdir, SectionToToc) -> "../#" ++ u
+			(InSubdir, TocToSection) -> u ++ "/"
+			(InSubdir, SectionToSection) -> "../" ++ u
+			(WithExtension, SectionToToc) -> "index.html#" ++ u
+			(WithExtension, TocToSection) -> u ++ ".html"
+			(WithExtension, SectionToSection) -> u ++ ".html",
+		aText  = "[" ++ render abbr ++ "]"}
+	where
+		u = url abbr
+		url :: LaTeX -> Text
+		url (TeXRaw x) = urlEncode x
+		url (TeXSeq x y) = url x ++ url y
+		url (TeXCommS "dcr") = "--"
+		url (TeXCommS "firstlibchapter") = "flc" -- todo
+		url (TeXCommS "lastlibchapter") = "llc" -- todo
+		url x = error $ show x
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -366,7 +387,6 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 		  mconcat (fst . renderSection specific False . numberSubsecs path subsections)
 		, anysubcontent )
 	where
-		hrefPrefix = if specific == Just abbreviation then "../#" else "../"
 		full = specific == Nothing || specific == Just abbreviation
 		header = h Nothing (length sectionNums) $
 			(if full
@@ -376,7 +396,7 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
-			++ render (linkToSection hrefPrefix abbreviation)
+			++ render (linkToSection "abbr_ref" (if specific == Just abbreviation then SectionToToc else SectionToSection) abbreviation)
 		anysubcontent =
 			or $ map (snd . renderSection specific True)
 			   $ numberSubsecs path subsections
@@ -408,14 +428,14 @@ sectionFileContent chapters abbreviation =
 	fileContent
 		("[" ++ render abbreviation ++ "]")
 		(mconcat $ fst . renderSection (Just abbreviation) False . withPaths chapters)
-		".."
+		(if sectionFileStyle == InSubdir then "../" else "")
 
 tocFileContent :: [Chapter] -> Text
 tocFileContent chapters =
 		fileContent
 			"14882: Contents"
 			(mconcat (map section (withPaths chapters)))
-			"."
+			""
 	where
 		section :: (SectionPath, Section) -> Text
 		section (sectionPath, Section{..}) =
@@ -423,7 +443,7 @@ tocFileContent chapters =
 			h Nothing (length $ sectionNums sectionPath) (
 				xml "small" [] (
 				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, linkToSection "" abbreviation))) ++
+				render (sectionName, linkToSection "abbr_ref" TocToSection abbreviation))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fullFileContent :: [Chapter] -> Text
@@ -431,7 +451,7 @@ fullFileContent chapters =
 	fileContent
 		"14882"
 		(mconcat $ fst . renderSection Nothing True . withPaths chapters)
-		".."
+		"../"
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
@@ -440,7 +460,7 @@ fileContent title body pathHome =
 		"<head>" ++
 			"<title>" ++ title ++ "</title>" ++
 			"<meta charset='UTF-8'/>" ++
-			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "/14882.css'/>" ++
+			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
 		"</head>" ++
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"
@@ -459,15 +479,24 @@ urlEncode
 	. Text.replace ":" "%3a"
 
 abbrAsPath :: LaTeX -> Text
-abbrAsPath (TeXRaw x) = urlEncode x
+abbrAsPath (TeXRaw x) = x
 abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
 abbrAsPath (TeXCommS "dcr") = "--"
 abbrAsPath _ = undefined
 
+data SectionFileStyle
+	= Bare          -- e.g. intro.execution
+	| WithExtension -- e.g. intro.execution.html
+	| InSubdir      -- e.g. intro.execution/index.html
+	deriving Eq
+
+sectionFileStyle :: SectionFileStyle
+sectionFileStyle = WithExtension
+
 writeStuff :: [Chapter] -> IO ()
 writeStuff chapters = do
-	let outputDir = "14882"
-	putStr $ "Writing to " ++ outputDir ++ "/ "; hFlush stdout
+	let outputDir = "14882/"
+	putStr $ "Writing to " ++ outputDir; hFlush stdout
 
 	createDirectoryIfMissing True outputDir
 
@@ -475,15 +504,25 @@ writeStuff chapters = do
 
 	writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
 
-	createDirectoryIfMissing True (outputDir ++ "/full")
-	writeFile (outputDir ++ "/full/index.html") $ fullFileContent chapters
+	fullFile <- case sectionFileStyle of
+		Bare -> return "full"
+		WithExtension -> return "full.html"
+		InSubdir -> do
+			createDirectoryIfMissing True (outputDir ++ "/full")
+			return "full/index.html"
+	writeFile (outputDir ++ fullFile) $ fullFileContent chapters
 
 	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
-		let dir = outputDir ++ "/" ++ Text.unpack (abbrAsPath abbreviation)
-		createDirectoryIfMissing True dir
-		writeFile (dir ++ "/index.html") $ sectionFileContent chapters abbreviation
+		f <- case sectionFileStyle of
+			Bare -> return $ Text.unpack $ abbrAsPath abbreviation
+			WithExtension -> return $ Text.unpack $ abbrAsPath abbreviation ++ ".html"
+			InSubdir -> do
+				let dir = "/" ++ Text.unpack (abbrAsPath abbreviation)
+				createDirectoryIfMissing True (outputDir ++ dir)
+				return $ dir ++ "/index.html"
+		writeFile (outputDir ++ f) $ sectionFileContent chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
 
 
