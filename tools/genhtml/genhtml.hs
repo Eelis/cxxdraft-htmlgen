@@ -11,12 +11,12 @@ import Data.Text (Text)
 import Data.Char (isSpace)
 import qualified Data.List as List
 import qualified Data.Text as Text
-import qualified Data.Text.IO as TextIO
+import Data.Text.IO (writeFile)
 import Data.Monoid (Monoid(mappend), mconcat)
 import Data.Char (isAlphaNum)
 import Control.Monad (forM_)
 import qualified Prelude
-import Prelude hiding (take, last, (.), (++))
+import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
 import System.Directory (createDirectoryIfMissing, copyFile)
 
@@ -407,7 +407,7 @@ sectionFileContent :: [Chapter] -> LaTeX -> Text
 sectionFileContent chapters abbreviation =
 	fileContent
 		("[" ++ render abbreviation ++ "]")
-		(mconcat $ fst . map (renderSection (Just abbreviation) False) (withPaths chapters))
+		(mconcat $ fst . renderSection (Just abbreviation) False . withPaths chapters)
 		".."
 
 tocFileContent :: [Chapter] -> Text
@@ -425,6 +425,13 @@ tocFileContent chapters =
 				spanTag "secnum" (render sectionPath) ++
 				render (sectionName, linkToSection "" abbreviation))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
+
+fullFileContent :: [Chapter] -> Text
+fullFileContent chapters =
+	fileContent
+		"14882"
+		(mconcat $ fst . renderSection Nothing True . withPaths chapters)
+		".."
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
@@ -466,15 +473,18 @@ writeStuff chapters = do
 
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 
-	TextIO.writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
+	writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
+
+	writeFile (outputDir ++ "/full.html") $ fullFileContent chapters
 
 	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
 		let dir = outputDir ++ "/" ++ Text.unpack (abbrAsPath abbreviation)
 		createDirectoryIfMissing True dir
-		TextIO.writeFile (dir ++ "/index.html") $ sectionFileContent chapters abbreviation
+		writeFile (dir ++ "/index.html") $ sectionFileContent chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
+
 
 main :: IO ()
 main = readStuff >>= writeStuff
