@@ -2,6 +2,11 @@ body {
 	margin: 4em;
 }
 
+div.wrapper {
+	max-width: 60em;
+	margin: auto;
+}
+
 ul { list-style-type: none; }
 a { text-decoration: none; }
 
@@ -17,10 +22,13 @@ a.abbr_ref { float: right; }
 
 .secnum { padding-right: 1.5em; }
 
+div.paranumberparent {
+	position: relative;
+	left: -2em;
+}
+
 a.paranumber {
-	display: block;
 	position: absolute;
-	left: 2.5em;
 	font-size: small;
 }
 

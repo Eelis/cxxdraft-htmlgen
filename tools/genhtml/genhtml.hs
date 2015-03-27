@@ -334,7 +334,8 @@ tableHeader command args =
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =
 	xml "div" [("class", "para"), ("id", idPrefix ++ i)] $
-	render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i}) ++
+	xml "div" [("class", "paranumberparent")]
+		(render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i})) ++
 	render x
 
 linkToSection :: Text -> LaTeX -> Anchor
@@ -442,7 +443,7 @@ fileContent title body pathHome =
 			"<meta charset='UTF-8'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "/14882.css'/>" ++
 		"</head>" ++
-		"<body>" ++ body ++ "</body>" ++
+		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"
 
 readStuff :: IO [Chapter]
