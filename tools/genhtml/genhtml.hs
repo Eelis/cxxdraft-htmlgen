@@ -475,7 +475,8 @@ writeStuff chapters = do
 
 	writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
 
-	writeFile (outputDir ++ "/full.html") $ fullFileContent chapters
+	createDirectoryIfMissing True (outputDir ++ "/full")
+	writeFile (outputDir ++ "/full/index.html") $ fullFileContent chapters
 
 	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
