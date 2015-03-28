@@ -42,7 +42,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace"]
 literal = [" ", "cv", "#", "{", "}", "-", "~", "%", ",", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -75,10 +75,14 @@ simpleMacros =
 	, ("throws"        , "<i>Throws:</i> ")
 	, ("effects"       , "<i>Effects:</i> ")
 	, ("returns"       , "<i>Returns:</i> ")
+	, ("remark"        , "<i>Remark:</i> ")
+	, ("remarks"       , "<i>Remarks:</i> ")
+	, ("note"          , "<i>Remark:</i> ")
 	, ("notes"         , "<i>Remarks:</i> ")
 	, ("complexity"    , "<i>Complexity:</i> ")
 	, ("postconditions", "<i>Postconditions:</i> ")
 	, ("postcondition" , "<i>Postcondition:</i> ")
+	, ("realnote"      , "<i>Note:</i> ")
 	, ("realnotes"     , "<i>Notes:</i> ")
 	, ("sync"          , "<i>Synchronization:</i> ")
 	, ("errors"        , "<i>Error conditions:</i> ")
@@ -103,10 +107,17 @@ simpleMacros =
 	, ("times"         , "&times;")
 	, ("&"             , "&amp;")
 	, ("textbackslash" , "\\")
+	, ("textunderscore", "_")
 	, ("colcol"        , "::")
 	, ("tilde"         , "~")
 	, ("hspace"        , " ")
 	, ("equiv"         , "&equiv;")
+	, ("le"            , "≤")
+	, ("leq"           , "≤")
+	, ("ge"            , "≥")
+	, ("geq"           , "≥")
+	, ("neq"           , "≠")
+	, ("bmod"          , "<span class=\"mathrm\">mod</span>")
 	, ("opt"           , "<sub><small>opt</small></sub>")
 	, ("expos"         , "<i>exposition-only</i>")
 	, ("macro"         , "<span class=\"centry\">Macro:</span>")
@@ -121,6 +132,10 @@ simpleMacros =
 	, ("struct"        , "<span class=\"centry\">Struct:</span>")
 	, ("endfirsthead"  , removeStartMagic)
 	, ("endhead"       , removeEndMagic)
+	, ("bitand"        , "<span class=\"mathsf\">bitand</span>")
+	, ("bitor"         , "<span class=\"mathsf\">bitor</span>")
+	, ("xor"           , "<span class=\"mathsf\">xor</span>")
+	, ("rightshift"    , "<span class=\"mathsf\">rshift</span>")
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
@@ -166,22 +181,22 @@ instance Render LaTeX where
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = "{" ++ render t ++ "}"
-	render (TeXMath Square t         ) = render t
-	render (TeXMath Dollar t         ) = render t
+	render (TeXMath _ t              ) = spanTag "math" $ render t
 	render (TeXComm "ref" [FixArg x])  = render $ linkToSection "" SectionToSection x
-	
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "xname" [FixArg (TeXRaw "far")]) = "__far"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "mname" $ "__" ++ s ++ "__"
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [spanTag "nontermdef" s, ":"]
-	render (TeXComm "bigoh" [FixArg (TeXRaw s)]) = "O(" ++ s ++ ")"
+	render (TeXComm "bigoh" [FixArg content]) = spanTag "math" $ mconcat [spanTag "mathscr" "O", "(", render content, ")"]
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ')'
 	render (TeXComm "orange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ')'
 	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ']'
 	render (TeXComm "brange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ']'
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
+	render (TeXComm "leftshift" [FixArg content]) = mconcat [spanTag "mathsf" "lshift", xml "sub" [("class", "math")] $ render content]
+	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
 	    | x `elem` makeTh              = case s of [FixArg y] -> xml "th" [] $ render y
@@ -197,11 +212,10 @@ instance Render LaTeX where
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv e u t)
-		| e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
+	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
 	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
-	render x                           = error $ show x
 
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
