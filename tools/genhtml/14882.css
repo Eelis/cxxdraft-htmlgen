@@ -54,6 +54,7 @@ div.para { text-align: justify; }
 
 .poo { background: red; }
 
+span.textnormal { font-style: normal; font-family: serif; }
 span.grammarterm { font-style: italic; }
 span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
@@ -63,10 +64,10 @@ span.cvqual { font-style: italic; }
 span.textit { font-style: italic; }
 span.textbf { font-weight: bold; }
 span.texttt { font-family: monospace; }
+span.textsc { font-variant: small-caps; }
 span.defn { font-style: italic; }
 span.nontermdef { font-style: italic; }
 span.range { font-family: monospace; }
-span.mname { font-family: monospace; }
 span.doccite { font-style: italic; }
 span.emph { font-style: italic; }
 span.placeholder { font-style: italic; }
@@ -74,8 +75,12 @@ span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
 span.mathsf { font-family: sans-serif; }
 span.mathrm { font-family: serif; font-style: normal; }
-span.mathscr { font-style: italic; }
+span.mathtt { font-family: monospace; font-style: normal; }
+span.mathscr { font-style: normal; }
 span.mbox { font-family: serif; font-style: normal; }
+span.funcdesc { font-style: italic; }
+span.numconst { font-family: sans-serif; font-style: italic; }
+span.ungap { display: inline-block; width: 2pt; }
 
 .math { font-style: italic; }
 
