@@ -155,6 +155,8 @@ instance (Render a, Render b) => Render (a, b) where
 instance Render LaTeX where
 	render (TeXSeq x y               ) = render x ++ render y
 	render (TeXRaw x                 ) = Text.replace "~" " "
+	                                   $ Text.replace "--" "–"
+	                                   $ Text.replace "---" "—"
 	                                   $ Text.replace ">" "&gt;"
 	                                   $ Text.replace "<" "&lt;"
 	                                   $ Text.replace "&" ampersandMagic
