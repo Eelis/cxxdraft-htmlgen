@@ -66,6 +66,7 @@ span.defn { font-style: italic; }
 span.nontermdef { font-style: italic; }
 span.range { font-family: monospace; }
 span.mname { font-family: monospace; }
+span.doccite { font-style: italic; }
 
 span.synopsis {
 	font-weight: bold;
