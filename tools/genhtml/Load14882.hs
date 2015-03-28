@@ -25,7 +25,7 @@ data Element
 
 type Paragraph = [Element]
 
-data SectionKind = NormalSection { _level :: Int } | InformativeAnnexSection | NormativeAnnexSection
+data SectionKind = NormalSection { _level :: Int } | DefinitionSection | InformativeAnnexSection | NormativeAnnexSection
 	deriving Eq
 
 data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
@@ -50,6 +50,7 @@ data Section = Section
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
+lsectionLevel (lsectionKind -> DefinitionSection) = 2
 lsectionLevel _ = 0
 
 treeizeChapters :: [LinearSection] -> [Chapter]
@@ -112,6 +113,7 @@ isTeXComm _ _ = False
 
 isParaEnd :: LaTeX -> Bool
 isParaEnd (TeXCommS "pnum") = True
+isParaEnd (TeXComm "definition" _) = True
 isParaEnd (TeXComm "rSec" _) = True
 isParaEnd (TeXComm "infannex" _) = True
 isParaEnd (TeXComm "normannex" _) = True
@@ -186,6 +188,14 @@ parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
 		= first (LinearSection{..} :) (parseSections more'')
 	where
 		lsectionKind = NormalSection $ read $ Text.unpack level
+		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
+		(lsectionParagraphs, more'') = parseParas more'
+parseSections (TeXComm "definition" [FixArg lsectionName,
+                                     FixArg lsectionAbbreviation]
+              : more)
+		= first (LinearSection{..} :) (parseSections more'')
+	where
+		lsectionKind = DefinitionSection
 		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)

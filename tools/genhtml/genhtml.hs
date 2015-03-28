@@ -170,9 +170,6 @@ instance Render LaTeX where
 	render (TeXMath Dollar t         ) = render t
 	render (TeXComm "ref" [FixArg (TeXRaw x)]) = xml "a" [("href", "../" ++ x)] ("[" ++ x ++ "]")
 	render (TeXComm "impldef" _) = "implementation-defined"
-	render (TeXComm "definition" [FixArg (TeXRaw name), FixArg (TeXRaw abbr)])
-		= ("<br/><br/>" ++) $ spanTag "definition" $
-			xml "a" [("id", abbr), ("class", "abbr_ref")] abbr ++ "<br/>" ++ name
 	render (TeXComm "xname" [FixArg (TeXRaw "far")]) = "__far"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "mname" $ "__" ++ s ++ "__"
