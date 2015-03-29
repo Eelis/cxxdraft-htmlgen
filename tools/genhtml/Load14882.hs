@@ -326,39 +326,37 @@ doParseLaTeX =
 	. parseLaTeX
 
 parseFile :: Macros -> Text -> [LinearSection]
-parseFile macros s = sections
-	where
-		(sections, _) =
-			parseSections
-			$ filter (not . isTeXComm "index")
-			$ filter (not . isTeXComm "indextext")
-			$ filter (not . isTeXComm "indexlibrary")
-			$ filter (not . isTeXComm "enlargethispage")
-			$ filter (not . isTeXComm "indextext")
-			$ filter (not . isTeXComm "indexdefn")
-			$ filter (not . isComment)
-			$ rmseqs
-			$ doParseLaTeX
-			$ TeXRender.render afterExec
-		afterExec =
-			doParseLaTeX
-			$ TeXRender.render
-			$ fst . eval macros []
-			$ doParseLaTeX
-			$ replace "\\hspace*" "\\hspace"
-			$ replace "\n{" "{"
-			$ replace "\n\t{" "{"
-			$ replace "``" "“"
-			$ replace "''" "”"
-			$ replace "\\rSec0" "\\rSec[0]"
-			$ replace "\\rSec1" "\\rSec[1]"
-			$ replace "\\rSec2" "\\rSec[2]"
-			$ replace "\\rSec3" "\\rSec[3]"
-			$ replace "\\rSec4" "\\rSec[4]"
-			$ replace "\\rSec5" "\\rSec[5]"
-			$ replace "\\bigl[" "\\bigl ["
-			$ Text.pack $ killVerb $ Text.unpack
-			$ s
+parseFile macros s = fst
+	$ parseSections
+	$ filter (not . isTeXComm "index")
+	$ filter (not . isTeXComm "indextext")
+	$ filter (not . isTeXComm "indexlibrary")
+	$ filter (not . isTeXComm "enlargethispage")
+	$ filter (not . isTeXComm "indextext")
+	$ filter (not . isTeXComm "indexdefn")
+	$ filter (not . isComment)
+	$ rmseqs
+	$ doParseLaTeX
+	$ TeXRender.render
+	$ doParseLaTeX
+	$ TeXRender.render
+	$ fst . eval macros []
+	$ doParseLaTeX
+	$ replace "\\hspace*" "\\hspace"
+	$ replace "\n{" "{"
+	$ replace "\n\t{" "{"
+		-- Todo: These two are sometimes inappropriate
+	$ replace "``" "“"
+	$ replace "''" "”"
+	$ replace "\\rSec0" "\\rSec[0]"
+	$ replace "\\rSec1" "\\rSec[1]"
+	$ replace "\\rSec2" "\\rSec[2]"
+	$ replace "\\rSec3" "\\rSec[3]"
+	$ replace "\\rSec4" "\\rSec[4]"
+	$ replace "\\rSec5" "\\rSec[5]"
+	$ replace "\\bigl[" "\\bigl ["
+	$ Text.pack $ killVerb $ Text.unpack
+	$ s
 
 load14882 :: IO [Chapter]
 load14882 = do
