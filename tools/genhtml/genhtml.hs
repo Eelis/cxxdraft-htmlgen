@@ -507,7 +507,7 @@ fullFileContent chapters =
 	fileContent
 		"14882"
 		(mconcat $ fst . renderSection Nothing True . withPaths chapters)
-		"../"
+		(if sectionFileStyle == InSubdir then "../" else "")
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
