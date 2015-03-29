@@ -226,8 +226,6 @@ data Environment = Environment
 	{ begin, end :: !LaTeX }
 	deriving Show
 
-data Context = Context { macros :: Macros, arguments :: [LaTeX] }
-
 mapTeXArg :: (LaTeX -> LaTeX) -> (TeXArg -> TeXArg)
 mapTeXArg f (FixArg t) = FixArg (f t)
 mapTeXArg f (OptArg t) = OptArg (f t)
@@ -311,9 +309,6 @@ eval macros@Macros{..} arguments l = case l of
 		let (y', m') = eval (m ++ macros) arguments y in
 			(x' ++ y', m' ++ m)
 	_ -> (l, mempty)
-
-emptyContext :: Context
-emptyContext = Context mempty []
 
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
