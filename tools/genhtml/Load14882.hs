@@ -325,6 +325,14 @@ doParseLaTeX =
 	. either (error "latex parse error") id
 	. parseLaTeX
 
+newlineCurlies :: Text -> Text
+newlineCurlies =
+	replace "\n{" "{"
+	. replace "\n\t{" "{"
+	. replace "\n {" "{"
+	. replace "\n  {" "{"
+		-- Todo: These are sometimes inappropriate...
+
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros s = fst
 	$ parseSections
@@ -343,9 +351,7 @@ parseFile macros s = fst
 	$ fst . eval macros []
 	$ doParseLaTeX
 	$ replace "\\hspace*" "\\hspace"
-	$ replace "\n{" "{"
-	$ replace "\n\t{" "{"
-		-- Todo: These two are sometimes inappropriate
+	$ newlineCurlies
 	$ replace "``" "“"
 	$ replace "''" "”"
 	$ replace "\\rSec0" "\\rSec[0]"
@@ -365,9 +371,7 @@ load14882 = do
 		snd
 		. eval mempty []
 		. doParseLaTeX
-		. replace "\n{" "{"
-		. replace "\n {" "{"
-		. replace "\n\t{" "{"
+		. newlineCurlies
 		. mconcat
 		. mapM Data.Text.IO.readFile
 		[ "../../source/config.tex"
