@@ -3,21 +3,30 @@
 module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882) where
 
 import Text.LaTeX.Base.Parser
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
-import Data.Text (replace)
+import qualified Text.LaTeX.Base.Render as TeXRender
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand)
+import Data.Text (Text, replace)
 import qualified Data.Text as Text
-import Data.Monoid (mconcat)
+import Data.Monoid (Monoid(..), mconcat)
+import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
-import Prelude hiding (take, length, (.), head, takeWhile)
-import Data.Char (isSpace)
+import Prelude hiding (take, (.), takeWhile, (++), lookup)
+import Data.Char (isSpace, ord, isDigit)
 import Control.Arrow (first)
+import Data.Map (Map, keys, lookup)
+import qualified Data.Map as Map
+import System.IO (hFlush, stdout)
+import Data.List (sort)
+
+(++) :: Monoid a => a -> a -> a
+(++) = mappend
 
 data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
-	| Table String [TeXArg] LaTeX
+	| Table { tableCaption :: LaTeX, tableAbbrs :: [LaTeX], tableBody :: LaTeX }
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -100,7 +109,7 @@ isBnf (TeXEnv s _ _)
 isBnf _ = False
 
 isTable :: LaTeX -> Bool
-isTable (TeXEnv s _ _) | s `elem` tables = True
+isTable (TeXEnv "TableBase" _ _) = True
 isTable _ = False
 
 isComment :: LaTeX -> Bool
@@ -121,8 +130,7 @@ isParaEnd _ = False
 
 isJunk :: LaTeX -> Bool
 isJunk (TeXRaw x) = all isSpace (Text.unpack x)
-isJunk (TeXComm "indextext" _) = True
-isJunk (TeXComm "indexlibrary" _) = True
+isJunk (TeXComm "index" _) = True
 isJunk (TeXComment _) = True
 isJunk _ = False
 
@@ -132,9 +140,6 @@ isItem (TeXComm "item" _) = True
 isItem (TeXComm "stage" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
-
-tables :: [String]
-tables = words "floattable tokentable libsumtab libsumtabbase libefftab longlibefftab libefftabmean longlibefftabmean libefftabvalue longlibefftabvalue liberrtab longliberrtab libreqtab1 libreqtab2 libreqtab2a libreqtab3 libreqtab3a libreqtab3b libreqtab3c libreqtab3d libreqtab3e libreqtab3f libreqtab4 libreqtab4a libreqtab4b libreqtab4c libreqtab4d libreqtab5 LibEffTab longLibEffTab libtab2 libsyntab2 libsyntab3 libsyntab4 libsyntab5 libsyntab6 libsyntabadd2 libsyntabadd3 libsyntabadd4 libsyntabadd5 libsyntabadd6 libsyntabf2 libsyntabf3 libsyntabf4 libsyntabf5 concepttable simpletypetable LongTable"
 
 parseItems :: [LaTeX] -> [Paragraph]
 parseItems [] = []
@@ -150,7 +155,14 @@ isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
 parsePara (e@(TeXEnv k u stuff) : more)
-	| isTable e = Table k u stuff : parsePara more
+	| isTable e
+	, [x : todo] <- lookForCommand "caption" stuff
+	= Table
+		(texFromArg x)
+		(map (texFromArg . head) (lookForCommand "label" stuff))
+		stuff
+	  : parsePara more
+	| isTable e = error $ "other table: " ++ show e
 	| isBnf e = Bnf k stuff : parsePara more
 	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
 parsePara x = LatexElements v : parsePara more
@@ -200,28 +212,128 @@ parseSections (TeXComm "definition" [FixArg lsectionName,
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)
 
-files :: [FilePath]
-files = [ "../../source/" ++ chap ++ ".tex"
-        | chap <- words $
-            "intro lex basic conversions expressions statements " ++
-            "declarations declarators classes derived access special " ++
-            "overloading templates exceptions preprocessor lib-intro " ++
-            "support diagnostics utilities strings locales containers " ++
-            "iterators algorithms numerics iostreams regex atomics threads " ++
-            "grammar limits compatibility future charname xref" ]
-
 killVerb :: String -> String
 killVerb ('\\':'v':'e':'r':'b':'|':x) = "<verb>" ++ killVerb (tail $ dropWhile (/= '|') x)
 killVerb (x:y) = x : killVerb y
 killVerb [] = []
 
-load14882 :: IO [Chapter]
-load14882 = do
+data Command = Command
+	{ arity :: !Int
+	, body :: !LaTeX }
+	deriving Show
 
-	s <- mconcat . mapM Data.Text.IO.readFile files
+data Environment = Environment
+	{ begin, end :: !LaTeX }
+	deriving Show
 
-	let
-		(sections, []) =
+data Context = Context { macros :: Macros, arguments :: [LaTeX] }
+
+mapTeXArg :: (LaTeX -> LaTeX) -> (TeXArg -> TeXArg)
+mapTeXArg f (FixArg t) = FixArg (f t)
+mapTeXArg f (OptArg t) = OptArg (f t)
+mapTeXArg f x = x
+
+texFromArg :: TeXArg -> LaTeX
+texFromArg (FixArg t) = t
+texFromArg (OptArg t) = t
+texFromArg (SymArg t) = t
+texFromArg _ = error "no"
+
+data Macros = Macros
+	{ commands :: Map String Command
+	, environments :: Map Text Environment }
+	deriving Show
+
+instance Monoid Macros where
+	mempty = Macros mempty mempty
+	mappend x y = Macros (commands x ++ commands y) (environments x ++ environments y)
+
+getDigit :: Char -> Maybe Int
+getDigit c
+	| isDigit c = Just $ ord c - ord '0'
+	| otherwise = Nothing
+
+replaceArgs :: [LaTeX] -> String -> LaTeX
+replaceArgs args (span (/= '#') -> (before, '#':c:more))
+	| Just i <- getDigit c =
+		TeXRaw (Text.pack before) ++
+		((args ++ repeat (TeXRaw "wtf")) !! (i-1)) ++
+		replaceArgs args more
+replaceArgs args s = TeXRaw $ Text.pack s
+
+dontEval :: [Text]
+dontEval = map Text.pack $ words "TableBase bnf bnftab imporgraphic drawing definition Cpp"
+
+eval :: Macros -> [LaTeX] -> LaTeX -> (LaTeX, Macros)
+eval macros@Macros{..} arguments l = case l of
+
+	TeXEnv e a stuff -> eval macros arguments $
+		TeXComm "begin" (FixArg (TeXRaw (Text.pack e)) : a) ++ stuff
+		++ TeXComm "end" [FixArg (TeXRaw (Text.pack e))]
+
+	TeXRaw s -> (replaceArgs arguments (Text.unpack s), mempty)
+
+	TeXComm "newenvironment" (FixArg (TeXRaw s) : _)
+		| s `elem` dontEval -> mempty
+	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e)))
+	TeXComm "newenvironment" [FixArg (TeXRaw name), OptArg _, FixArg b, FixArg e]
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e)))
+	TeXComm "newenvironment" _ -> error "unrecognized newenv"
+
+	TeXComm "newcommand" (FixArg (TeXCommS s) : _)
+		| Text.pack s `elem` dontEval -> mempty
+	TeXComm "newcommand" [FixArg (TeXCommS name), OptArg (TeXRaw argcount), FixArg body]
+		-> (mempty, Macros (Map.singleton name (Command (read (Text.unpack argcount)) body)) mempty)
+	TeXComm "newcommand" [FixArg (TeXCommS name), FixArg body]
+		-> (mempty, Macros (Map.singleton name (Command 0 body)) mempty)
+	TeXComm c args
+		| Just Command{..} <- lookup c commands
+		, length args >= arity ->
+			let (x,y) = splitAt arity args in
+			(fst (eval macros (map (fst . eval macros arguments . texFromArg) x) body) ++
+				mconcat (map (fst . eval macros arguments . texFromArg) y), mempty)
+
+	TeXComm "begin" (FixArg (TeXRaw n) : a)
+		| Just Environment{..} <- lookup n environments ->
+			(fst (eval macros (map (fst . eval macros arguments . texFromArg) a) begin), mempty)
+	TeXComm "end" [FixArg (TeXRaw n)]
+		| Just Environment{..} <- lookup n environments ->
+			(fst (eval macros arguments end), mempty)
+
+	TeXComm c [] -> eval macros arguments (TeXComm c [FixArg TeXEmpty])
+	TeXComm c args -> (TeXComm c (map (mapTeXArg (fst . eval macros arguments)) args), mempty)
+	TeXCommS c
+		| Just Command{..} <- lookup c commands
+		, arity == 0 -> eval macros [] body
+	TeXSeq x y ->
+		let (x', m) = eval macros arguments x in
+		let (y', m') = eval (m ++ macros) arguments y in
+			(x' ++ y', m' ++ m)
+	_ -> (l, mempty)
+
+emptyContext :: Context
+emptyContext = Context mempty []
+
+moreArgs :: LaTeX -> LaTeX
+moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
+	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
+moreArgs (TeXComm n a) = TeXComm n (map (mapTeXArg moreArgs) a)
+moreArgs (TeXSeq x y) = moreArgs x ++ moreArgs y
+moreArgs (TeXEnv e a x) = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
+moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
+moreArgs x = x
+
+doParseLaTeX :: Text -> LaTeX
+doParseLaTeX =
+	moreArgs
+	. either (error "latex parse error") id
+	. parseLaTeX
+
+parseFile :: Macros -> Text -> [LinearSection]
+parseFile macros s = sections
+	where
+		(sections, _) =
 			parseSections
 			$ filter (not . isTeXComm "index")
 			$ filter (not . isTeXComm "indextext")
@@ -231,10 +343,16 @@ load14882 = do
 			$ filter (not . isTeXComm "indexdefn")
 			$ filter (not . isComment)
 			$ rmseqs
-			$ either (error "latex parse error") id
-			$ parseLaTeX
+			$ doParseLaTeX
+			$ TeXRender.render afterExec
+		afterExec =
+			doParseLaTeX
+			$ TeXRender.render
+			$ fst . eval macros []
+			$ doParseLaTeX
 			$ replace "\\hspace*" "\\hspace"
 			$ replace "\n{" "{"
+			$ replace "\n\t{" "{"
 			$ replace "``" "“"
 			$ replace "''" "”"
 			$ replace "\\rSec0" "\\rSec[0]"
@@ -247,4 +365,42 @@ load14882 = do
 			$ Text.pack $ killVerb $ Text.unpack
 			$ s
 
-	return (treeizeChapters sections)
+load14882 :: IO [Chapter]
+load14882 = do
+
+	m@Macros{..} <-
+		snd
+		. eval mempty []
+		. doParseLaTeX
+		. replace "\n{" "{"
+		. replace "\n {" "{"
+		. replace "\n\t{" "{"
+		. mconcat
+		. mapM Data.Text.IO.readFile
+		[ "../../source/config.tex"
+		, "../../source/macros.tex"
+		, "../../source/tables.tex" ]
+
+	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
+		keys commands ++ (Text.unpack . keys environments)
+
+	let
+		files :: [FilePath]
+		files = words $
+			"intro lex basic conversions expressions statements " ++
+			"declarations declarators classes derived access special " ++
+			"overloading templates exceptions preprocessor lib-intro "  ++
+			"support diagnostics utilities strings locales containers " ++
+			"iterators algorithms numerics iostreams regex atomics threads " ++
+			"grammar limits compatibility future charname xref"
+
+	putStrLn "Loading chapters"
+	sections <- forM files $ \c -> do
+		let p = "../../source/" ++ c ++ ".tex"
+		putStr $ "  " ++ c ++ "... "; hFlush stdout
+
+		r <- parseFile m . Data.Text.IO.readFile p
+		putStrLn $ show (length r) ++ " sections"
+		return r
+
+	return $ treeizeChapters $ mconcat sections

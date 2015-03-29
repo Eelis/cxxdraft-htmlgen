@@ -60,17 +60,10 @@ span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
 span.nonterminal { font-style: italic; }
 span.tcode { font-family: monospace; font-style: normal; }
-span.cvqual { font-style: italic; }
-span.textit { font-style: italic; }
 span.textbf { font-weight: bold; }
-span.texttt { font-family: monospace; }
 span.textsc { font-variant: small-caps; }
-span.defn { font-style: italic; }
 span.nontermdef { font-style: italic; }
-span.range { font-family: monospace; }
-span.doccite { font-style: italic; }
 span.emph { font-style: italic; }
-span.placeholder { font-style: italic; }
 span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
 span.mathsf { font-family: sans-serif; }
@@ -78,8 +71,6 @@ span.mathrm { font-family: serif; font-style: normal; }
 span.mathtt { font-family: monospace; font-style: normal; }
 span.mathscr { font-style: normal; }
 span.mbox { font-family: serif; font-style: normal; }
-span.funcdesc { font-style: italic; }
-span.numconst { font-family: sans-serif; font-style: italic; }
 span.ungap { display: inline-block; width: 2pt; }
 
 .math { font-style: italic; }
@@ -117,11 +108,6 @@ span.itemdecl {
 	display: block;
 }
 
-span.enternote:before    { font-style: italic; content: " [" "\00a0" "Note:" "\00a0"; }
-span.enterexample:before { font-style: italic; content: " [" "\00a0" "Example:" "\00a0"; }
-span.exitnote:before     { font-style: italic; content: "\2014\00a0" "end" "\00a0" "note" "\00a0" "] "; }
-span.exitexample:before  { font-style: italic; content: "\2014\00a0" "end" "\00a0" "example" "\00a0" "] "; }
-
 span.footnote:before { content: "Footnote: \00a0"; }
 
 span.footnote {
@@ -135,12 +121,14 @@ table {
 	border-collapse: collapse;
 	margin-left: auto;
 	margin-right: auto;
+	margin-top: 0.8em;
 	text-align: left;
 }
 
 td, th {
 	padding-left: 1em;
 	padding-right: 1em;
+	vertical-align: top;
 }
 
 tr.rowsep {
@@ -155,8 +143,8 @@ span.centry {
 	font-weight: bold;
 }
 
-	
 div.table {
+	display: block;
 	margin-left: auto;
 	margin-right: auto;
 	text-align: center;
@@ -165,9 +153,5 @@ div.table {
 
 span.tabletitle {
 	text-align: center;
-	font-style: italic;
-	display: inline-block;
-	margin-top: 1em;
-	margin-bottom: 1em;
+	display: block;
 }
-

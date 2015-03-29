@@ -42,8 +42,8 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak"]
-literal = [" ", "cv", "#", "{", "}", "-", "~", "%", ",", ""]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter"]
+literal = [" ", "cv", "#", "{", "}", "-", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
 texFromArg (FixArg t) = t
@@ -61,51 +61,12 @@ tabMagic = "\t"
 simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
+	, (","              , "&nbsp;")
 	, ("prime"          , "'")
 	, ("atsign"         , "@")
 	, ("copyright"      , "&copy;")
 	, ("textregistered" , "&reg;")
-	, ("change"         , "<br/><b>Change:</b> ")
-	, ("rationale"      , "<br/><b>Rationale:</b> ")
-	, ("difficulty"     , "<br/><b>Difficulty of converting:</b> ")
-	, ("howwide"        , "<br/><b>How widely used:</b> ")
-	, ("effect"         , "<br/><b>Effect on original feature:</b> ")
-	, ("required"       , "<span class=\"funcdesc\">Required behavior</span>")
-	, ("requires"       , "<span class=\"funcdesc\">Requires</span>")
-	, ("effects"        , "<span class=\"funcdesc\">Effects</span>")
-	, ("postconditions" , "<span class=\"funcdesc\">Postconditions</span>")
-	, ("postcondition"  , "<span class=\"funcdesc\">Postcondition</span>")
-	, ("preconditions"  , "<span class=\"funcdesc\">Requires</span>")
-	, ("precondition"   , "<span class=\"funcdesc\">Requires</span>")
-	, ("returns"        , "<span class=\"funcdesc\">Returns</span>")
-	, ("throws"         , "<span class=\"funcdesc\">Throws</span>")
-	, ("default"        , "<span class=\"funcdesc\">Default behavior</span>")
-	, ("complexity"     , "<span class=\"funcdesc\">Complexity</span>")
-	, ("remark"         , "<span class=\"funcdesc\">Remark</span>")
-	, ("remarks"        , "<span class=\"funcdesc\">Remarks</span>")
-	, ("note"           , "<span class=\"funcdesc\">Remark</span>")
-	, ("notes"          , "<span class=\"funcdesc\">Remarks</span>")
-	, ("realnote"       , "<span class=\"funcdesc\">Note</span>")
-	, ("realnotes"      , "<span class=\"funcdesc\">Notes</span>")
-	, ("errors"         , "<span class=\"funcdesc\">Error conditions</span>")
-	, ("sync"           , "<span class=\"funcdesc\">Synchronization</span>")
-	, ("implimits"      , "<span class=\"funcdesc\">Implementation limits</span>")
-	, ("replaceable"    , "<span class=\"funcdesc\">Replaceable</span>")
-	, ("exceptionsafety", "<span class=\"funcdesc\">Exception safety</span>")
-	, ("returntype"     , "<span class=\"funcdesc\">Return type</span>")
-	, ("cvalue"         , "<span class=\"funcdesc\">Value</span>")
-	, ("ctype"          , "<span class=\"funcdesc\">Type</span>")
-	, ("ctypes"         , "<span class=\"funcdesc\">Types</span>")
-	, ("dtype"          , "<span class=\"funcdesc\">Default type</span>")
-	, ("ctemplate"      , "<span class=\"funcdesc\">Class template</span>")
-	, ("templalias"     , "<span class=\"funcdesc\">Alias template</span>")
-	, ("xref"           , "See also:")
-	, ("seebelow"       , "see below")
-	, ("unspec"         , "<i>unspecified</i>")
 	, ("Cpp"            , "C++")
-	, ("CppIII"         , "C++ 2003")
-	, ("CppXI"          , "C++ 2011")
-	, ("CppXIV"         , "C++ 2014")
 	, ("cppver"         , "201402L")
 	, ("alpha"          , "α")
 	, ("beta"           , "β")
@@ -118,17 +79,12 @@ simpleMacros =
 	, ("Gamma"          , "Γ")
 	, ("sum"            , "∑")
 	, ("ell"            , "ℓ")
-	, ("xsee"           , "<span class=\"textsc\">See:</span> ")
-	, ("ntmbs"          , "<span class=\"textsc\">ntmbs</span>")
-	, ("ntbs"           , "<span class=\"textsc\">ntbs</span>")
 	, ("shr"            , ">>")
 	, ("cv"             , "cv")
 	, ("shl"            , "&lt;&lt;")
 	, ("br"             , "<br/>&emsp;")
 	, ("sim"            , "~")
 	, ("quad"           , "&emsp;&ensp;")
-	, ("uniquens"       , "<i>unique</i>") -- they use weird squiqqly letters
-	, ("impdef"         , "<i>implementation-defined</i>")
 	, ("unun"           , "__")
 	, ("^"              , "^")
 	, ("ldots"          , "&hellip;")
@@ -159,28 +115,14 @@ simpleMacros =
 	, ("ln"             , "<span class=\"mathrm\">ln</span>")
 	, ("log"            , "<span class=\"mathrm\">log</span>")
 	, ("opt"            , "<sub><small>opt</small></sub>")
-	, ("expos"          , "<i>exposition-only</i>")
-	, ("macro"          , "<span class=\"centry\">Macro:</span>")
-	, ("macros"         , "<span class=\"centry\">Macros:</span>")
-	, ("function"       , "<span class=\"centry\">Function:</span>")
-	, ("functions"      , "<span class=\"centry\">Functions:</span>")
-	, ("mfunctions"     , "<span class=\"centry\">Math Functions:</span>")
-	, ("cfunctions"     , "<span class=\"centry\">Classification/comparison Functions:</span>")
-	, ("type"           , "<span class=\"centry\">Type:</span>")
-	, ("types"          , "<span class=\"centry\">Types:</span>")
-	, ("values"         , "<span class=\"centry\">Values:</span>")
-	, ("struct"         , "<span class=\"centry\">Struct:</span>")
 	, ("endfirsthead"   , removeStartMagic)
 	, ("endhead"        , removeEndMagic)
-	, ("bitand"         , "<span class=\"mathsf\">bitand</span>")
-	, ("bitor"          , "<span class=\"mathsf\">bitor</span>")
-	, ("xor"            , "<span class=\"mathsf\">xor</span>")
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
-makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily"
+makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage center"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily TableBase table tabular tabbing longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf"
 makeTh = words "lhdr rhdr chdr"
@@ -230,10 +172,11 @@ instance Render LaTeX where
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [spanTag "nontermdef" s, ":"]
 	render (TeXComm "bigoh" [FixArg content]) = spanTag "math" $ mconcat [spanTag "mathscr" "𝓞", "(", render content, ")"]
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
-	render (TeXComm "range" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ')'
-	render (TeXComm "orange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ')'
-	render (TeXComm "crange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '[' x y ']'
-	render (TeXComm "brange" [FixArg (TeXRaw x), FixArg (TeXRaw y)]) = rangeElem '(' x y ']'
+	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
+	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
+	render (TeXComm "textit" [FixArg x, OptArg y]) = "<i>" ++ render x ++ "</i>[" ++ render y ++ "]"
+	render (TeXComm "textbf" [FixArg x]) = "<b>" ++ render x ++ "</b>"
+	render (TeXComm "label" [FixArg (TeXRaw x)]) = render anchor{aId=x}
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm "leftshift" [FixArg content]) = mconcat [spanTag "mathsf" "lshift", xml "sub" [("class", "math")] $ render content]
 	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
@@ -254,17 +197,20 @@ instance Render LaTeX where
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv e u t)
+	    | e == "tabular" || e == "longtable" = renderTable t
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
-	    | e `elem` makeDiv, null u     = xml "div" [("class", Text.pack e)] (render t)
-	    | otherwise                    = spanTag "poo" ("[" ++ Text.pack e ++ "]")
+	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
+	    | otherwise                    = spanTag "poo" (Text.pack (e ++ show u ++ show t))
 
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnf t
-	render (Table e u t) = renderTable e u [] $ render $ preprocessTable t
+	render Table{..} =
+		spanTag "tabletitle" (render tableCaption)
+		++ render tableBody
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
 		where
 			t = case ek of
@@ -315,20 +261,8 @@ renderBnfTable =
 		preprocessTeX (TeXEnv e a c) = TeXEnv e a (preprocessTeX c)
 		preprocessTeX other = other
 
-renderTable :: String -> [TeXArg] -> [(Text, Text)] -> Text -> Text
-renderTable e u attrs t =
-	tableDiv e u attrs $ cleanupTable $ tableHeader e u ++ postprocessTable t
-
-tableDiv :: String -> [TeXArg] -> [(Text, Text)] -> Text -> Text
-tableDiv command args attrs content =
-	xml "div" [("class", "table")] $
-	xml "a" [("id", xref)] "" ++ spanTag "tabletitle" title ++ xml "table" attrs content
-	where
-		(title, xref) = extract command args
-		extract (List.stripPrefix "libsyntab" -> Just _) [(FixArg title), (FixArg (TeXRaw xref))] =
-			("Header " ++ (spanTag "tcode" $ "&lt;" ++ render title ++ "&gt;") ++ " synopsis", xref)
-		extract _ ((FixArg title) : (FixArg (TeXRaw xref)) : _) = (render title, xref)
-		extract _ _ = (Text.empty, Text.empty)
+renderTable :: LaTeX -> Text
+renderTable = xml "table" [] . cleanupTable . postprocessTable . render . preprocessTable
 
 removeConsecWhitespace :: Text -> Text
 removeConsecWhitespace = Text.unwords . filter (not . Text.null) . Text.split isSpace
@@ -357,35 +291,6 @@ postprocessTable =
 	Text.replace lineBreakMagic "<br/>" .
 	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace ampersandMagic "</td><td >" .
 	removeDeadContent
-
-tableHeader :: String -> [TeXArg] -> Text
-tableHeader (List.stripPrefix "libsyntab" -> Just suffix) _ =
-	case suffix of
-		(List.stripPrefix "add" -> Just n) -> hdr n
-		(List.stripPrefix "f" -> Just n) -> hdr n
-		_ -> hdr suffix
-	where
-		hdr n =
-			xml "tr" [] (xml "th" [] "Type" ++ xml "th" [("colspan", Text.pack . show $ read n - 1)] "Name(s)")
-
-tableHeader "libsumtabbase" [_, _, (FixArg h1), (FixArg h2)] =
-	xml "tr" [] (
-		xml "th" [("colspan", "2")] (render h1) ++ (xml "th" [] $ render h2))
-
-tableHeader command args =
-	xml "tr" [] . Text.concat . map (xml "th" []) $ hdr command args
-	where
-		hdr :: String -> [TeXArg] -> [Text]
-		hdr (List.stripPrefix "long" -> Just h) args = hdr h args
-		hdr "libsumtab" _ = ["", "Subclause", "Header(s)"]
-		hdr "libefftab" _ = ["Element", "Effect(s) if set"]
-		hdr "libefftabmean" _ = ["Element", "Meaning"]
-		hdr "libefftabvalue" _ = ["Element", "Value"]
-		hdr "liberrtab" _ = ["Value", "Error condition"]
-		hdr "LibEffTab" [_, _, (FixArg h), _] = ["Element", render h]
-		hdr "libtab2" [_, _, _, (FixArg h1), (FixArg h2)] = [render h1, render h2]
-		hdr "tokentable" [_, _, (FixArg h1), (FixArg h2)] = [render h1, render h2, render h1, render h2, render h1, render h2]
-		hdr _ _ = []
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =
@@ -416,9 +321,7 @@ linkToSection clas link abbr = anchor{
 		url (TeXRaw x) = urlEncode x
 		url (TeXSeq x y) = url x ++ url y
 		url (TeXCommS "dcr") = "--"
-		url (TeXCommS "firstlibchapter") = "flc" -- todo
-		url (TeXCommS "lastlibchapter") = "llc" -- todo
-		url x = error $ show x
+		url _ = "TODO"
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -521,13 +424,6 @@ fileContent title body pathHome =
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"
 
-readStuff :: IO [Chapter]
-readStuff = do
-	putStr "Reading... "; hFlush stdout
-	chapters <- load14882
-	putStrLn $ show (length chapters) ++ " chapters"
-	return chapters
-
 urlEncode :: Text -> Text
 urlEncode
 	= Text.replace "<" "%3c"
@@ -538,7 +434,7 @@ abbrAsPath :: LaTeX -> Text
 abbrAsPath (TeXRaw x) = x
 abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
 abbrAsPath (TeXCommS "dcr") = "--"
-abbrAsPath _ = undefined
+abbrAsPath _ = "TODO"
 
 data SectionFileStyle
 	= Bare          -- e.g. intro.execution
@@ -581,6 +477,5 @@ writeStuff chapters = do
 		writeFile (outputDir ++ f) $ sectionFileContent chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
 
-
 main :: IO ()
-main = readStuff >>= writeStuff
+main = load14882 >>= writeStuff

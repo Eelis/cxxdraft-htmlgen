@@ -16,7 +16,6 @@ Usage:
 
 Todo:
 
-  - tables
   - indentation for itemdescrs
   - index
   - pictures
@@ -31,5 +30,5 @@ Todo:
   - layout in compatibility annex
   - comments in code supposed to be italic
   - paragraphs include wrong code in library chapters
-  - definition numbering
   - different kinds of enumeration
+  - don't rely on tables.tex modifications
