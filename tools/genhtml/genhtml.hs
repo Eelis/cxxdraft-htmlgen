@@ -347,7 +347,7 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 		, anysubcontent )
 	where
 		full = specific == Nothing || specific == Just abbreviation
-		header = h Nothing (length sectionNums) $
+		header = h Nothing (min 4 $ length sectionNums) $
 			(if full
 				then render $ anchor{
 					aClass = "secnum",
