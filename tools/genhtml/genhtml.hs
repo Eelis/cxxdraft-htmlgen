@@ -148,6 +148,13 @@ instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
 
 instance Render LaTeX where
+	render (TeXSeq (TeXCommS "textbackslash") y)
+		| TeXSeq (TeXRaw s) rest <- y  = "\\" ++ render (TeXRaw $ unspace s) ++ render rest
+		| TeXRaw s <- y                = "\\" ++ render (TeXRaw $ unspace s)
+		where
+			unspace s
+				| Just suffix <- Text.stripPrefix " " s = suffix
+				| otherwise = s
 	render (TeXSeq x y               ) = render x ++ render y
 	render (TeXRaw x                 ) = Text.replace "~" " "
 	                                   $ Text.replace "--" "–"
