@@ -32,4 +32,3 @@ Todo:
   - different kinds of enumeration
   - don't rely on tables.tex modifications
   - _opt is broken in many places
-  - percent signs in code blocks treated as comments
