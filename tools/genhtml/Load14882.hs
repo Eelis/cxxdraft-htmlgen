@@ -154,9 +154,9 @@ isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l
 
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
-parsePara (e@(TeXEnv k u stuff) : more)
+parsePara (e@(TeXEnv k _ stuff) : more)
 	| isTable e
-	, [x : todo] <- lookForCommand "caption" stuff
+	, [x : _todo] <- lookForCommand "caption" stuff
 	= Table
 		(texFromArg x)
 		(map (texFromArg . head) (lookForCommand "label" stuff))
@@ -229,7 +229,7 @@ data Environment = Environment
 mapTeXArg :: (LaTeX -> LaTeX) -> (TeXArg -> TeXArg)
 mapTeXArg f (FixArg t) = FixArg (f t)
 mapTeXArg f (OptArg t) = OptArg (f t)
-mapTeXArg f x = x
+mapTeXArg _ x = x
 
 texFromArg :: TeXArg -> LaTeX
 texFromArg (FixArg t) = t
@@ -257,7 +257,7 @@ replaceArgs args (span (/= '#') -> (before, '#':c:more))
 		TeXRaw (Text.pack before) ++
 		((args ++ repeat (TeXRaw "wtf")) !! (i-1)) ++
 		replaceArgs args more
-replaceArgs args s = TeXRaw $ Text.pack s
+replaceArgs _ s = TeXRaw $ Text.pack s
 
 dontEval :: [Text]
 dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab ncsimplebnf imporgraphic drawing definition Cpp"
@@ -334,35 +334,37 @@ newlineCurlies =
 		-- Todo: These are sometimes inappropriate...
 
 parseFile :: Macros -> Text -> [LinearSection]
-parseFile macros s = fst
-	$ parseSections
-	$ filter (not . isTeXComm "index")
-	$ filter (not . isTeXComm "indextext")
-	$ filter (not . isTeXComm "indexlibrary")
-	$ filter (not . isTeXComm "enlargethispage")
-	$ filter (not . isTeXComm "indextext")
-	$ filter (not . isTeXComm "indexdefn")
-	$ filter (not . isComment)
-	$ rmseqs
-	$ doParseLaTeX
-	$ TeXRender.render
-	$ doParseLaTeX
-	$ TeXRender.render
-	$ fst . eval macros []
-	$ doParseLaTeX
-	$ replace "\\hspace*" "\\hspace"
-	$ newlineCurlies
-	$ replace "``" "“"
-	$ replace "''" "”"
-	$ replace "\\rSec0" "\\rSec[0]"
-	$ replace "\\rSec1" "\\rSec[1]"
-	$ replace "\\rSec2" "\\rSec[2]"
-	$ replace "\\rSec3" "\\rSec[3]"
-	$ replace "\\rSec4" "\\rSec[4]"
-	$ replace "\\rSec5" "\\rSec[5]"
-	$ replace "\\bigl[" "\\bigl ["
-	$ Text.pack $ killVerb $ Text.unpack
-	$ s
+parseFile macros = fst
+	. parseSections
+	. filter (not . isTeXComm "index")
+	. filter (not . isTeXComm "indextext")
+	. filter (not . isTeXComm "indexlibrary")
+	. filter (not . isTeXComm "enlargethispage")
+	. filter (not . isTeXComm "indextext")
+	. filter (not . isTeXComm "indexdefn")
+	. filter (not . isComment)
+	. rmseqs
+	. doParseLaTeX
+	. TeXRender.render
+	. doParseLaTeX
+	. TeXRender.render
+	. fst . eval macros []
+	. doParseLaTeX
+	. replace "\\hspace*" "\\hspace"
+	. newlineCurlies
+	. replace "``" "“"
+	. replace "''" "”"
+	. replace "\\rSec0" "\\rSec[0]"
+	. replace "\\rSec1" "\\rSec[1]"
+	. replace "\\rSec2" "\\rSec[2]"
+	. replace "\\rSec3" "\\rSec[3]"
+	. replace "\\rSec4" "\\rSec[4]"
+	. replace "\\rSec5" "\\rSec[5]"
+	. replace "\\bigl[" "\\bigl ["
+	. Text.pack . killVerb . Text.unpack
+
+source :: FilePath
+source = "../../source/"
 
 load14882 :: IO [Chapter]
 load14882 = do
@@ -374,9 +376,7 @@ load14882 = do
 		. newlineCurlies
 		. mconcat
 		. mapM Data.Text.IO.readFile
-		[ "../../source/config.tex"
-		, "../../source/macros.tex"
-		, "../../source/tables.tex" ]
+		((source ++) . ["config.tex", "macros.tex", "tables.tex" ])
 
 	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
 		keys commands ++ (Text.unpack . keys environments)
