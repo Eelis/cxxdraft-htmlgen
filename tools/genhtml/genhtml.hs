@@ -222,7 +222,11 @@ instance Render Element where
 				_ -> undefined
 
 renderCode :: LaTeX -> Text
-renderCode (TeXRaw s) = Text.replace "<" "&lt;" $ Text.replace ">" "&gt;" $ s
+renderCode (TeXRaw s) =
+	Text.replace "<" "&lt;"
+	$ Text.replace ">" "&gt;"
+	$ Text.replace "@" ""
+	$ s
 renderCode (TeXSeq a b) = (renderCode a) ++ (renderCode b)
 renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
 renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
