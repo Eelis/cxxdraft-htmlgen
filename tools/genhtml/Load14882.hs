@@ -310,12 +310,23 @@ eval macros@Macros{..} arguments l = case l of
 			(x' ++ y', m' ++ m)
 	_ -> (l, mempty)
 
+noComments :: [String]
+noComments = words "codeblock"
+
+stripComments :: LaTeX -> LaTeX
+stripComments (TeXComment s) = TeXSeq (TeXRaw "\\%") (doParseLaTeX s)
+stripComments (TeXSeq a b) = TeXSeq (stripComments a) (stripComments b)
+stripComments (TeXEnv e a x) = TeXEnv e a (stripComments x)
+stripComments rest = rest
+
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
 	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
 moreArgs (TeXComm n a) = TeXComm n (map (mapTeXArg moreArgs) a)
 moreArgs (TeXSeq x y) = moreArgs x ++ moreArgs y
-moreArgs (TeXEnv e a x) = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
+moreArgs (TeXEnv e a x) 
+	| e `elem` noComments = TeXEnv e (map (mapTeXArg moreArgs) a) (stripComments x)
+	| otherwise = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
 moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
 moreArgs x = x
 
