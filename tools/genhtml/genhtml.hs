@@ -160,7 +160,7 @@ instance Render LaTeX where
 	render (TeXCommS "br"            ) = "<br/>"
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
-	render (TeXBraces t              ) = "{" ++ render t ++ "}"
+	render (TeXBraces t              ) = render t
 	render (TeXMath _ t              ) = spanTag "math" $ render t
 	render (TeXComm "ref" [FixArg x])  = render $ linkToSection "" SectionToSection x
 	render (TeXComm "impldef" _) = "implementation-defined"
