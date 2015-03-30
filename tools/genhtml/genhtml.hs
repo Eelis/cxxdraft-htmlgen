@@ -197,7 +197,7 @@ instance Render LaTeX where
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
 	render (TeXEnv e u t)
 	    | e == "tabular" || e == "longtable" = renderTable t
-	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
+	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | otherwise                    = spanTag "poo" (Text.pack (e ++ show u ++ show t))
@@ -220,6 +220,13 @@ instance Render Element where
 				"itemize" -> xml "ul" []
 				"description" -> xml "ul" []
 				_ -> undefined
+
+renderCode :: LaTeX -> Text
+renderCode (TeXRaw s) = Text.replace "<" "&lt;" $ Text.replace ">" "&gt;" $ s
+renderCode (TeXSeq a b) = (renderCode a) ++ (renderCode b)
+renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
+renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
+renderCode other = render other
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
