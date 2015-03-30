@@ -6,14 +6,12 @@
 
 import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882)
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..))
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
 import Data.Text (Text)
 import Data.Char (isSpace)
-import qualified Data.List as List
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Monoid (Monoid(mappend), mconcat)
-import Data.Char (isAlphaNum)
 import Control.Monad (forM_)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
@@ -182,7 +180,8 @@ instance Render LaTeX where
 	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
-	    | x `elem` makeTh              = case s of [FixArg y] -> xml "th" [] $ render y
+	    | x `elem` makeTh, 
+	      [FixArg y] <- s              = xml "th" [] $ render y
 	    | null s, Just y <-
 	       lookup x simpleMacros       = y
 	    | [FixArg z] <- s, Just y <-
@@ -208,6 +207,7 @@ instance Render Element where
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnf t
+		| otherwise = spanTag "poo" (Text.pack (e ++ show t))
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
 		++ render tableBody
@@ -236,6 +236,7 @@ preprocessTable (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessTable (TeXSeq a b) = TeXSeq (preprocessTable a) (preprocessTable b)
 preprocessTable rest = rest
 
+preprocessArg :: TeXArg -> TeXArg
 preprocessArg (FixArg e) = FixArg (preprocessTable e)
 preprocessArg rest = rest
 
@@ -283,7 +284,7 @@ removeDeadContent t =
 	case Text.breakOn removeStartMagic t of
 		(begin, end) | not $ Text.null end -> begin ++ (removeDeadContent $ Text.drop 1 end')
 			where (_, end') = Text.breakOn removeEndMagic end
-		(s, "") -> s
+		(s, _) -> s
 
 postprocessTable :: Text -> Text
 postprocessTable =
