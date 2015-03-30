@@ -31,3 +31,4 @@ Todo:
   - paragraphs include wrong code in library chapters
   - different kinds of enumeration
   - don't rely on tables.tex modifications
+  - _opt is broken in many places

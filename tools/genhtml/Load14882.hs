@@ -260,7 +260,7 @@ replaceArgs args (span (/= '#') -> (before, '#':c:more))
 replaceArgs args s = TeXRaw $ Text.pack s
 
 dontEval :: [Text]
-dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab imporgraphic drawing definition Cpp"
+dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab ncsimplebnf imporgraphic drawing definition Cpp"
 
 eval :: Macros -> [LaTeX] -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} arguments l = case l of
