@@ -27,6 +27,7 @@ data Element
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
 	| Table { tableCaption :: LaTeX, tableAbbrs :: [LaTeX], tableBody :: LaTeX }
+	| Figure { figureName, figureAbbr :: LaTeX, figureFile :: Text }
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -112,6 +113,10 @@ isTable :: LaTeX -> Bool
 isTable (TeXEnv "TableBase" _ _) = True
 isTable _ = False
 
+isFigure :: LaTeX -> Bool
+isFigure (TeXEnv "importgraphic" _ _) = True
+isFigure _ = False
+
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
 isComment _ = False
@@ -150,11 +155,14 @@ parseItems (x : more)
 parseItems _ = error "need items or nothing"
 
 isElementsEnd :: LaTeX -> Bool
-isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l
+isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l || isFigure l
 
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
-parsePara (e@(TeXEnv k _ stuff) : more)
+parsePara (e@(TeXEnv k a stuff) : more)
+	| isFigure e
+	, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
+	= Figure{..} : parsePara more
 	| isTable e
 	, [x : _todo] <- lookForCommand "caption" stuff
 	= Table
@@ -260,7 +268,7 @@ replaceArgs args (span (/= '#') -> (before, '#':c:more))
 replaceArgs _ s = TeXRaw $ Text.pack s
 
 dontEval :: [Text]
-dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab ncsimplebnf imporgraphic drawing definition Cpp"
+dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab ncsimplebnf imporgraphic drawing definition Cpp importgraphic"
 
 eval :: Macros -> [LaTeX] -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} arguments l = case l of

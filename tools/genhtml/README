@@ -18,17 +18,14 @@ Todo:
 
   - indentation for itemdescrs
   - index
-  - pictures
   - footnote numbers
-  - cabalize
+  - list required hackage packages in prereqs
   - math
   - don't break sentences for footnotes
   - html validation
   - minipages side-by-side
-  - upright text in grammar
   - layout in compatibility annex
   - comments in code supposed to be italic
   - paragraphs include wrong code in library chapters
   - different kinds of enumeration
   - don't rely on tables.tex modifications
-  - _opt is broken in many places

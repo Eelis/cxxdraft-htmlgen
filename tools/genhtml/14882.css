@@ -116,6 +116,11 @@ span.footnote {
 	margin: 2em;
 }
 
+div.figure {
+	text-align: center;
+	margin: 2em;
+}
+
 table {
 	border: 1px solid black;
 	border-collapse: collapse;

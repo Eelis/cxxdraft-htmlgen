@@ -16,7 +16,9 @@ import Control.Monad (forM_)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
+import System.IO.Unsafe (unsafePerformIO)
 import System.Directory (createDirectoryIfMissing, copyFile)
+import System.Process (readProcess)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -212,6 +214,11 @@ instance Render LaTeX where
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | otherwise                    = spanTag "poo" (Text.pack (e ++ show u ++ show t))
 
+loadFigure :: Text -> Text
+loadFigure f =
+	snd $ Text.breakOn "<svg" $ Text.pack $ unsafePerformIO (readProcess "dot" ["-Tsvg", p] "")
+		where p = Text.unpack $ "../../source/" ++ Text.replace ".pdf" ".dot" f
+
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
 	render (Bnf e t)
@@ -221,6 +228,8 @@ instance Render Element where
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
 		++ render tableBody
+	render Figure{..} =
+		xml "div" [("class", "figure")] $ loadFigure figureFile ++ "<br>" ++ render figureName
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
 		where
 			t = case ek of
