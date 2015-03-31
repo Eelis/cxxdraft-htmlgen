@@ -105,6 +105,8 @@ simpleMacros =
 	, ("to"             , "→")
 	, ("rightarrow"     , "→")
 	, ("sqrt"           , "√")
+	, ("lfloor"         , "⌊")
+	, ("rfloor"         , "⌋")
 	, (";"              , " ")
 	, ("min"            , "<span class=\"mathrm\">min</span>")
 	, ("max"            , "<span class=\"mathrm\">max</span>")
@@ -168,7 +170,8 @@ instance Render LaTeX where
 	render (TeXLineBreak _ _         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = render t
-	render (TeXMath _ t              ) = spanTag "math" $ render t
+	render (TeXMath _ t              ) = spanTag "math" $ renderMath t
+	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
 	render (TeXComm "ref" [FixArg x])  = render $ linkToSection "" SectionToSection x
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
@@ -238,6 +241,47 @@ renderCode (TeXSeq a b) = (renderCode a) ++ (renderCode b)
 renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
 renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
 renderCode other = render other
+
+renderMath :: LaTeX -> Text
+renderMath (TeXRaw s) =
+	case suffix of
+		Just ('^', rest) -> prefix ++ output "sup" rest
+		Just ('_', rest) -> prefix ++ output "sub" rest
+		_ -> s
+	where
+		(prefix, suffix') = Text.break (`elem` ['^', '_']) s
+		suffix = Text.uncons suffix'
+
+		output tag rest =
+			case Text.uncons rest of
+				Just (c, rest') -> xml tag [] (Text.singleton c) ++ (renderMath $ TeXRaw rest')
+				Nothing -> error "Malformed math"
+renderMath (TeXSeq (TeXRaw s) rest)
+	| last `elem` ["^", "_"] =
+		renderMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
+		++ xml tag [] (renderMath content)
+		++ renderMath rest'
+	| otherwise = renderMath (TeXRaw s) ++ renderMath rest
+	where
+		s' = Text.reverse s
+		last = Text.take 1 s'
+		tag = case last of
+			"^" -> "sup"
+			"_" -> "sub"
+			_ -> error ""
+		(content, rest') = case rest of
+			(TeXSeq a b) -> (a, b)
+			other -> (other, TeXEmpty)
+renderMath (TeXBraces x) = renderMath x
+renderMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
+	"[" ++ renderMath num ++ "] / [" ++ renderMath den ++ "]" ++ renderMath rest'
+	where
+		(den, rest') = findDenum rest
+		findDenum (TeXSeq (TeXBraces d) r) = (d, r)
+		findDenum (TeXSeq _ r) = findDenum r
+		findDenum r = (r, TeXEmpty)
+renderMath (TeXSeq a b) = (renderMath a) ++ (renderMath b)
+renderMath other = render other
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
