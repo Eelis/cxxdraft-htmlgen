@@ -203,7 +203,7 @@ instance Render LaTeX where
 loadFigure :: Text -> Text
 loadFigure f =
 		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
-			$ unsafePerformIO (readProcess "dot" ["-Tsvg", p] "")
+			$ unsafePerformIO (readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", p] "")
 	where
 		p = Text.unpack $ "../../source/" ++ Text.replace ".pdf" ".dot" f
 		r = mkRegex "<g id=\"[^\"]*\"" 
