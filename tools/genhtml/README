@@ -1,20 +1,57 @@
-Introduction:
+Introduction
 
-  genhtml parses the LaTeX sources of the draft, and generates a HTML version.
+  genhtml parses the LaTeX sources of the draft, and generates
+  a HTML version, with figures embedded as inline SVG.
 
-Prerequisites:
+Prerequisites
 
-  Various Hackage packages.
+  - various Hackage packages
+  - graphviz
 
-Usage:
+Usage
 
   In this directory, run:
 
     runhaskell genhtml.hs
 
-  This generates 14882/ with lots of .html files in it.
+Output
 
-Todo:
+  The following will be created in 14882/ :
+
+  - index.html    A long table of contents with links to...
+
+  - 1662 interlinked section pages
+
+    These are named after the section abbrevation, e.g.:
+
+      stmt.goto.html
+      class.member.lookup.html
+      cpp.html
+      iterator.requirements.general.html
+      locale.moneypunct.virtuals.html
+
+    Since sections nest, content is duplicated at every level.
+    This allows one to specify more or less context for a given
+    citation. For example, one can link to:
+
+      temp.dep.html            (page for section 14.6.2 "Dependent names")
+
+      temp.res.html#temp.dep   (section 14.6.2 highlighted on the page
+                                for section 14.6 "Name resolution")
+
+      temp.html#temp.dep       (section 14.6.2 highlighted on the page
+                                for chapter 14 "Templates")
+
+      full.html#temp.dep       (see below)
+
+    On a given section's page, the abbreviation link for /that/ section
+    links back to the table of contents.
+
+  - full.html    ~6 mbyte, the entire draft.
+
+  - 14882.css    Used by all of the above.
+
+Todo
 
   - indentation for itemdescrs
   - index
@@ -29,3 +66,5 @@ Todo:
   - paragraphs include wrong code in library chapters
   - different kinds of enumeration
   - don't rely on tables.tex modifications
+  - \verb
+  - broken macro expansions (#)
