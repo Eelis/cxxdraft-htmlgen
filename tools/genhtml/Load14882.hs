@@ -40,7 +40,11 @@ data Element
 
 type Paragraph = [Element]
 
-data SectionKind = NormalSection { _level :: Int } | DefinitionSection | InformativeAnnexSection | NormativeAnnexSection
+data SectionKind
+	= NormalSection { _level :: Int }
+	| DefinitionSection
+	| InformativeAnnexSection
+	| NormativeAnnexSection
 	deriving Eq
 
 data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
@@ -147,7 +151,6 @@ isJunk _ = False
 isItem :: LaTeX -> Bool
 isItem (TeXCommS "item") = True
 isItem (TeXComm "item" _) = True
-isItem (TeXComm "stage" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
