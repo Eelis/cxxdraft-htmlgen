@@ -361,9 +361,15 @@ preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
 
+strip :: Text -> Text
+strip =
+	Text.pack
+	. reverse . dropWhile isSpace
+	. reverse . dropWhile isSpace
+	. Text.unpack
+
 bnfPre :: Text -> Text
-bnfPre = xml "pre" [("class", "bnf")]
-	. Text.pack . reverse . dropWhile isSpace . reverse . Text.unpack
+bnfPre = xml "pre" [("class", "bnf")] . strip
 
 renderBnfTable :: LaTeX -> Text
 renderBnfTable = bnfPre . processHTML . render . preprocessTeX . preprocessPre
