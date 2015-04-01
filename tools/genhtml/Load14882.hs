@@ -376,6 +376,7 @@ eval macros@Macros{..} arguments l = case l of
 		let (x', m) = eval macros arguments x in
 		let (y', m') = eval (m ++ macros) arguments y in
 			(x' ++ y', m' ++ m)
+	TeXBraces x -> (TeXBraces $ fst $ eval macros arguments x, mempty)
 	_ -> (l, mempty)
 
 noComments :: [String]
