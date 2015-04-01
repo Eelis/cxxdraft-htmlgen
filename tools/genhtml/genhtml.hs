@@ -336,14 +336,18 @@ renderTable colspec =
 				r' = dropWhile (not . rowHas (== "endhead")) rest
 
 		renderCols _ [] = ""
-		renderCols (c : cs) (content : rest) 
-			| [[FixArg (TeXRaw n), FixArg cs', FixArg content']] <- lookForCommand "multicolumn" content =
+		renderCols (c : cs) (content : rest)
+			| length cs < length rest = undefined
+			| [[FixArg w, FixArg cs', FixArg content']] <- lookForCommand "multicolumn" content =
 				let 
-					[c''] = parseColspec $ Text.unpack $ stripColspec cs' 
+					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
 					c' = combine c'' c
+					colspan
+						| rest == [] = length cs + 1
+						| TeXRaw n <- w = read $ Text.unpack n
 				in
-					(xml "td" [("colspan", n), ("class", c')] $ render content')
-					++ renderCols (drop ((read $ Text.unpack n) - 1) cs) rest
+					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ render content')
+					++ renderCols (drop (colspan - 1) cs) rest
 			| otherwise =
 				(xml "td" [("class", c)] $ render content)
 				++ renderCols cs rest
