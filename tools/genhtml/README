@@ -68,7 +68,6 @@ Todo
   - list required hackage packages in prereqs
   - math
   - don't break sentences for footnotes
-  - html validation
   - minipages side-by-side
   - layout in compatibility annex
   - comments in code supposed to be italic

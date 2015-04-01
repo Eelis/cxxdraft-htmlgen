@@ -115,7 +115,7 @@ simpleMacros =
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeRowsep, makeCodeblock :: [String]
 makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage center"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily TableBase table tabular tabbing longtable"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf"
 makeRowsep = words "rowsep capsep hline"
@@ -199,7 +199,7 @@ instance Render LaTeX where
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
-	    | otherwise                    = spanTag "poo" (Text.pack (e ++ show u ++ show t))
+	    | otherwise                    = spanTag "poo" $ Text.pack e
 
 loadFigure :: Text -> Text
 loadFigure f =
@@ -407,11 +407,12 @@ linkToSection clas link abbr = anchor{
 		aText  = "[" ++ render abbr ++ "]"}
 	where
 		u = url abbr
-		url :: LaTeX -> Text
-		url (TeXRaw x) = urlEncode x
-		url (TeXSeq x y) = url x ++ url y
-		url (TeXCommS "dcr") = "--"
-		url _ = "TODO"
+
+url :: LaTeX -> Text
+url (TeXRaw x) = urlEncode x
+url (TeXSeq x y) = url x ++ url y
+url (TeXCommS "dcr") = "--"
+url _ = "TODO"
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -427,7 +428,7 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 		xml "div" [("id", render abbreviation)] $ header ++
 		xml "div" [("class", "para")] (render preamble) ++
 		mconcat (map
-			(renderParagraph (if parasEmitted then render abbreviation ++ "-" else ""))
+			(renderParagraph (if parasEmitted then url abbreviation ++ "-" else ""))
 			(zip [1..] paragraphs)) ++
 		mconcat (fst . renderSection Nothing True . numberSubsecs path subsections)
 	| not anysubcontent = ("", False)
@@ -441,7 +442,7 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 			(if full
 				then render $ anchor{
 					aClass = "secnum",
-					aHref  = "#" ++ render abbreviation,
+					aHref  = "#" ++ url abbreviation,
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
