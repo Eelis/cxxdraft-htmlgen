@@ -11,6 +11,7 @@ import Data.Text (Text)
 import Text.Regex (mkRegex, subRegex)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
+import Data.Char (isSpace)
 import Data.Monoid (Monoid(mappend), mconcat)
 import Control.Monad (forM_)
 import qualified Prelude
@@ -216,7 +217,7 @@ instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
-		| e `elem` makeBnfPre = bnf t
+		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = spanTag "poo" (Text.pack (e ++ show t))
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
@@ -360,12 +361,12 @@ preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
 
-bnf :: LaTeX -> Text
-bnf = xml "pre" [("class", "bnf")] . render . preprocessPre
+bnfPre :: Text -> Text
+bnfPre = xml "pre" [("class", "bnf")]
+	. Text.pack . reverse . dropWhile isSpace . reverse . Text.unpack
 
 renderBnfTable :: LaTeX -> Text
-renderBnfTable =
-	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX . preprocessPre
+renderBnfTable = bnfPre . processHTML . render . preprocessTeX . preprocessPre
 	where
 		processHTML = Text.replace "\t" "&#9;"
 
