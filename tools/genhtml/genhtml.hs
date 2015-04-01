@@ -230,6 +230,7 @@ renderCode (TeXRaw s) =
 	Text.replace "<" "&lt;"
 	$ Text.replace ">" "&gt;"
 	$ Text.replace "@" ""
+	$ Text.replace "&" "&amp;"
 	$ s
 renderCode (TeXSeq a b) = (renderCode a) ++ (renderCode b)
 renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
@@ -239,17 +240,20 @@ renderCode other = render other
 renderMath :: LaTeX -> Text
 renderMath (TeXRaw s) =
 	case suffix of
-		Just ('^', rest) -> prefix ++ output "sup" rest
-		Just ('_', rest) -> prefix ++ output "sub" rest
-		_ -> s
+		Just ('^', rest) -> entities prefix ++ output "sup" rest
+		Just ('_', rest) -> entities prefix ++ output "sub" rest
+		_ -> entities s
 	where
 		(prefix, suffix') = Text.break (`elem` ['^', '_']) s
 		suffix = Text.uncons suffix'
 
 		output tag rest =
 			case Text.uncons rest of
-				Just (c, rest') -> xml tag [] (Text.singleton c) ++ (renderMath $ TeXRaw rest')
+				Just (c, rest') -> xml tag [] (entities $ Text.singleton c) ++ (renderMath $ TeXRaw rest')
 				Nothing -> error "Malformed math"
+		entities =
+			Text.replace "<" "&lt;"
+			. Text.replace ">" "&gt;"
 renderMath (TeXSeq (TeXRaw s) rest)
 	| last `elem` ["^", "_"] =
 		renderMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
