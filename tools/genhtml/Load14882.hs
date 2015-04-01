@@ -169,11 +169,10 @@ isTableEnv :: String -> Bool
 isTableEnv = (`elem` ["tabular", "longtable"])
 
 texBreak :: (LaTeX -> Bool) -> LaTeX -> (LaTeX, LaTeX)
-texBreak p t@(TeXSeq x rest)
+texBreak p t@(TeXSeq x y)
 	| p x = (TeXEmpty, t)
-	| otherwise = (TeXSeq x a, b)
-	where
-		(a, b) = texBreak p rest
+	| (a, b) <- texBreak p x, b /= TeXEmpty = (a, TeXSeq b y)
+	| otherwise = first (TeXSeq x) (texBreak p y)
 texBreak p t
 	| p t = (TeXEmpty, t)
 	| otherwise = (t, TeXEmpty)
@@ -204,7 +203,7 @@ makeRow latex =
 		TeXRaw r ->
 			[(cell <> (TeXRaw cell')), TeXRaw (rest'' ++ r)]
 		_ -> error $ "Unexpected " ++ show rest
-	where 
+	where
 		(cell, rest) = texBreak isColEnd latex
 		isColEnd (TeXRaw c) = isJust $ Text.find (== '&') c
 		isColEnd _ = False
