@@ -50,10 +50,6 @@ texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
 
-lineBreakMagic, tabMagic :: Text
-lineBreakMagic = "\US"
-tabMagic = "\t"
-
 simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
@@ -355,10 +351,10 @@ renderBnfTable :: LaTeX -> Text
 renderBnfTable =
 	xml "pre" [("class", "bnf")] . processHTML . render . preprocessTeX . preprocessPre
 	where
-		processHTML = Text.replace tabMagic "&#9;" .  Text.replace lineBreakMagic "<br/>"
+		processHTML = Text.replace "\t" "&#9;"
 
 		initialTab (Text.stripPrefix ">" -> Just rest) =
-			tabMagic ++ rest
+			"\t" ++ rest
 		initialTab other = other
 
 		preprocessTeX (TeXBraces t) = t
