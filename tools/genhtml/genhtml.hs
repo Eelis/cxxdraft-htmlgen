@@ -8,6 +8,7 @@ import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter,
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
 import Data.Text (Text)
+import Text.Regex (mkRegex, subRegex)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Monoid (Monoid(mappend), mconcat)
@@ -201,8 +202,14 @@ instance Render LaTeX where
 
 loadFigure :: Text -> Text
 loadFigure f =
-	snd $ Text.breakOn "<svg" $ Text.pack $ unsafePerformIO (readProcess "dot" ["-Tsvg", p] "")
-		where p = Text.unpack $ "../../source/" ++ Text.replace ".pdf" ".dot" f
+		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
+			$ unsafePerformIO (readProcess "dot" ["-Tsvg", p] "")
+	where
+		p = Text.unpack $ "../../source/" ++ Text.replace ".pdf" ".dot" f
+		r = mkRegex "<g id=\"[^\"]*\"" 
+		rmIds = Text.pack . flip (subRegex r) "<g" . Text.unpack
+			-- Without rmIds, if a page has more than one figure, it will
+			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
