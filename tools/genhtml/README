@@ -77,3 +77,4 @@ Todo
   - don't rely on tables.tex modifications
   - \verb
   - broken macro expansions (#)
+  - align paragraph numbers vertically with text

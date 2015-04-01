@@ -468,7 +468,7 @@ load14882 = do
 			"overloading templates exceptions preprocessor lib-intro "  ++
 			"support diagnostics utilities strings locales containers " ++
 			"iterators algorithms numerics iostreams regex atomics threads " ++
-			"grammar limits compatibility future charname xref"
+			"grammar limits compatibility future charname"
 
 	putStrLn "Loading chapters"
 	sections <- forM files $ \c -> do
