@@ -149,6 +149,7 @@ instance Render LaTeX where
 			unspace s
 				| Just suffix <- Text.stripPrefix " " s = suffix
 				| otherwise = s
+	render (TeXSeq (TeXCommS "itshape") x) = "<i>" ++ render x ++ "</i>"
 	render (TeXSeq x y               ) = render x ++ render y
 	render (TeXRaw x                 ) = Text.replace "~" " "
 	                                   $ Text.replace "--" "–"
@@ -187,7 +188,7 @@ instance Render LaTeX where
 	    | [FixArg z] <- s, Just y <-
 	       lookup x simpleMacros       = mconcat [y, render z]
 	    | otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
-	render (TeXCommS s               )
+	render (TeXCommS s)
 	    | s `elem` literal             = Text.pack s
 	    | Just x <-
 	       lookup s simpleMacros       = x
