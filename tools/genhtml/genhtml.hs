@@ -6,9 +6,8 @@
 
 import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882)
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
 import Data.Text (Text)
-import Data.Char (isSpace)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Monoid (Monoid(mappend), mconcat)
@@ -42,7 +41,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline"]
 literal = [" ", "cv", "#", "{", "}", "-", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -51,10 +50,7 @@ texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
 
-ampersandMagic, removeStartMagic, removeEndMagic, lineBreakMagic, tabMagic :: Text
-ampersandMagic = "\^^"  -- record separator
-removeStartMagic = "\STX"
-removeEndMagic = "\ETX"
+lineBreakMagic, tabMagic :: Text
 lineBreakMagic = "\US"
 tabMagic = "\t"
 
@@ -117,17 +113,14 @@ simpleMacros =
 	, ("ln"             , "<span class=\"mathrm\">ln</span>")
 	, ("log"            , "<span class=\"mathrm\">log</span>")
 	, ("opt"            , "<sub><small>opt</small></sub>")
-	, ("endfirsthead"   , removeStartMagic)
-	, ("endhead"        , removeEndMagic)
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	]
 
-makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeTh, makeRowsep, makeCodeblock :: [String]
+makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeRowsep, makeCodeblock :: [String]
 makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily TableBase table tabular tabbing longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf"
-makeTh = words "lhdr rhdr chdr"
 makeRowsep = words "rowsep capsep hline"
 makeCodeblock = words "codeblock codeblockdigitsep"
 
@@ -165,7 +158,7 @@ instance Render LaTeX where
 	                                   $ Text.replace "---" "—"
 	                                   $ Text.replace ">" "&gt;"
 	                                   $ Text.replace "<" "&lt;"
-	                                   $ Text.replace "&" ampersandMagic
+	                                   $ Text.replace "&" "&amp;"
 	                                   $ x
 	render (TeXComment _             ) = ""
 	render (TeXCommS "br"            ) = "<br/>"
@@ -192,8 +185,6 @@ instance Render LaTeX where
 	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
-	    | x `elem` makeTh, 
-	      [FixArg y] <- s              = xml "th" [] $ render y
 	    | null s, Just y <-
 	       lookup x simpleMacros       = y
 	    | [FixArg z] <- s, Just y <-
@@ -203,12 +194,10 @@ instance Render LaTeX where
 	    | s `elem` literal             = Text.pack s
 	    | Just x <-
 	       lookup s simpleMacros       = x
-	    | s `elem` makeRowsep          = "</td></tr><tr class=\"rowsep\"><td>"
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ Text.replace ampersandMagic "&amp;" $ render t
+	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
 	render (TeXEnv e u t)
-	    | e == "tabular" || e == "longtable" = renderTable t
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
@@ -227,7 +216,7 @@ instance Render Element where
 		| otherwise = spanTag "poo" (Text.pack (e ++ show t))
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
-		++ render tableBody
+		++ renderTable columnSpec tableBody
 	render Figure{..} =
 		xml "div" [("class", "figure")] $ loadFigure figureFile ++ "<br>" ++ render figureName
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
@@ -292,24 +281,72 @@ renderMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
 renderMath (TeXSeq a b) = (renderMath a) ++ (renderMath b)
 renderMath other = render other
 
+renderTable :: LaTeX -> [[LaTeX]] -> Text
+renderTable colspec =
+	xml "table" [] .
+	renderRows (parseColspec $ Text.unpack $ stripColspec colspec)
+	where
+		stripColspec (TeXRaw s) = s
+		stripColspec (TeXSeq a b) = stripColspec a ++ stripColspec b
+		stripColspec _ = ""
+
+		parseColspec :: String -> [Text]
+		parseColspec ('|' : rest) = pc rest
+		parseColspec other = pc other
+
+		pc ('|' : []) = []
+		pc ('|' : letter : rest) =
+			"border " ++ (colClass letter) : pc rest
+		pc (letter : rest) =
+			colClass letter : pc rest
+		pc "" = []
+
+		colClass x | x `elem` ['l', 'm', 'x'] = "left"
+		colClass 'p' = "justify"
+		colClass 'r' = "right"
+		colClass 'c' = "center"
+		colClass other = error $ "Unexpected column type " ++ (other : [])
+
+		combine newCs oldCs
+			| Just _ <- Text.stripPrefix "border" oldCs,
+			  Nothing <- Text.stripPrefix "border" newCs = "border " ++ newCs
+			| otherwise = newCs
+
+		rowHas f = any (\r -> not $ null $ matchCommand f r)
+
+		renderRows _ [] = ""
+		renderRows cs (row : rest)
+			| rowHas (== "endfirsthead") row =
+				renderRows cs r'
+			| rowHas (`elem` ["caption", "bottomline"]) row =
+				renderRows cs rest
+			| otherwise =
+				(xml "tr" cls $ renderCols cs row)
+				++ renderRows cs rest
+			where
+				cls = if rowHas (`elem` makeRowsep) row then [("class", "rowsep")] else []
+				r' = dropWhile (not . rowHas (== "endhead")) rest
+
+		renderCols _ [] = ""
+		renderCols (c : cs) (content : rest) 
+			| [[FixArg (TeXRaw n), FixArg cs', FixArg content']] <- lookForCommand "multicolumn" content =
+				let 
+					[c''] = parseColspec $ Text.unpack $ stripColspec cs' 
+					c' = combine c'' c
+				in
+					(xml "td" [("colspan", n), ("class", c')] $ render content')
+					++ renderCols (drop ((read $ Text.unpack n) - 1) cs) rest
+			| otherwise =
+				(xml "td" [("class", c)] $ render content)
+				++ renderCols cs rest
+		renderCols [] (_ : _) = error "Too many columns"
+
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
 preprocessPre (TeXCommS "br") = TeXEmpty
 preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
-
--- Tables need to handle line breaks specially.
-preprocessTable :: LaTeX -> LaTeX
-preprocessTable (TeXCommS "br") = TeXRaw lineBreakMagic
-preprocessTable (TeXComm c a) = TeXComm c (map preprocessArg a)
-preprocessTable (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
-preprocessTable (TeXSeq a b) = TeXSeq (preprocessTable a) (preprocessTable b)
-preprocessTable rest = rest
-
-preprocessArg :: TeXArg -> TeXArg
-preprocessArg (FixArg e) = FixArg (preprocessTable e)
-preprocessArg rest = rest
 
 bnf :: LaTeX -> Text
 bnf = xml "pre" [("class", "bnf")] . render . preprocessPre
@@ -332,37 +369,6 @@ renderBnfTable =
 		preprocessTeX (TeXSeq a b) = TeXSeq (preprocessTeX a) (preprocessTeX b)
 		preprocessTeX (TeXEnv e a c) = TeXEnv e a (preprocessTeX c)
 		preprocessTeX other = other
-
-renderTable :: LaTeX -> Text
-renderTable = xml "table" [] . cleanupTable . postprocessTable . render . preprocessTable
-
-removeConsecWhitespace :: Text -> Text
-removeConsecWhitespace = Text.unwords . filter (not . Text.null) . Text.split isSpace
-
-cleanupTable :: Text -> Text
-cleanupTable = 
-	Text.replace "<td > <td " "<td " .
-	Text.replace "</td> </td>" "</td>" .
-	Text.replace "<tr ><td > </td></tr>" "" .
-	Text.replace "<tr ><td ></td></tr>" "" .
-	Text.replace "<tr ></tr>" "" .
- 	Text.replace "<td > <th >" "<th>" .
- 	Text.replace "</th> </td>" "</th>" .
- 	removeConsecWhitespace
-
-removeDeadContent :: Text -> Text
-removeDeadContent t =
-	case Text.breakOn removeStartMagic t of
-		(begin, end) | not $ Text.null end -> begin ++ (removeDeadContent $ Text.drop 1 end')
-			where (_, end') = Text.breakOn removeEndMagic end
-		(s, _) -> s
-
-postprocessTable :: Text -> Text
-postprocessTable =
-	xml "tr" [] . xml "td" [] . 
-	Text.replace lineBreakMagic "<br/>" .
-	Text.replace "<br/>" "</td></tr><tr ><td >" . Text.replace ampersandMagic "</td><td >" .
-	removeDeadContent
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =

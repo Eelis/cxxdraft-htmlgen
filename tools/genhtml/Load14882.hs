@@ -4,7 +4,7 @@ module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter,
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, (<>))
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import Data.Monoid (Monoid(..), mconcat)
@@ -18,6 +18,7 @@ import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
 import Data.List (sort)
+import Data.Maybe (isJust)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -26,7 +27,11 @@ data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
-	| Table { tableCaption :: LaTeX, tableAbbrs :: [LaTeX], tableBody :: LaTeX }
+	| Table 
+		{ tableCaption :: LaTeX
+		, columnSpec :: LaTeX
+		, tableAbbrs :: [LaTeX]
+		, tableBody :: [[LaTeX]] }
 	| Figure { figureName, figureAbbr :: LaTeX, figureFile :: Text }
 	deriving Show
 
@@ -157,6 +162,56 @@ parseItems _ = error "need items or nothing"
 isElementsEnd :: LaTeX -> Bool
 isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l || isFigure l
 
+isTableEnv :: String -> Bool
+isTableEnv = (`elem` ["tabular", "longtable"])
+
+texBreak :: (LaTeX -> Bool) -> LaTeX -> (LaTeX, LaTeX)
+texBreak p t@(TeXSeq x rest)
+	| p x = (TeXEmpty, t)
+	| otherwise = (TeXSeq x a, b)
+	where
+		(a, b) = texBreak p rest
+texBreak p t
+	| p t = (TeXEmpty, t)
+	| otherwise = (t, TeXEmpty)
+
+texTail :: LaTeX -> LaTeX
+texTail (TeXSeq _ t) = t
+texTail _ = error "Not a sequence"
+
+parseTable :: LaTeX -> [[LaTeX]]
+parseTable TeXEmpty = []
+parseTable latex@(TeXSeq _ _) =
+	case row of
+		TeXEmpty -> parseTable $ texTail rest
+		_ -> makeRow row : parseTable rest
+	where
+		(row, rest) = texBreak isRowEnd latex
+		isRowEnd (TeXLineBreak _ _) = True
+		isRowEnd _ = False
+parseTable latex = [makeRow latex]
+
+makeRow :: LaTeX -> [LaTeX]
+makeRow TeXEmpty = []
+makeRow latex =
+	case rest of
+		TeXEmpty -> [cell]
+		TeXSeq _ r ->
+			(cell <> (TeXRaw cell')) : makeRow (TeXSeq (TeXRaw rest'') r)
+		TeXRaw r ->
+			[(cell <> (TeXRaw cell')), TeXRaw (rest'' ++ r)]
+		_ -> error $ "Unexpected " ++ show rest
+	where 
+		(cell, rest) = texBreak isColEnd latex
+		isColEnd (TeXRaw c) = isJust $ Text.find (== '&') c
+		isColEnd _ = False
+
+		(cell', rest') = Text.break (== '&') $ getText rest
+		rest'' = Text.drop 1 rest'
+		getText (TeXRaw s) = s
+		getText (TeXSeq (TeXRaw s) _) = s
+		getText other = error $ "Didn't expect " ++ show other
+
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
 parsePara (e@(TeXEnv k a stuff) : more)
@@ -165,10 +220,12 @@ parsePara (e@(TeXEnv k a stuff) : more)
 	= Figure{..} : parsePara more
 	| isTable e
 	, [x : _todo] <- lookForCommand "caption" stuff
+	, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
 	= Table
 		(texFromArg x)
+		y
 		(map (texFromArg . head) (lookForCommand "label" stuff))
-		stuff
+		(parseTable content)
 	  : parsePara more
 	| isTable e = error $ "other table: " ++ show e
 	| isBnf e = Bnf k stuff : parsePara more

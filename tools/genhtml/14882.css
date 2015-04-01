@@ -136,6 +136,26 @@ td, th {
 	vertical-align: top;
 }
 
+td.left {
+	text-align: left;
+}
+
+td.right {
+	text-align: right;
+}
+
+td.center {
+	text-align: center;
+}
+
+td.justify {
+	text-align: justify;
+}
+
+td.border {
+	border-left: 1px solid black;
+}
+
 tr.rowsep {
 	border-top: 1px solid black;
 }
