@@ -113,9 +113,12 @@ isEnumerate (TeXEnv s _ _)
 	| s `elem` ["enumeraten", "enumeratea", "enumerate", "itemize", "description"] = Just s
 isEnumerate _ = Nothing
 
+bnfEnvs :: [String]
+bnfEnvs = ["bnf", "bnfkeywordtab", "bnftab", "simplebnf"]
+
 isBnf :: LaTeX -> Bool
 isBnf (TeXEnv s _ _)
-	| s `elem` ["bnf", "bnfkeywordtab", "bnftab"] = True
+	| s `elem` bnfEnvs = True
 isBnf _ = False
 
 isTable :: LaTeX -> Bool
@@ -327,7 +330,7 @@ replaceArgs args (span (/= '#') -> (before, '#':c:more))
 replaceArgs _ s = TeXRaw $ Text.pack s
 
 dontEval :: [Text]
-dontEval = map Text.pack $ words "TableBase bnf bnftab bnfkeywordtab ncsimplebnf imporgraphic drawing definition Cpp importgraphic"
+dontEval = map Text.pack $ bnfEnvs ++ words "TableBase drawing definition Cpp importgraphic"
 
 eval :: Macros -> [LaTeX] -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} arguments l = case l of

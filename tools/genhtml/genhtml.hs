@@ -115,10 +115,10 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeRowsep, makeCodeblock :: [String]
-makeSpan = words "ncbnf indented ncsimplebnf ttfamily itemdescr minipage center"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample ncsimplebnf ncbnf indented paras ttfamily TableBase table tabular longtable"
+makeSpan = words "indented ttfamily itemdescr minipage center"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
-makeBnfPre = words "bnf"
+makeBnfPre = words "bnf simplebnf"
 makeRowsep = words "rowsep capsep hline"
 makeCodeblock = words "codeblock codeblockdigitsep"
 

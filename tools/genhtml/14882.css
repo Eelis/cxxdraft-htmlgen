@@ -34,22 +34,10 @@ a.paranumber {
 
 div.para { text-align: justify; }
 
-.ncsimplebnf {
-	font-style: italic;
-	display: block;
-	margin: 1.2em;
-}
-
-.ncbnf {
-	font-style: italic;
-	display: block;
-	margin: 1.2em;
-}
-
 .bnf {
 	font-style: italic;
-	display: block;
 	margin: 1.2em;
+	margin-left: 4em;
 }
 
 .poo { background: red; }
