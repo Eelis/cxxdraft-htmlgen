@@ -576,4 +576,4 @@ writeStuff chapters = do
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
 
 main :: IO ()
-main = load14882 >>= writeStuff
+main = load14882 "../../source/" >>= writeStuff

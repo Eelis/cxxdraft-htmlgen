@@ -447,11 +447,8 @@ parseFile macros = fst
 	. replace "\\bigl[" "\\bigl ["
 	. Text.pack . killVerb . Text.unpack
 
-source :: FilePath
-source = "../../source/"
-
-load14882 :: IO [Chapter]
-load14882 = do
+load14882 :: FilePath -> IO [Chapter]
+load14882 source = do
 
 	m@Macros{..} <-
 		snd
@@ -477,7 +474,7 @@ load14882 = do
 
 	putStrLn "Loading chapters"
 	sections <- forM files $ \c -> do
-		let p = "../../source/" ++ c ++ ".tex"
+		let p = source ++ c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
 		r <- parseFile m . Data.Text.IO.readFile p
