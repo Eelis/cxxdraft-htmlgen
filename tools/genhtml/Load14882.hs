@@ -338,6 +338,8 @@ eval macros@Macros{..} arguments l = case l of
 
 	TeXRaw s -> (replaceArgs arguments (Text.unpack s), mempty)
 
+	TeXCommS "ungap" -> mempty
+
 	TeXComm "newenvironment" (FixArg (TeXRaw s) : _)
 		| s `elem` dontEval -> mempty
 	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
