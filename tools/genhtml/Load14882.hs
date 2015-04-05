@@ -1,10 +1,10 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase #-}
 
 module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882) where
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, (<>))
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, (<>), texmap)
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import Data.Monoid (Monoid(..), mconcat)
@@ -18,7 +18,7 @@ import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
 import Data.List (sort)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromJust)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -383,14 +383,18 @@ eval macros@Macros{..} arguments l = case l of
 	TeXBraces x -> (TeXBraces $ fst $ eval macros arguments x, mempty)
 	_ -> (l, mempty)
 
-noComments :: [String]
-noComments = words "codeblock"
+mapTeX :: (LaTeX -> Maybe LaTeX) -> (LaTeX -> LaTeX)
+mapTeX f = texmap (isJust . f) (fromJust . f)
 
-stripComments :: LaTeX -> LaTeX
-stripComments (TeXComment s) = TeXSeq (TeXRaw "\\%") (doParseLaTeX s)
-stripComments (TeXSeq a b) = TeXSeq (stripComments a) (stripComments b)
-stripComments (TeXEnv e a x) = TeXEnv e a (stripComments x)
-stripComments rest = rest
+fixCommentsInCodeblocks :: LaTeX -> LaTeX
+fixCommentsInCodeblocks = mapTeX $
+	\case
+		TeXEnv "codeblock" [] body -> Just $ TeXEnv "codeblock" [] $ mapTeX f body
+		_ -> Nothing
+	where
+		f :: LaTeX -> Maybe LaTeX
+		f (TeXComment t) = Just $ TeXRaw $ "%" ++ t ++ "\n"
+		f _ = Nothing
 
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
@@ -398,14 +402,14 @@ moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
 moreArgs (TeXComm n a) = TeXComm n (map (mapTeXArg moreArgs) a)
 moreArgs (TeXSeq x y) = moreArgs x ++ moreArgs y
 moreArgs (TeXEnv e a x) 
-	| e `elem` noComments = TeXEnv e (map (mapTeXArg moreArgs) a) (stripComments x)
 	| otherwise = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
 moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
 moreArgs x = x
 
 doParseLaTeX :: Text -> LaTeX
 doParseLaTeX =
-	moreArgs
+	fixCommentsInCodeblocks
+	. moreArgs
 	. either (error "latex parse error") id
 	. parseLaTeX
 
@@ -428,8 +432,6 @@ parseFile macros = fst
 	. filter (not . isTeXComm "indexdefn")
 	. filter (not . isComment)
 	. rmseqs
-	. doParseLaTeX
-	. TeXRender.render
 	. doParseLaTeX
 	. TeXRender.render
 	. fst . eval macros []
