@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase, TupleSections #-}
 
-module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882) where
+module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -517,8 +517,18 @@ parseFile macros = fst
 	. replace "\\bigl[" "\\bigl ["
 	. Text.pack . killVerb . Text.unpack
 
-load14882 :: IO [Chapter]
+getCommitUrl :: IO Text
+getCommitUrl = do
+	url <- Text.strip . Text.pack . readProcess "git" ["config", "--get", "remote.origin.url"] ""
+	commit <- Text.strip . Text.pack . readProcess "git" ["rev-parse", "HEAD"] ""
+	return $ Text.replace ".git" "/commit/" url ++ commit
+
+data Draft = Draft { commitUrl :: Text, chapters :: [Chapter] }
+
+load14882 :: IO Draft
 load14882 = do
+
+	commitUrl <- getCommitUrl
 
 	m@Macros{..} <-
 		snd
@@ -554,4 +564,6 @@ load14882 = do
 
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
-	return $ treeizeChapters $ mconcat sections
+	let chapters = treeizeChapters $ mconcat sections
+
+	return Draft{..}

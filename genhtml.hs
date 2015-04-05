@@ -4,7 +4,7 @@
 	TupleSections,
 	ViewPatterns #-}
 
-import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882)
+import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
 import Data.Text (Text)
@@ -21,6 +21,9 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Process (readProcess)
 import System.Environment (getArgs)
+import Data.Time.Clock (getCurrentTime)
+import Data.Time.Format (formatTime)
+import System.Locale (defaultTimeLocale)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -477,13 +480,20 @@ sectionFileContent chapters abbreviation =
 		(mconcat $ fst . renderSection (Just abbreviation) False . withPaths chapters)
 		(if sectionFileStyle == InSubdir then "../" else "")
 
-tocFileContent :: [Chapter] -> Text
-tocFileContent chapters =
+tocFileContent :: Draft -> Text
+tocFileContent Draft{..} =
 		fileContent
 			"14882: Contents"
-			(mconcat (map section (withPaths chapters)))
+			(	"<p style='text-align:center'>"
+				++ "Generated on " ++ date
+				++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
+				++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
+				++ "</p><hr/>"
+				++ mconcat (map section (withPaths chapters))
+			)
 			""
 	where
+		date = Text.pack (formatTime defaultTimeLocale "%F" (unsafePerformIO getCurrentTime))
 		section :: (SectionPath, Section) -> Text
 		section (sectionPath, Section{..}) =
 			xml "div" [("id", render abbreviation)] $
@@ -533,8 +543,8 @@ data SectionFileStyle
 sectionFileStyle :: SectionFileStyle
 sectionFileStyle = WithExtension
 
-writeStuff :: [Chapter] -> IO ()
-writeStuff chapters = do
+writeStuff :: Draft -> IO ()
+writeStuff d@Draft{..} = do
 	let outputDir = "14882/"
 	putStr $ "Writing to " ++ outputDir; hFlush stdout
 
@@ -542,7 +552,7 @@ writeStuff chapters = do
 
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 
-	writeFile (outputDir ++ "/index.html") $ tocFileContent chapters
+	writeFile (outputDir ++ "/index.html") $ tocFileContent d
 
 	fullFile <- case sectionFileStyle of
 		Bare -> return "full"
@@ -570,9 +580,10 @@ main = do
 	cwd <- getCurrentDirectory
 
 	[repo] <- getArgs
+
 	setCurrentDirectory $ repo ++ "/source"
 	
-	stuff <- load14882
+	draft <- load14882
 
 	setCurrentDirectory cwd
-	writeStuff stuff
+	writeStuff draft
