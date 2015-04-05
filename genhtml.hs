@@ -18,8 +18,9 @@ import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
 import System.IO.Unsafe (unsafePerformIO)
-import System.Directory (createDirectoryIfMissing, copyFile)
+import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Process (readProcess)
+import System.Environment (getArgs)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -202,17 +203,6 @@ instance Render LaTeX where
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | otherwise                    = spanTag "poo" $ Text.pack e
 
-loadFigure :: Text -> Text
-loadFigure f =
-		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
-			$ unsafePerformIO (readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", p] "")
-	where
-		p = Text.unpack $ "../../source/" ++ Text.replace ".pdf" ".dot" f
-		r = mkRegex "<g id=\"[^\"]*\"" 
-		rmIds = Text.pack . flip (subRegex r) "<g" . Text.unpack
-			-- Without rmIds, if a page has more than one figure, it will
-			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
-
 instance Render Element where
 	render (LatexElements t) = xml "p" [] $ render t
 	render (Bnf e t)
@@ -223,7 +213,7 @@ instance Render Element where
 		spanTag "tabletitle" (render tableCaption)
 		++ renderTable columnSpec tableBody
 	render Figure{..} =
-		xml "div" [("class", "figure")] $ loadFigure figureFile ++ "<br>" ++ render figureName
+		xml "div" [("class", "figure")] $ figureSvg ++ "<br>" ++ render figureName
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
 		where
 			t = case ek of
@@ -576,4 +566,13 @@ writeStuff chapters = do
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
 
 main :: IO ()
-main = load14882 "../../source/" >>= writeStuff
+main = do
+	cwd <- getCurrentDirectory
+
+	[repo] <- getArgs
+	setCurrentDirectory $ repo ++ "/source"
+	
+	stuff <- load14882
+
+	setCurrentDirectory cwd
+	writeStuff stuff

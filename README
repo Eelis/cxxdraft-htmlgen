@@ -10,13 +10,11 @@ Prerequisites
 
 Usage
 
-  In this directory, run:
-
-    runhaskell genhtml.hs
+  runhaskell genhtml.hs path/to/draft
 
 Output
 
-  The following will be created in 14882/ :
+  The following will be created in ./14882/ :
 
   - index.html    A long table of contents with links to...
 

@@ -17,8 +17,12 @@ import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
+import System.Directory (getCurrentDirectory, setCurrentDirectory)
 import Data.List (sort)
 import Data.Maybe (isJust, fromJust)
+import System.IO.Unsafe (unsafePerformIO)
+import System.Process (readProcess)
+import Text.Regex (mkRegex, subRegex)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -32,7 +36,7 @@ data Element
 		, columnSpec :: LaTeX
 		, tableAbbrs :: [LaTeX]
 		, tableBody :: [[LaTeX]] }
-	| Figure { figureName, figureAbbr :: LaTeX, figureFile :: Text }
+	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -45,7 +49,7 @@ data SectionKind
 	| DefinitionSection
 	| InformativeAnnexSection
 	| NormativeAnnexSection
-	deriving Eq
+	deriving (Eq, Show)
 
 data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving (Eq, Show)
@@ -56,6 +60,7 @@ data LinearSection = LinearSection
 	, lsectionName :: LaTeX
 	, lsectionPreamble :: Paragraph
 	, lsectionParagraphs :: [Paragraph] }
+	deriving Show
 
 type Chapter = (ChapterKind, Section)
 
@@ -217,12 +222,23 @@ makeRow latex =
 		getText (TeXSeq (TeXRaw s) _) = s
 		getText other = error $ "Didn't expect " ++ show other
 
+loadFigure :: Text -> Text
+loadFigure f =
+		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
+			$ unsafePerformIO (readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", p] "")
+	where
+		p = Text.unpack $ Text.replace ".pdf" ".dot" f
+		r = mkRegex "<g id=\"[^\"]*\"" 
+		rmIds = Text.pack . flip (subRegex r) "<g" . Text.unpack
+			-- Without rmIds, if a page has more than one figure, it will
+			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
+
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
 parsePara (e@(TeXEnv k a stuff) : more)
 	| isFigure e
 	, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
-	= Figure{..} : parsePara more
+	= Figure{figureSvg=loadFigure figureFile, ..} : parsePara more
 	| isTable e
 	, ((x : _todo) : _) <- lookForCommand "caption" stuff
 	, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
@@ -501,8 +517,8 @@ parseFile macros = fst
 	. replace "\\bigl[" "\\bigl ["
 	. Text.pack . killVerb . Text.unpack
 
-load14882 :: FilePath -> IO [Chapter]
-load14882 source = do
+load14882 :: IO [Chapter]
+load14882 = do
 
 	m@Macros{..} <-
 		snd
@@ -511,7 +527,7 @@ load14882 source = do
 		. newlineCurlies
 		. mconcat
 		. mapM Data.Text.IO.readFile
-		((source ++) . ["config.tex", "macros.tex", "tables.tex" ])
+		["config.tex", "macros.tex", "tables.tex"]
 
 	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
 		keys commands ++ (Text.unpack . keys environments)
@@ -528,12 +544,14 @@ load14882 source = do
 
 	putStrLn "Loading chapters"
 	sections <- forM files $ \c -> do
-		let p = source ++ c ++ ".tex"
+		let p = c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
 		r <- parseFile m . Data.Text.IO.readFile p
 
 		putStrLn $ show (length r) ++ " sections"
 		return r
+
+	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
 	return $ treeizeChapters $ mconcat sections
