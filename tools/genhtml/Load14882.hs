@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase, TupleSections #-}
 
 module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, load14882) where
 
@@ -224,7 +224,7 @@ parsePara (e@(TeXEnv k a stuff) : more)
 	, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
 	= Figure{..} : parsePara more
 	| isTable e
-	, [x : _todo] <- lookForCommand "caption" stuff
+	, ((x : _todo) : _) <- lookForCommand "caption" stuff
 	, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
 	= Table
 		(texFromArg x)
@@ -233,6 +233,7 @@ parsePara (e@(TeXEnv k a stuff) : more)
 		(parseTable content)
 	  : parsePara more
 	| isTable e = error $ "other table: " ++ show e
+
 	| isBnf e = Bnf k stuff : parsePara more
 	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
 parsePara x = LatexElements v : parsePara more
@@ -307,6 +308,21 @@ texFromArg (OptArg t) = t
 texFromArg (SymArg t) = t
 texFromArg _ = error "no"
 
+mapTeXRaw :: (Text -> LaTeX) -> (LaTeX -> LaTeX)
+mapTeXRaw f = go
+	where
+		go :: LaTeX -> LaTeX
+		go (TeXRaw t) = f t
+		go (TeXComm s args) = TeXComm s (mapTeXArg go . args)
+		go (TeXEnv s args body) = TeXEnv s (mapTeXArg go . args) (go body)
+		go (TeXBraces l) = TeXBraces $ go l
+		go TeXEmpty = TeXEmpty
+		go (TeXSeq x y) = TeXSeq (go x) (go y)
+		go t@(TeXCommS _) = t
+		go t@(TeXComment _) = t
+		go t@(TeXMath _ _) = t
+		go t@(TeXLineBreak _ _) = t
+
 data Macros = Macros
 	{ commands :: Map String Command
 	, environments :: Map Text Environment }
@@ -321,30 +337,75 @@ getDigit c
 	| isDigit c = Just $ ord c - ord '0'
 	| otherwise = Nothing
 
-replaceArgs :: [LaTeX] -> String -> LaTeX
-replaceArgs args (span (/= '#') -> (before, '#':c:more))
-	| Just i <- getDigit c =
-		TeXRaw (Text.pack before) ++
-		((args ++ repeat (TeXRaw "wtf")) !! (i-1)) ++
-		replaceArgs args more
-replaceArgs _ s = TeXRaw $ Text.pack s
+replArgs :: [LaTeX] -> LaTeX -> LaTeX
+replArgs args = mapTeXRaw (replaceArgsInString args . Text.unpack)
+
+ppp :: Text -> (LaTeX -> LaTeX)
+ppp "" = id
+ppp t = TeXSeq (TeXRaw t)
+
+concatRaws :: LaTeX -> LaTeX
+concatRaws l =
+		if b == ""
+			then a
+			else (if a == TeXEmpty then id else TeXSeq a) (TeXRaw b)
+	where
+		go :: Text -> LaTeX -> (LaTeX, Text)
+		go pre t@TeXEmpty = (t, pre)
+		go pre (TeXRaw s) = (TeXEmpty, pre ++ s)
+		go pre (TeXEnv s args body) = (ppp pre $ TeXEnv s (mapTeXArg concatRaws . args) (concatRaws body), "")
+		go pre (TeXComm s args) = (ppp pre $ TeXComm s (mapTeXArg concatRaws . args), "")
+		go pre (TeXCommS s) = (ppp pre $ TeXCommS s, "")
+		go pre (TeXBraces b) = (ppp pre $ TeXBraces (concatRaws b), "")
+		go pre (TeXComment t) = (ppp pre $ TeXComment t, "")
+		go pre (TeXMath m t) = (ppp pre $ TeXMath m t, "")
+		go pre t@(TeXLineBreak m b) = (ppp pre t, "")
+		go pre (TeXSeq x y) =
+			let
+				(x', s) = go pre x
+				(y', s') = go s y
+			in
+				(TeXSeq x' y', s')
+		(a, b) =  go "" l
+
+replaceArgsInString :: [LaTeX] -> String -> LaTeX
+replaceArgsInString args = concatRaws . go
+	where
+		go :: String -> LaTeX
+		go ('#':'#':more) = TeXRaw "#" ++ go more
+		go ('#':c:more)
+			| Just i <- getDigit c =
+			((args ++ repeat "wtf") !! (i-1)) ++
+			go more
+		go (c : more) = TeXRaw (Text.pack [c]) ++ go more
+		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "TableBase drawing definition Cpp importgraphic"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic"
 
-eval :: Macros -> [LaTeX] -> LaTeX -> (LaTeX, Macros)
-eval macros@Macros{..} arguments l = case l of
+filterMacros :: (String -> Bool) -> Macros -> Macros
+filterMacros p Macros{..} = Macros
+	(Map.filterWithKey (\k _ -> p k) commands)
+	(Map.filterWithKey (\k _ -> p $ Text.unpack k) environments)
 
-	TeXEnv e a stuff -> eval macros arguments $
-		TeXComm "begin" (FixArg (TeXRaw (Text.pack e)) : a) ++ stuff
-		++ TeXComm "end" [FixArg (TeXRaw (Text.pack e))]
+eval :: Macros -> LaTeX -> (LaTeX, Macros)
+eval macros@Macros{..} l = case l of
 
-	TeXRaw s -> (replaceArgs arguments (Text.unpack s), mempty)
+	TeXEnv e a stuff
+		| Just Environment{..} <- lookup (Text.pack e) environments
+		, not (Text.pack e `elem` dontEval) -> (, mempty) $
+			(if e == "TableBase" then TeXEnv e [] else id) $
+			fst $ eval macros $
+			doParseLaTeX $ TeXRender.render $
+				replArgs (fst . eval macros . texFromArg . a) begin
+				++ stuff
+				++ end
+		| otherwise -> (, mempty) $ TeXEnv e (mapTeXArg (fst . eval macros) . a) (fst $ eval macros stuff)
+
+	TeXRaw _ -> (l, mempty)
 
 	TeXCommS "ungap" -> mempty
 
-	TeXComm "newenvironment" (FixArg (TeXRaw s) : _)
-		| s `elem` dontEval -> mempty
 	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
 		-> (mempty, Macros mempty (Map.singleton name (Environment b e)))
 	TeXComm "newenvironment" [FixArg (TeXRaw name), OptArg _, FixArg b, FixArg e]
@@ -360,27 +421,24 @@ eval macros@Macros{..} arguments l = case l of
 	TeXComm c args
 		| Just Command{..} <- lookup c commands
 		, length args >= arity ->
-			let (x,y) = splitAt arity args in
-			(fst (eval macros (map (fst . eval macros arguments . texFromArg) x) body) ++
-				mconcat (map (fst . eval macros arguments . texFromArg) y), mempty)
+			let
+				(x,y) = splitAt arity args
+				body' :: LaTeX
+				body' = replArgs (map (fst . eval macros . texFromArg) x) body
+			in
+				(, mempty) $ fst (eval macros body') ++
+					mconcat (map (fst . eval macros . texFromArg) y)
 
-	TeXComm "begin" (FixArg (TeXRaw n) : a)
-		| Just Environment{..} <- lookup n environments ->
-			(fst (eval macros (map (fst . eval macros arguments . texFromArg) a) begin), mempty)
-	TeXComm "end" [FixArg (TeXRaw n)]
-		| Just Environment{..} <- lookup n environments ->
-			(fst (eval macros arguments end), mempty)
-
-	TeXComm c [] -> eval macros arguments (TeXComm c [FixArg TeXEmpty])
-	TeXComm c args -> (TeXComm c (map (mapTeXArg (fst . eval macros arguments)) args), mempty)
+	TeXComm c [] -> eval macros (TeXComm c [FixArg TeXEmpty])
+	TeXComm c args -> (TeXComm c (map (mapTeXArg (fst . eval macros)) args), mempty)
 	TeXCommS c
 		| Just Command{..} <- lookup c commands
-		, arity == 0 -> eval macros [] body
+		, arity == 0 -> eval macros body
 	TeXSeq x y ->
-		let (x', m) = eval macros arguments x in
-		let (y', m') = eval (m ++ macros) arguments y in
+		let (x', m) = eval macros x in
+		let (y', m') = eval (m ++ macros) y in
 			(x' ++ y', m' ++ m)
-	TeXBraces x -> (TeXBraces $ fst $ eval macros arguments x, mempty)
+	TeXBraces x -> (TeXBraces $ fst $ eval macros x, mempty)
 	_ -> (l, mempty)
 
 mapTeX :: (LaTeX -> Maybe LaTeX) -> (LaTeX -> LaTeX)
@@ -428,7 +486,7 @@ parseFile macros = fst
 	. rmseqs
 	. doParseLaTeX
 	. TeXRender.render
-	. fst . eval macros []
+	. fst . eval macros
 	. doParseLaTeX
 	. replace "\\hspace*" "\\hspace"
 	. newlineCurlies
@@ -448,7 +506,7 @@ load14882 source = do
 
 	m@Macros{..} <-
 		snd
-		. eval mempty []
+		. eval mempty
 		. doParseLaTeX
 		. newlineCurlies
 		. mconcat
@@ -474,6 +532,7 @@ load14882 source = do
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
 		r <- parseFile m . Data.Text.IO.readFile p
+
 		putStrLn $ show (length r) ++ " sections"
 		return r
 
