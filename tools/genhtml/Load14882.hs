@@ -236,7 +236,7 @@ parsePara (e@(TeXEnv k a stuff) : more)
 	| isBnf e = Bnf k stuff : parsePara more
 	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
 parsePara x = LatexElements v : parsePara more
-	where (v, more) = span (not . isElementsEnd) x
+	where (v, more) = span (not . isElementsEnd) (dropWhile isJunk x)
 
 parseParas :: [LaTeX] -> ([Paragraph], [LaTeX])
 parseParas (TeXCommS "pnum" : more)
@@ -424,12 +424,6 @@ newlineCurlies =
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros = fst
 	. parseSections
-	. filter (not . isTeXComm "index")
-	. filter (not . isTeXComm "indextext")
-	. filter (not . isTeXComm "indexlibrary")
-	. filter (not . isTeXComm "enlargethispage")
-	. filter (not . isTeXComm "indextext")
-	. filter (not . isTeXComm "indexdefn")
 	. filter (not . isComment)
 	. rmseqs
 	. doParseLaTeX
