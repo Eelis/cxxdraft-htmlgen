@@ -88,6 +88,7 @@ simpleMacros =
 	, ("ldots"          , "&hellip;")
 	, ("times"          , "&times;")
 	, ("&"              , "&amp;")
+	, ("$"              , "&#36;")
 	, ("backslash"      , "\\")
 	, ("textbackslash"  , "\\")
 	, ("textunderscore" , "_")
@@ -186,6 +187,7 @@ instance Render LaTeX where
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm "leftshift" [FixArg content]) = mconcat [spanTag "mathsf" "lshift", xml "sub" [("class", "math")] $ render content]
 	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
+	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
 	    | null s, Just y <-
@@ -226,6 +228,11 @@ instance Render Element where
 				"itemize" -> xml "ul" []
 				"description" -> xml "ul" []
 				_ -> undefined
+
+renderVerb :: LaTeX -> Text
+renderVerb t@(TeXRaw s) = renderCode t
+renderVerb (TeXBraces _) = ""
+renderVerb other = render other
 
 renderCode :: LaTeX -> Text
 renderCode (TeXRaw s) =

@@ -4,6 +4,7 @@ module Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), 
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
+import Text.LaTeX.Base (protectString)
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>), texmap)
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
@@ -334,10 +335,13 @@ parseSections (TeXComm "definition" [FixArg lsectionName,
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)
 
-killVerb :: String -> String
-killVerb ('\\':'v':'e':'r':'b':'|':x) = "<verb>" ++ killVerb (tail $ dropWhile (/= '|') x)
-killVerb (x:y) = x : killVerb y
-killVerb [] = []
+translateVerb :: String -> String
+translateVerb ('\\':'v':'e':'r':'b':delim:rest) =
+	"\\verb{" ++ (protectString inside) ++ "}" ++ translateVerb rest'
+	where
+		(inside, _ : rest') = break (== delim) rest
+translateVerb (x:y) = x : translateVerb y
+translateVerb [] = []
 
 data Command = Command
 	{ arity :: !Int
@@ -579,7 +583,7 @@ parseFile macros = fst
 	. replace "\\rSec4" "\\rSec[4]"
 	. replace "\\rSec5" "\\rSec[5]"
 	. replace "\\bigl[" "\\bigl ["
-	. Text.pack . killVerb . Text.unpack
+	. Text.pack . translateVerb . Text.unpack
 
 getCommitUrl :: IO Text
 getCommitUrl = do
