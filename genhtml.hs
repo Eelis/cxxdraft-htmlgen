@@ -333,12 +333,18 @@ renderTable colspec =
 						| rest == [] = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ render content)
+					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ renderCell content)
 					++ renderCols (drop (colspan - 1) cs) rest
 			| otherwise =
-				(xml "td" [("class", c)] $ render content)
+				(xml "td" [("class", c)] $ renderCell content)
 				++ renderCols cs rest
 		renderCols [] (_ : _) = error "Too many columns"
+
+renderCell :: Paragraph -> Text
+renderCell = mconcat . map renderCell'
+	where
+		renderCell' (LatexElements t) = render t
+		renderCell' other = render other
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX

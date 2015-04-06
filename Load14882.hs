@@ -28,9 +28,9 @@ import Text.Regex (mkRegex, subRegex)
 (++) = mappend
 
 data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
-data Cell = Cell { cellSpan :: CellSpan, content :: LaTeX } deriving (Eq, Show)
-data RowSepKind = RowSep | CapSep | NoSep deriving Show
-data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving Show
+data Cell = Cell { cellSpan :: CellSpan, content :: Paragraph } deriving (Eq, Show)
+data RowSepKind = RowSep | CapSep | NoSep deriving (Eq, Show)
+data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving (Eq, Show)
 
 data Element
 	= LatexElements [LaTeX]
@@ -42,7 +42,7 @@ data Element
 		, tableAbbrs :: [LaTeX]
 		, tableBody :: [Row] }
 	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
-	deriving Show
+	deriving (Eq, Show)
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
@@ -249,11 +249,13 @@ makeRowCells latex =
 		getText (TeXSeq (TeXRaw s) _) = s
 		getText other = error $ "Didn't expect " ++ show other
 
+		getContent = parsePara . rmseqs
+
 		makeCell content
 			| [[FixArg (TeXRaw w), FixArg cs, FixArg content']] <- lookForCommand "multicolumn" content =
-				Cell (Multicolumn (read $ Text.unpack w) cs) content'
+				Cell (Multicolumn (read $ Text.unpack w) cs) $ getContent content'
 			| otherwise =
-				Cell Normal content
+				Cell Normal $ getContent content
 
 loadFigure :: Text -> Text
 loadFigure f =
