@@ -376,12 +376,13 @@ mapTeXRaw f = go
 
 data Macros = Macros
 	{ commands :: Map String Command
-	, environments :: Map Text Environment }
+	, environments :: Map Text Environment
+	, counters :: Map Text Int }
 	deriving Show
 
 instance Monoid Macros where
-	mempty = Macros mempty mempty
-	mappend x y = Macros (commands x ++ commands y) (environments x ++ environments y)
+	mempty = Macros mempty mempty mempty
+	mappend x y = Macros (commands x ++ commands y) (environments x ++ environments y) (counters x ++ counters y)
 
 getDigit :: Char -> Maybe Int
 getDigit c
@@ -438,6 +439,7 @@ filterMacros :: (String -> Bool) -> Macros -> Macros
 filterMacros p Macros{..} = Macros
 	(Map.filterWithKey (\k _ -> p k) commands)
 	(Map.filterWithKey (\k _ -> p $ Text.unpack k) environments)
+	(Map.filterWithKey (\k _ -> p $ Text.unpack k) counters)
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -457,18 +459,34 @@ eval macros@Macros{..} l = case l of
 
 	TeXCommS "ungap" -> mempty
 
+	TeXComm "newcounter" [FixArg (TeXRaw name)]
+		-> (mempty, Macros mempty mempty (Map.singleton name 0))
+
+	TeXComm "setcounter" [FixArg (TeXRaw name), FixArg (TeXRaw newValue)] ->
+		(mempty, Macros mempty mempty (Map.singleton name (read $ Text.unpack newValue)))
+
+	TeXComm "addtocounter" [FixArg (TeXRaw name), FixArg (TeXRaw addend)]
+		| Just value <- lookup name counters ->
+			(mempty, Macros mempty mempty (Map.singleton name (value + (read $ Text.unpack addend))))
+		| otherwise -> error "addtocounter: No such counter"
+
+	TeXComm "value" [FixArg (TeXRaw name)]
+		| Just value <- lookup name counters ->
+			(TeXRaw $ Text.pack $ show value, macros)
+		| otherwise -> error "value: No such counter"
+
 	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
-		-> (mempty, Macros mempty (Map.singleton name (Environment b e)))
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e)) mempty)
 	TeXComm "newenvironment" [FixArg (TeXRaw name), OptArg _, FixArg b, FixArg e]
-		-> (mempty, Macros mempty (Map.singleton name (Environment b e)))
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e)) mempty)
 	TeXComm "newenvironment" _ -> error "unrecognized newenv"
 
 	TeXComm "newcommand" (FixArg (TeXCommS s) : _)
 		| Text.pack s `elem` dontEval -> mempty
 	TeXComm "newcommand" [FixArg (TeXCommS name), OptArg (TeXRaw argcount), FixArg body]
-		-> (mempty, Macros (Map.singleton name (Command (read (Text.unpack argcount)) body)) mempty)
+		-> (mempty, Macros (Map.singleton name (Command (read (Text.unpack argcount)) body)) mempty mempty)
 	TeXComm "newcommand" [FixArg (TeXCommS name), FixArg body]
-		-> (mempty, Macros (Map.singleton name (Command 0 body)) mempty)
+		-> (mempty, Macros (Map.singleton name (Command 0 body)) mempty mempty)
 	TeXComm c args
 		| Just Command{..} <- lookup c commands
 		, length args >= arity ->
