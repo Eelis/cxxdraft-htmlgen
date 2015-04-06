@@ -148,6 +148,11 @@ tr.rowsep {
 	border-top: 1px solid black;
 }
 
+tr.capsep {
+	border-top: 3px solid black;
+	border-top-style: double;
+}
+
 th {
 	border-bottom: 1px solid black;
 }

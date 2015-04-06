@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase, TupleSections #-}
 
-module Load14882 (CellSpan(..), Cell(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
+module Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -29,7 +29,8 @@ import Text.Regex (mkRegex, subRegex)
 
 data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
 data Cell = Cell { cellSpan :: CellSpan, content :: LaTeX } deriving (Eq, Show)
-data Row = Row { rowSep :: Bool, cells :: [Cell] } deriving Show
+data RowSepKind = RowSep | CapSep | NoSep deriving Show
+data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving Show
 
 data Element
 	= LatexElements [LaTeX]
@@ -220,7 +221,12 @@ parseTable latex@(TeXSeq _ _)
 parseTable latex = [makeRow latex]
 
 makeRow :: LaTeX -> Row
-makeRow l = Row (rowHas (== "hline") l) $ makeRowCells l
+makeRow l = Row sep $ makeRowCells l
+	where
+		sep
+			| rowHas (== "hline") l = RowSep
+			| rowHas (== "capsep") l = CapSep
+			| otherwise = NoSep
 
 makeRowCells :: LaTeX -> [Cell]
 makeRowCells TeXEmpty = []
@@ -424,7 +430,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep"
 
 filterMacros :: (String -> Bool) -> Macros -> Macros
 filterMacros p Macros{..} = Macros

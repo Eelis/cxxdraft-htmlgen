@@ -4,7 +4,7 @@
 	TupleSections,
 	ViewPatterns #-}
 
-import Load14882 (CellSpan(..), Cell(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
+import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
 import Data.Text (Text)
@@ -318,7 +318,8 @@ renderTable colspec =
 		renderRows cs (Row{..} : rest) =
 			(xml "tr" cls $ renderCols cs cells) ++ renderRows cs rest
 			where
-				cls | rowSep = [("class", "rowsep")]
+				cls | RowSep <- rowSep = [("class", "rowsep")]
+				    | CapSep <- rowSep = [("class", "capsep")]
 				    | otherwise = []
 
 		renderCols _ [] = ""
