@@ -374,6 +374,12 @@ mapTeXRaw f = go
 		go t@(TeXMath _ _) = t
 		go t@(TeXLineBreak _ _) = t
 
+extractText :: LaTeX -> Text
+extractText (TeXRaw s) = s
+extractText (TeXSeq a b) = (extractText a) ++ (extractText b)
+extractText TeXEmpty = ""
+extractText _ = error "extractText"
+
 data Macros = Macros
 	{ commands :: Map String Command
 	, environments :: Map Text Environment
@@ -459,21 +465,26 @@ eval macros@Macros{..} l = case l of
 
 	TeXCommS "ungap" -> mempty
 
-	TeXComm "newcounter" [FixArg (TeXRaw name)]
-		-> (mempty, Macros mempty mempty (Map.singleton name 0))
+	TeXComm "newcounter" [FixArg name']
+		| name <- extractText name' ->
+			(mempty, Macros mempty mempty (Map.singleton name 0))
 
-	TeXComm "setcounter" [FixArg (TeXRaw name), FixArg (TeXRaw newValue)] ->
-		(mempty, Macros mempty mempty (Map.singleton name (read $ Text.unpack newValue)))
+	TeXComm "setcounter" [FixArg name', FixArg newValue']
+		| name <- extractText name'
+		, newValue <- extractText newValue' ->
+			(mempty, Macros mempty mempty (Map.singleton name (read $ Text.unpack newValue)))
 
-	TeXComm "addtocounter" [FixArg (TeXRaw name), FixArg (TeXRaw addend)]
-		| Just value <- lookup name counters ->
+	TeXComm "addtocounter" [FixArg name', FixArg  addend']
+		| name <- extractText name'
+		, addend <- extractText addend'
+		, Just value <- lookup name counters ->
 			(mempty, Macros mempty mempty (Map.singleton name (value + (read $ Text.unpack addend))))
-		| otherwise -> error "addtocounter: No such counter"
 
-	TeXComm "value" [FixArg (TeXRaw name)]
-		| Just value <- lookup name counters ->
+	TeXComm "value" [FixArg name']
+		| name <- extractText name'
+		, Just value <- lookup name counters ->
 			(TeXRaw $ Text.pack $ show value, macros)
-		| otherwise -> error "value: No such counter"
+		| otherwise -> error $ "value: No such counter: " ++ show (concatRaws name')
 
 	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
 		-> (mempty, Macros mempty (Map.singleton name (Environment b e)) mempty)
