@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase, TupleSections #-}
 
-module Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
+module Load14882 (CellSpan(..), Cell(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, (<>), texmap)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>), texmap)
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import Data.Monoid (Monoid(..), mconcat)
@@ -27,6 +27,10 @@ import Text.Regex (mkRegex, subRegex)
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
 
+data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
+data Cell = Cell { cellSpan :: CellSpan, content :: LaTeX } deriving (Eq, Show)
+data Row = Row { rowSep :: Bool, cells :: [Cell] } deriving Show
+
 data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
@@ -35,7 +39,7 @@ data Element
 		{ tableCaption :: LaTeX
 		, columnSpec :: LaTeX
 		, tableAbbrs :: [LaTeX]
-		, tableBody :: [[LaTeX]] }
+		, tableBody :: [Row] }
 	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
 	deriving Show
 
@@ -189,27 +193,48 @@ texTail :: LaTeX -> LaTeX
 texTail (TeXSeq _ t) = t
 texTail _ = error "Not a sequence"
 
-parseTable :: LaTeX -> [[LaTeX]]
+rowHas :: (String -> Bool) -> LaTeX -> Bool
+rowHas f = not . null . matchCommand f
+
+parseTable :: LaTeX -> [Row]
 parseTable TeXEmpty = []
 parseTable latex@(TeXSeq _ _) =
 	case row of
 		TeXEmpty -> parseTable $ texTail rest
-		_ -> makeRow row : parseTable rest
+		_ | rowHas (== "endfirsthead") row ->
+			parseTable $ findEndHead rest
+		_ | rowHas (`elem` ["caption", "bottomline"]) row ->
+			parseTable rest
+		_ ->
+			makeRow row : parseTable rest
 	where
-		(row, rest) = texBreak isRowEnd latex
+		breakRow = texBreak isRowEnd
+		(row, rest) = breakRow latex
 		isRowEnd (TeXLineBreak _ _) = True
 		isRowEnd _ = False
+
+		findEndHead TeXEmpty = error "Table ended before end of head"
+		findEndHead l
+			| TeXEmpty <- row' = findEndHead $ texTail rest'
+			| rowHas (== "endhead") row' = l
+			| otherwise = findEndHead rest'
+			where
+				(row', rest') = breakRow l
+
 parseTable latex = [makeRow latex]
 
-makeRow :: LaTeX -> [LaTeX]
-makeRow TeXEmpty = []
-makeRow latex =
+makeRow :: LaTeX -> Row
+makeRow l = Row (rowHas (== "hline") l) $ makeRowCells l
+
+makeRowCells :: LaTeX -> [Cell]
+makeRowCells TeXEmpty = []
+makeRowCells latex =
 	case rest of
-		TeXEmpty -> [cell]
+		TeXEmpty -> [makeCell cell]
 		TeXSeq _ r ->
-			(cell <> (TeXRaw cell')) : makeRow (TeXSeq (TeXRaw rest'') r)
+			(makeCell $ cell <> (TeXRaw cell')) : makeRowCells (TeXSeq (TeXRaw rest'') r)
 		TeXRaw r ->
-			[(cell <> (TeXRaw cell')), TeXRaw (rest'' ++ r)]
+			[(makeCell $ cell <> (TeXRaw cell')), makeCell $ TeXRaw (rest'' ++ r)]
 		_ -> error $ "Unexpected " ++ show rest
 	where
 		(cell, rest) = texBreak isColEnd latex
@@ -221,6 +246,12 @@ makeRow latex =
 		getText (TeXRaw s) = s
 		getText (TeXSeq (TeXRaw s) _) = s
 		getText other = error $ "Didn't expect " ++ show other
+
+		makeCell content
+			| [[FixArg (TeXRaw w), FixArg cs, FixArg content']] <- lookForCommand "multicolumn" content =
+				Cell (Multicolumn (read $ Text.unpack w) cs) content'
+			| otherwise =
+				Cell Normal content
 
 loadFigure :: Text -> Text
 loadFigure f =

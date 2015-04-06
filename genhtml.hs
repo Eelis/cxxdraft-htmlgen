@@ -4,7 +4,7 @@
 	TupleSections,
 	ViewPatterns #-}
 
-import Load14882 (Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
+import Load14882 (CellSpan(..), Cell(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
 import Data.Text (Text)
@@ -283,7 +283,7 @@ renderMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
 renderMath (TeXSeq a b) = (renderMath a) ++ (renderMath b)
 renderMath other = render other
 
-renderTable :: LaTeX -> [[LaTeX]] -> Text
+renderTable :: LaTeX -> [Row] -> Text
 renderTable colspec =
 	xml "table" [] .
 	renderRows (parseColspec $ Text.unpack $ stripColspec colspec)
@@ -314,33 +314,25 @@ renderTable colspec =
 			  Nothing <- Text.stripPrefix "border" newCs = "border " ++ newCs
 			| otherwise = newCs
 
-		rowHas f = any (\r -> not $ null $ matchCommand f r)
-
 		renderRows _ [] = ""
-		renderRows cs (row : rest)
-			| rowHas (== "endfirsthead") row =
-				renderRows cs r'
-			| rowHas (`elem` ["caption", "bottomline"]) row =
-				renderRows cs rest
-			| otherwise =
-				(xml "tr" cls $ renderCols cs row)
-				++ renderRows cs rest
+		renderRows cs (Row{..} : rest) =
+			(xml "tr" cls $ renderCols cs cells) ++ renderRows cs rest
 			where
-				cls = if rowHas (`elem` makeRowsep) row then [("class", "rowsep")] else []
-				r' = dropWhile (not . rowHas (== "endhead")) rest
+				cls | rowSep = [("class", "rowsep")]
+				    | otherwise = []
 
 		renderCols _ [] = ""
-		renderCols (c : cs) (content : rest)
+		renderCols (c : cs) (Cell{..} : rest)
 			| length cs < length rest = undefined
-			| [[FixArg w, FixArg cs', FixArg content']] <- lookForCommand "multicolumn" content =
+			| Multicolumn w cs' <- cellSpan =
 				let 
 					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
 					c' = combine c'' c
 					colspan
 						| rest == [] = length cs + 1
-						| TeXRaw n <- w = read $ Text.unpack n
+						| otherwise = w
 				in
-					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ render content')
+					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ render content)
 					++ renderCols (drop (colspan - 1) cs) rest
 			| otherwise =
 				(xml "td" [("class", c)] $ render content)
