@@ -531,7 +531,7 @@ fixCommentsInCodeblocks = mapTeX $
 		_ -> Nothing
 	where
 		f :: LaTeX -> Maybe LaTeX
-		f (TeXComment t) = Just $ TeXRaw $ "%" ++ t ++ "\n"
+		f (TeXComment t) = Just $ (TeXRaw "%") <> (mapTeX f $ doParseLaTeX (t ++ "\n"))
 		f _ = Nothing
 
 moreArgs :: LaTeX -> LaTeX
