@@ -198,15 +198,11 @@ rowHas f = not . null . matchCommand f
 
 parseTable :: LaTeX -> [Row]
 parseTable TeXEmpty = []
-parseTable latex@(TeXSeq _ _) =
-	case row of
-		TeXEmpty -> parseTable $ texTail rest
-		_ | rowHas (== "endfirsthead") row ->
-			parseTable $ findEndHead rest
-		_ | rowHas (`elem` ["caption", "bottomline"]) row ->
-			parseTable rest
-		_ ->
-			makeRow row : parseTable rest
+parseTable latex@(TeXSeq _ _)
+	| TeXEmpty <- row = parseTable $ texTail rest
+	| rowHas (== "endfirsthead") row = parseTable $ findEndHead rest
+	| rowHas (`elem` ["caption", "bottomline"]) row = parseTable rest
+	| otherwise = makeRow row : parseTable rest
 	where
 		breakRow = texBreak isRowEnd
 		(row, rest) = breakRow latex
@@ -428,7 +424,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline"
 
 filterMacros :: (String -> Bool) -> Macros -> Macros
 filterMacros p Macros{..} = Macros
