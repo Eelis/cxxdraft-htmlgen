@@ -18,7 +18,7 @@ ul > li:before {
 
 :target { background-color: #E9FBE9; }
 
-a.abbr_ref { float: right; }
+.abbr_ref { float: right; }
 
 .secnum { padding-right: 1.5em; }
 

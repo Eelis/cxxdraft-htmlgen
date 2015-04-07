@@ -171,7 +171,7 @@ instance Render LaTeX where
 	render (TeXBraces t              ) = render t
 	render (TeXMath _ t              ) = spanTag "math" $ renderMath t
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
-	render (TeXComm "ref" [FixArg x])  = render $ linkToSection "" SectionToSection x
+	render (TeXComm "ref" [FixArg x])  = render $ linkToSection SectionToSection x
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
@@ -397,9 +397,8 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 
 data Link = TocToSection | SectionToToc | SectionToSection
 
-linkToSection :: Text -> Link -> LaTeX -> Anchor
-linkToSection clas link abbr = anchor{
-		aClass = clas,
+linkToSection :: Link -> LaTeX -> Anchor
+linkToSection link abbr = anchor{
 		aHref = case (sectionFileStyle, link) of
 			(Bare, SectionToToc) -> "./#" ++ u -- hmm
 			(Bare, TocToSection) -> u
@@ -452,7 +451,11 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
-			++ render (linkToSection "abbr_ref" (if specific == Just abbreviation then SectionToToc else SectionToSection) abbreviation)
+			++ if specific == Just abbreviation
+				then xml "span" [("class","abbr_ref")] $
+					"<small>TOC ▸</small> " ++ render (linkToSection SectionToToc abbreviation)
+				else render (linkToSection SectionToSection abbreviation){aClass="abbr_ref"}
+				
 		anysubcontent =
 			or $ map (snd . renderSection specific True)
 			   $ numberSubsecs path subsections
@@ -506,7 +509,7 @@ tocFileContent Draft{..} =
 			h Nothing (length $ sectionNums sectionPath) (
 				xml "small" [] (
 				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, linkToSection "abbr_ref" TocToSection abbreviation))) ++
+				render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"}))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fullFileContent :: [Chapter] -> Text
