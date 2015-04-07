@@ -167,6 +167,7 @@ instance Render LaTeX where
 	render (TeXComment _             ) = ""
 	render (TeXCommS "br"            ) = "<br/>"
 	render (TeXLineBreak _ _         ) = "<br/>"
+	render (TeXCommS "break"         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = render t
 	render (TeXMath _ t              ) = spanTag "math" $ renderMath t
