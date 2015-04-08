@@ -2,13 +2,13 @@
 	OverloadedStrings,
 	RecordWildCards,
 	TupleSections,
-	ViewPatterns #-}
+	ViewPatterns,
+	LambdaCase #-}
 
 import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), matchCommand, lookForCommand)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
 import Data.Text (Text)
-import Text.Regex (mkRegex, subRegex)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Char (isSpace)
@@ -19,7 +19,6 @@ import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
-import System.Process (readProcess)
 import System.Environment (getArgs)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
@@ -203,7 +202,7 @@ instance Render LaTeX where
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
-	render (TeXEnv e u t)
+	render (TeXEnv e _ t)
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
@@ -231,7 +230,7 @@ instance Render Element where
 				_ -> undefined
 
 renderVerb :: LaTeX -> Text
-renderVerb t@(TeXRaw s) = renderCode t
+renderVerb t@(TeXRaw _) = renderCode t
 renderVerb (TeXBraces _) = ""
 renderVerb other = render other
 
@@ -397,22 +396,12 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 	render x
 
 data Link = TocToSection | SectionToToc | SectionToSection
+	deriving Show
 
 linkToSection :: Link -> LaTeX -> Anchor
-linkToSection link abbr = anchor{
-		aHref = case (sectionFileStyle, link) of
-			(Bare, SectionToToc) -> "./#" ++ u -- hmm
-			(Bare, TocToSection) -> u
-			(Bare, SectionToSection) ->u
-			(InSubdir, SectionToToc) -> "../#" ++ u
-			(InSubdir, TocToSection) -> u ++ "/"
-			(InSubdir, SectionToSection) -> "../" ++ u
-			(WithExtension, SectionToToc) -> "index.html#" ++ u
-			(WithExtension, TocToSection) -> u ++ ".html"
-			(WithExtension, SectionToSection) -> u ++ ".html",
-		aText  = "[" ++ render abbr ++ "]"}
-	where
-		u = url abbr
+linkToSection link abbr = anchor
+	{	aHref = Text.pack (show link) ++ "/" ++ url abbr
+	,	aText  = "[" ++ render abbr ++ "]" }
 
 url :: LaTeX -> Text
 url (TeXRaw x) = urlEncode x
@@ -483,15 +472,15 @@ withPaths chapters = f normals ++ f annexes
 		f x = (\(i, (k, s)) -> (SectionPath k [i], s)) . zip [1..] x
 		(normals, annexes) = span ((== NormalChapter) . fst) chapters
 
-sectionFileContent :: [Chapter] -> LaTeX -> Text
-sectionFileContent chapters abbreviation =
+sectionFileContent :: SectionFileStyle -> [Chapter] -> LaTeX -> Text
+sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
 	fileContent
 		("[" ++ render abbreviation ++ "]")
 		(mconcat $ fst . renderSection (Just abbreviation) False . withPaths chapters)
-		(if sectionFileStyle == InSubdir then "../" else "")
+		(if sfs == InSubdir then "../" else "")
 
-tocFileContent :: Draft -> Text
-tocFileContent Draft{..} =
+tocFileContent :: SectionFileStyle -> Draft -> Text
+tocFileContent sfs Draft{..} = applySectionFileStyle sfs $
 		fileContent
 			"14882: Contents"
 			(	"<p style='text-align:center'>"
@@ -513,12 +502,12 @@ tocFileContent Draft{..} =
 				render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"}))) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
-fullFileContent :: [Chapter] -> Text
-fullFileContent chapters =
+fullFileContent :: SectionFileStyle -> [Chapter] -> Text
+fullFileContent sfs chapters = applySectionFileStyle sfs $
 	fileContent
 		"14882"
-		(mconcat $ fst . renderSection Nothing True . withPaths chapters)
-		(if sectionFileStyle == InSubdir then "../" else "")
+		(mconcat $ applySectionFileStyle sfs . fst . renderSection Nothing True . withPaths chapters)
+		(if sfs == InSubdir then "../" else "")
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
@@ -548,13 +537,34 @@ data SectionFileStyle
 	= Bare          -- e.g. intro.execution
 	| WithExtension -- e.g. intro.execution.html
 	| InSubdir      -- e.g. intro.execution/index.html
-	deriving Eq
+	deriving (Eq, Read)
 
-sectionFileStyle :: SectionFileStyle
-sectionFileStyle = WithExtension
+doLink :: SectionFileStyle -> Link -> Text -> Text
+doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
+	where
+		go (x : (Text.breakOn "'" -> (a, b)) : z) = x ++ f a ++ go (b : z)
+		go [x] = x
+		go _ = undefined
+		f :: Text -> Text
+		f u = case (sfs, l) of
+			(Bare, SectionToToc) -> "./#" ++ u
+			(Bare, TocToSection) -> u
+			(Bare, SectionToSection) -> u
+			(InSubdir, SectionToToc) -> "../#" ++ u
+			(InSubdir, TocToSection) -> u ++ "/"
+			(InSubdir, SectionToSection) -> "../" ++ u
+			(WithExtension, SectionToToc) -> "index.html#" ++ u
+			(WithExtension, TocToSection) -> u ++ ".html"
+			(WithExtension, SectionToSection) -> u ++ ".html"
 
-writeStuff :: Draft -> IO ()
-writeStuff d@Draft{..} = do
+applySectionFileStyle :: SectionFileStyle -> Text -> Text
+applySectionFileStyle sfs =
+	doLink sfs SectionToSection
+	. doLink sfs SectionToToc
+	. doLink sfs TocToSection
+
+writeStuff :: SectionFileStyle -> Draft -> IO ()
+writeStuff sfs d@Draft{..} = do
 	let outputDir = "14882/"
 	putStr $ "Writing to " ++ outputDir; hFlush stdout
 
@@ -562,38 +572,48 @@ writeStuff d@Draft{..} = do
 
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 
-	writeFile (outputDir ++ "/index.html") $ tocFileContent d
+	writeFile (outputDir ++ "/index.html") $ tocFileContent sfs d
 
-	fullFile <- case sectionFileStyle of
+	fullFile <- case sfs of
 		Bare -> return "full"
 		WithExtension -> return "full.html"
 		InSubdir -> do
 			createDirectoryIfMissing True (outputDir ++ "/full")
 			return "full/index.html"
-	writeFile (outputDir ++ fullFile) $ fullFileContent chapters
+	writeFile (outputDir ++ fullFile) $ fullFileContent sfs chapters
 
 	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
-		f <- case sectionFileStyle of
+		f <- case sfs of
 			Bare -> return $ Text.unpack $ abbrAsPath abbreviation
 			WithExtension -> return $ Text.unpack $ abbrAsPath abbreviation ++ ".html"
 			InSubdir -> do
 				let dir = "/" ++ Text.unpack (abbrAsPath abbreviation)
 				createDirectoryIfMissing True (outputDir ++ dir)
 				return $ dir ++ "/index.html"
-		writeFile (outputDir ++ f) $ sectionFileContent chapters abbreviation
+		writeFile (outputDir ++ f) $ sectionFileContent sfs chapters abbreviation
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
+
+data CmdLineArgs = CmdLineArgs
+	{ repo :: FilePath
+	, sectionFileStyle :: SectionFileStyle }
+
+readCmdLineArgs :: [String] -> CmdLineArgs
+readCmdLineArgs = \case
+	[repo, read -> sectionFileStyle] -> CmdLineArgs{..}
+	[repo] -> CmdLineArgs{sectionFileStyle=WithExtension,..}
+	_ -> error "param: path/to/repo"
 
 main :: IO ()
 main = do
 	cwd <- getCurrentDirectory
 
-	[repo] <- getArgs
+	CmdLineArgs{..} <- readCmdLineArgs . getArgs
 
 	setCurrentDirectory $ repo ++ "/source"
 	
 	draft <- load14882
 
 	setCurrentDirectory cwd
-	writeStuff draft
+	writeStuff sectionFileStyle draft
