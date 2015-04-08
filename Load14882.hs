@@ -18,7 +18,6 @@ import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import System.Directory (getCurrentDirectory, setCurrentDirectory)
 import Data.List (sort)
 import Data.Maybe (isJust, fromJust)
 import System.IO.Unsafe (unsafePerformIO)
@@ -144,10 +143,6 @@ isFigure _ = False
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
 isComment _ = False
-
-isTeXComm :: String -> LaTeX -> Bool
-isTeXComm x (TeXComm y _) | x == y = True
-isTeXComm _ _ = False
 
 isParaEnd :: LaTeX -> Bool
 isParaEnd (TeXCommS "pnum") = True
@@ -455,10 +450,10 @@ concatRaws l =
 		go pre (TeXEnv s args body) = (ppp pre $ TeXEnv s (mapTeXArg concatRaws . args) (concatRaws body), "")
 		go pre (TeXComm s args) = (ppp pre $ TeXComm s (mapTeXArg concatRaws . args), "")
 		go pre (TeXCommS s) = (ppp pre $ TeXCommS s, "")
-		go pre (TeXBraces b) = (ppp pre $ TeXBraces (concatRaws b), "")
+		go pre (TeXBraces x) = (ppp pre $ TeXBraces (concatRaws x), "")
 		go pre (TeXComment t) = (ppp pre $ TeXComment t, "")
 		go pre (TeXMath m t) = (ppp pre $ TeXMath m t, "")
-		go pre t@(TeXLineBreak m b) = (ppp pre t, "")
+		go pre t@(TeXLineBreak _ _) = (ppp pre t, "")
 		go pre (TeXSeq x y) =
 			let
 				(x', s) = go pre x
@@ -481,12 +476,6 @@ replaceArgsInString args = concatRaws . go
 
 dontEval :: [Text]
 dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep"
-
-filterMacros :: (String -> Bool) -> Macros -> Macros
-filterMacros p Macros{..} = Macros
-	(Map.filterWithKey (\k _ -> p k) commands)
-	(Map.filterWithKey (\k _ -> p $ Text.unpack k) environments)
-	(Map.filterWithKey (\k _ -> p $ Text.unpack k) counters)
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
