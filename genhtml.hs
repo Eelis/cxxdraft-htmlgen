@@ -46,7 +46,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -82,6 +82,7 @@ simpleMacros =
 	, ("br"             , "<br/>&emsp;")
 	, ("sim"            , "~")
 	, ("quad"           , "&emsp;&ensp;")
+	, ("indent"         , "&emsp;")
 	, ("unun"           , "__")
 	, ("^"              , "^")
 	, ("ldots"          , "&hellip;")
@@ -119,7 +120,7 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeRowsep, makeCodeblock :: [String]
-makeSpan = words "indented ttfamily itemdescr minipage center"
+makeSpan = words "indented itemdescr minipage center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
@@ -203,6 +204,7 @@ instance Render LaTeX where
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
+	render (TeXEnv "tabbing" [] t)     = renderTabbing t
 	render (TeXEnv e _ t)
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
@@ -362,6 +364,7 @@ renderCell = mconcat . map renderCell'
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
+preprocessPre (TeXLineBreak _ _) = TeXEmpty
 preprocessPre (TeXCommS "br") = TeXEmpty
 preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
@@ -377,23 +380,30 @@ strip =
 bnfPre :: Text -> Text
 bnfPre = xml "pre" [("class", "bnf")] . strip
 
-renderBnfTable :: LaTeX -> Text
-renderBnfTable = bnfPre . processHTML . render . preprocessTeX . preprocessPre
+preprocessTabbing :: LaTeX -> LaTeX
+preprocessTabbing = go
 	where
-		processHTML = Text.replace "\t" "&#9;"
-
 		initialTab (Text.stripPrefix ">" -> Just rest) =
 			"\t" ++ rest
 		initialTab other = other
 
-		preprocessTeX (TeXBraces t) = t
-		preprocessTeX (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
-			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ preprocessTeX rest)
-		preprocessTeX (TeXSeq (TeXCommS "") (TeXRaw s)) =
+		go (TeXBraces t) = t
+		go (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
+			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ go rest)
+		go (TeXSeq (TeXCommS "") (TeXRaw s)) =
 			TeXSeq (TeXCommS "") (TeXRaw $ initialTab s)
-		preprocessTeX (TeXSeq a b) = TeXSeq (preprocessTeX a) (preprocessTeX b)
-		preprocessTeX (TeXEnv e a c) = TeXEnv e a (preprocessTeX c)
-		preprocessTeX other = other
+		go (TeXSeq a b) = TeXSeq (go a) (go b)
+		go (TeXEnv e a c) = TeXEnv e a (go c)
+		go other = other
+
+htmlTabs :: Text -> Text
+htmlTabs = Text.replace "\t" "&#9;"
+
+renderBnfTable :: LaTeX -> Text
+renderBnfTable = bnfPre . htmlTabs . render . preprocessTabbing . preprocessPre
+
+renderTabbing :: LaTeX -> Text
+renderTabbing = xml "pre" [] . htmlTabs . render . preprocessTabbing . preprocessPre
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (show -> Text.pack -> i, x) =
