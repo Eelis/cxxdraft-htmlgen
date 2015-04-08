@@ -67,9 +67,9 @@ Todo
   - math
   - don't break sentences for footnotes
   - minipages side-by-side
-  - layout in compatibility annex
   - comments in code supposed to be italic
   - paragraphs include wrong code in library chapters
   - different kinds of enumeration
   - align paragraph numbers vertically with text
   - \raisebox
+  - too much whitespace around some code snippets

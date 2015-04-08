@@ -289,7 +289,15 @@ parsePara (e@(TeXEnv k a stuff) : more)
 	| isBnf e = Bnf k stuff : parsePara more
 	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
 parsePara x = LatexElements v : parsePara more
-	where (v, more) = span (not . isElementsEnd) (dropWhile isJunk x)
+	where (v, more) = elems (dropWhile isJunk x)
+
+elems :: [LaTeX] -> ([LaTeX], [LaTeX])
+elems [] = ([], [])
+elems y@(x:xs)
+	| isElementsEnd x = ([], y)
+	| TeXRaw (Text.breakOn "\n\n" -> (a, b)) <- x
+	, b /= "" = ([TeXRaw a], TeXRaw (Text.drop 2 b) : xs)
+	| otherwise = first (x :) (elems xs)
 
 parseParas :: [LaTeX] -> ([Paragraph], [LaTeX])
 parseParas (TeXCommS "pnum" : more)
@@ -589,7 +597,10 @@ getCommitUrl :: IO Text
 getCommitUrl = do
 	url <- Text.strip . Text.pack . readProcess "git" ["config", "--get", "remote.origin.url"] ""
 	commit <- Text.strip . Text.pack . readProcess "git" ["rev-parse", "HEAD"] ""
-	return $ Text.replace ".git" "/commit/" url ++ commit
+	return $
+		( Text.replace "git@github.com:" "http://github.com/"
+		$ Text.replace ".git" "/commit/" url)
+		++ commit
 
 data Draft = Draft { commitUrl :: Text, chapters :: [Chapter] }
 
@@ -615,7 +626,7 @@ load14882 = do
 		files = words $
 			"intro lex basic conversions expressions statements " ++
 			"declarations declarators classes derived access special " ++
-			"overloading templates exceptions preprocessor lib-intro "  ++
+			"overloading templates exceptions preprocessor lib-intro " ++
 			"support diagnostics utilities strings locales containers " ++
 			"iterators algorithms numerics iostreams regex atomics threads " ++
 			"grammar limits compatibility future charname"
