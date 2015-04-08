@@ -20,7 +20,10 @@ ul > li:before {
 
 .abbr_ref { float: right; }
 
-.secnum { padding-right: 1.5em; }
+.secnum {
+	display: inline-block;
+	width: 71pt;
+}
 
 div.paranumberparent {
 	position: relative;
