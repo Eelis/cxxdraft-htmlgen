@@ -443,7 +443,8 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 			++ render sectionName
 			++ if specific == Just abbreviation
 				then xml "span" [("class","abbr_ref")] $
-					"<small>TOC ▸</small> " ++ render (linkToSection SectionToToc abbreviation)
+					"[" ++ render abbreviation ++ "] "
+					++ render (linkToSection SectionToToc abbreviation){aText="⬆"}
 				else render (linkToSection SectionToSection abbreviation){aClass="abbr_ref"}
 				
 		anysubcontent =
