@@ -99,9 +99,9 @@ span.itemdecl {
 	display: block;
 }
 
-span.footnote:before { content: "Footnote: \00a0"; }
+.footnote:before { content: "Footnote: \00a0"; }
 
-span.footnote {
+.footnote {
 	font-size: small;
 	display: block;
 	margin: 2em;

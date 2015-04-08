@@ -43,6 +43,7 @@ data Element
 		, tableAbbrs :: [LaTeX]
 		, tableBody :: [Row] }
 	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
+	| Footnote { number :: Int, text :: LaTeX }
 	deriving (Eq, Show)
 
 -- We don't represent examples as elements with nested content
@@ -269,27 +270,55 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
+extractFootnotes :: [LaTeX] -> Int -> ([LaTeX], [Element], Int)
+extractFootnotes [] c = ([], [], c)
+extractFootnotes (e : es) c =
+	(e' : es', f ++ fs, c'')
+	where
+		extract (TeXComm "footnote" [FixArg content]) counter =
+			(TeXComm "footnoteref" [FixArg (TeXRaw (Text.pack $ show counter))], [Footnote counter content], counter + 1)
+		extract (TeXSeq a b) counter = (TeXSeq a' b', x ++ y, j)
+			where
+				(a', x, i) = extract a counter
+				(b', y, j) = extract b i
+		extract (TeXEnv env args content) counter = (TeXEnv env args $ content', footnotes, counter')
+			where
+				(content', footnotes, counter') = extract content counter
+		extract other counter = (other, [], counter)
+
+		(e', f, c') = extract e c
+		(es', fs, c'') = extractFootnotes es c'
+
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
-parsePara (e@(TeXEnv k a stuff) : more)
-	| isFigure e
-	, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
-	= Figure{figureSvg=loadFigure figureFile, ..} : parsePara more
-	| isTable e
-	, ((x : _todo) : _) <- lookForCommand "caption" stuff
-	, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
-	= Table
-		(texFromArg x)
-		y
-		(map (texFromArg . head) (lookForCommand "label" stuff))
-		(parseTable content)
-	  : parsePara more
-	| isTable e = error $ "other table: " ++ show e
+parsePara (env@(TeXEnv _ _ _) : more) =
+	go e' : footnotes ++ parsePara more
+	where
+		go :: LaTeX -> Element
+		go e@(TeXEnv k a stuff)
+			| isFigure e
+			, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
+			= Figure{figureSvg=loadFigure figureFile, ..}
+			| isTable e
+			, ((x : _todo) : _) <- lookForCommand "caption" stuff
+			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
+			= Table
+				(texFromArg x)
+				y
+				(map (texFromArg . head) (lookForCommand "label" stuff))
+				(parseTable content)
+			| isTable e = error $ "other table: " ++ show e
 
-	| isBnf e = Bnf k stuff : parsePara more
-	| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff) : parsePara more
-parsePara x = LatexElements v : parsePara more
-	where (v, more) = elems (dropWhile isJunk x)
+			| isBnf e = Bnf k stuff
+			| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
+		go other = error $ "Unexpected " ++ show other
+
+		([e'], footnotes, _) = extractFootnotes [env] 1
+
+parsePara x = LatexElements v' : footnotes ++ parsePara more
+	where
+		(v, more) = elems (dropWhile isJunk x)
+		(v', footnotes, _) = extractFootnotes v 1
 
 elems :: [LaTeX] -> ([LaTeX], [LaTeX])
 elems [] = ([], [])

@@ -188,6 +188,7 @@ instance Render LaTeX where
 	render (TeXComm "leftshift" [FixArg content]) = mconcat [spanTag "mathsf" "lshift", xml "sub" [("class", "math")] $ render content]
 	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
 	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
+	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) = makeFootnoteRef n
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
 	    | null s, Just y <-
@@ -228,6 +229,12 @@ instance Render Element where
 				"itemize" -> xml "ul" []
 				"description" -> xml "ul" []
 				_ -> undefined
+	render (Footnote num content) =
+		xml "div" [("class", "footnote")] $
+		makeFootnoteRef (Text.pack $ show num) ++ render content
+
+makeFootnoteRef :: Text -> Text
+makeFootnoteRef n = xml "sup" [] $ spanTag "footnoteref" $ "&lang;" ++ n ++ "&rang;"
 
 renderVerb :: LaTeX -> Text
 renderVerb t@(TeXRaw _) = renderCode t
