@@ -7,7 +7,8 @@
 
 import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..))
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
+import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
@@ -18,11 +19,14 @@ import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
 import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process (readProcess)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Environment (getArgs)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
+import Data.Hashable (hash)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -170,7 +174,7 @@ instance Render LaTeX where
 	render (TeXCommS "break"         ) = "<br/>"
 	render (TeXEmpty                 ) = ""
 	render (TeXBraces t              ) = render t
-	render (TeXMath _ t              ) = spanTag "math" $ renderMath t
+	render m@(TeXMath _ _            ) = renderMath m
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
 	render (TeXComm "ref" [FixArg x])  = render $ linkToSection SectionToSection x
 	render (TeXComm "impldef" _) = "implementation-defined"
@@ -205,10 +209,11 @@ instance Render LaTeX where
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
 	render (TeXEnv "tabbing" [] t)     = renderTabbing t
-	render (TeXEnv e _ t)
+	render env@(TeXEnv e _ t)
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
+	    | isComplexMath env            = renderComplexMath env
 	    | otherwise                    = spanTag "poo" $ Text.pack e
 
 instance Render Element where
@@ -255,8 +260,22 @@ renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
 renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
 renderCode other = render other
 
+isComplexMath :: LaTeX -> Bool
+isComplexMath (TeXMath _ t) = 
+	(not . null $ matchCommand (`elem` ["frac", "sum"]) t)
+	||
+	(not . null $ matchEnv (`elem` ["array"]) t)
+isComplexMath (TeXEnv e _ _) = e `elem` ["eqnarray*"]
+isComplexMath _ = False
+
 renderMath :: LaTeX -> Text
-renderMath (TeXRaw s) =
+renderMath m
+	| isComplexMath m = renderComplexMath m
+	| otherwise = spanTag "math" $ renderSimpleMath m
+	where
+
+renderSimpleMath :: LaTeX -> Text
+renderSimpleMath (TeXRaw s) =
 	case suffix of
 		Just ('^', rest) -> entities prefix ++ output "sup" rest
 		Just ('_', rest) -> entities prefix ++ output "sub" rest
@@ -267,17 +286,17 @@ renderMath (TeXRaw s) =
 
 		output tag rest =
 			case Text.uncons rest of
-				Just (c, rest') -> xml tag [] (entities $ Text.singleton c) ++ (renderMath $ TeXRaw rest')
+				Just (c, rest') -> xml tag [] (entities $ Text.singleton c) ++ (renderSimpleMath $ TeXRaw rest')
 				Nothing -> error "Malformed math"
 		entities =
 			Text.replace "<" "&lt;"
 			. Text.replace ">" "&gt;"
-renderMath (TeXSeq (TeXRaw s) rest)
+renderSimpleMath (TeXSeq (TeXRaw s) rest)
 	| last `elem` ["^", "_"] =
-		renderMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
-		++ xml tag [] (renderMath content)
-		++ renderMath rest'
-	| otherwise = renderMath (TeXRaw s) ++ renderMath rest
+		renderSimpleMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
+		++ xml tag [] (renderSimpleMath content)
+		++ renderSimpleMath rest'
+	| otherwise = renderSimpleMath (TeXRaw s) ++ renderSimpleMath rest
 	where
 		s' = Text.reverse s
 		last = Text.take 1 s'
@@ -288,16 +307,47 @@ renderMath (TeXSeq (TeXRaw s) rest)
 		(content, rest') = case rest of
 			(TeXSeq a b) -> (a, b)
 			other -> (other, TeXEmpty)
-renderMath (TeXBraces x) = renderMath x
-renderMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
-	"[" ++ renderMath num ++ "] / [" ++ renderMath den ++ "]" ++ renderMath rest'
+renderSimpleMath (TeXBraces x) = renderSimpleMath x
+renderSimpleMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
+	"[" ++ renderSimpleMath num ++ "] / [" ++ renderSimpleMath den ++ "]" ++ renderSimpleMath rest'
 	where
 		(den, rest') = findDenum rest
 		findDenum (TeXSeq (TeXBraces d) r) = (d, r)
 		findDenum (TeXSeq _ r) = findDenum r
 		findDenum r = (r, TeXEmpty)
-renderMath (TeXSeq a b) = (renderMath a) ++ (renderMath b)
-renderMath other = render other
+renderSimpleMath (TeXSeq a b) = (renderSimpleMath a) ++ (renderSimpleMath b)
+renderSimpleMath (TeXMath _ m) = renderSimpleMath m
+renderSimpleMath other = render other
+
+renderComplexMath :: LaTeX -> Text
+renderComplexMath m =
+	unsafePerformIO $
+	withSystemTempDirectory "genhtml" $ \tmp -> do
+	_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
+	_ <- readProcess "dvipng" ["-T", "tight", tmp ++ "/texput.dvi", "-o", filePath] ""
+
+	return $ xml "img" [("src", Text.pack fileName), ("class", imgClass m)] ""
+
+	where
+		imgClass (TeXMath Square _) = "mathblockimg"
+		imgClass (TeXMath _ _) = "mathinlineimg"
+		imgClass _ = "mathblockimg"
+
+		math = TeXRender.render m
+		fileName = (show . abs $ hash math) ++ ".png"
+		filePath = "14882/" ++ fileName
+		latex = Text.unpack $
+			"\\documentclass{article}\n" ++
+			"\\pagestyle{empty}\n" ++
+			"\\usepackage{array}\n" ++
+			"\\usepackage{amsmath}\n" ++
+			"\\usepackage{mathrsfs}\n" ++
+			"\\usepackage[T1]{fontenc}\n" ++
+			"\\begin{document}\n"
+			++
+			math
+			++
+			"\\end{document}\n"
 
 renderTable :: LaTeX -> [Row] -> Text
 renderTable colspec =

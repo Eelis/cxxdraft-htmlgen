@@ -66,6 +66,17 @@ span.ungap { display: inline-block; width: 2pt; }
 
 .math { font-style: italic; }
 
+img.mathinlineimg {
+	display: inline;
+	vertical-align: middle;
+}
+
+img.mathblockimg {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
 span.synopsis {
 	font-weight: bold;
 	margin-top: 0.5em;

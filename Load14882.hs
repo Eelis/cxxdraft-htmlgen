@@ -549,6 +549,7 @@ eval macros@Macros{..} l = case l of
 		let (y', m') = eval (m ++ macros) y in
 			(x' ++ y', m' ++ m)
 	TeXBraces x -> (TeXBraces $ fst $ eval macros x, mempty)
+	TeXMath t m -> (TeXMath t $ fst $ eval macros m, mempty)
 	_ -> (l, mempty)
 
 mapTeX :: (LaTeX -> Maybe LaTeX) -> (LaTeX -> LaTeX)
