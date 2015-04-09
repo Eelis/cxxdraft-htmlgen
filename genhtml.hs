@@ -341,7 +341,7 @@ renderComplexMath m =
 	unsafePerformIO $ do
 	exists <- doesFileExist filePath
 	when (not exists) generateImage
-	return $ "<img src='" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='Formula'/>"
+	return $ "<img src='ToImage/" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='Formula'/>"
 
 	where
 		imgClass (TeXMath Square _) = "mathblockimg"
@@ -356,7 +356,7 @@ renderComplexMath m =
 
 		math = TeXRender.render m
 		fileName = (show . abs $ hash math) ++ ".png"
-		filePath = "14882/" ++ fileName
+		filePath = outputDir ++ imgDir ++ fileName
 		latex = Text.unpack $
 			"\\documentclass{article}\n" ++
 			"\\pagestyle{empty}\n" ++
@@ -483,7 +483,7 @@ renderParagraph idPrefix (show -> Text.pack -> i, x) =
 		(render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i})) ++
 	render x
 
-data Link = TocToSection | SectionToToc | SectionToSection
+data Link = TocToSection | SectionToToc | SectionToSection | ToImage
 	deriving Show
 
 linkToSection :: Link -> LaTeX -> Anchor
@@ -634,30 +634,35 @@ doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
 		go (x : (Text.breakOn "'" -> (a, b)) : z) = x ++ f a ++ go (b : z)
 		go [x] = x
 		go _ = undefined
+		idir = Text.pack imgDir
 		f :: Text -> Text
 		f u = case (sfs, l) of
 			(Bare, SectionToToc) -> "./#" ++ u
 			(Bare, TocToSection) -> u
 			(Bare, SectionToSection) -> u
+			(Bare, ToImage) -> idir ++ u
 			(InSubdir, SectionToToc) -> "../#" ++ u
 			(InSubdir, TocToSection) -> u ++ "/"
 			(InSubdir, SectionToSection) -> "../" ++ u
+			(InSubdir, ToImage) -> "../" ++ idir ++ u
 			(WithExtension, SectionToToc) -> "index.html#" ++ u
 			(WithExtension, TocToSection) -> u ++ ".html"
 			(WithExtension, SectionToSection) -> u ++ ".html"
+			(WithExtension, ToImage) -> idir ++ u
 
 applySectionFileStyle :: SectionFileStyle -> Text -> Text
 applySectionFileStyle sfs =
 	doLink sfs SectionToSection
 	. doLink sfs SectionToToc
 	. doLink sfs TocToSection
+	. doLink sfs ToImage
 
 writeStuff :: SectionFileStyle -> Draft -> IO ()
 writeStuff sfs d@Draft{..} = do
-	let outputDir = "14882/"
 	putStr $ "Writing to " ++ outputDir; hFlush stdout
 
 	createDirectoryIfMissing True outputDir
+	createDirectoryIfMissing True (outputDir ++ imgDir)
 
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 
@@ -693,6 +698,10 @@ readCmdLineArgs = \case
 	[repo, read -> sectionFileStyle] -> CmdLineArgs{..}
 	[repo] -> CmdLineArgs{sectionFileStyle=WithExtension,..}
 	_ -> error "param: path/to/repo"
+
+outputDir, imgDir :: FilePath
+outputDir = "14882/"
+imgDir = "math/"
 
 main :: IO ()
 main = do
