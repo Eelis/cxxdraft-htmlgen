@@ -14,14 +14,14 @@ import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Char (isSpace, isAlpha)
 import Data.Monoid (Monoid(mappend), mconcat)
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO (hFlush, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcess)
-import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
+import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory, doesFileExist)
 import System.Environment (getArgs)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
@@ -338,17 +338,21 @@ renderSimpleMath other = render other
 
 renderComplexMath :: LaTeX -> Text
 renderComplexMath m =
-	unsafePerformIO $
-	withSystemTempDirectory "genhtml" $ \tmp -> do
-	_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
-	_ <- readProcess "dvipng" ["-T", "tight", tmp ++ "/texput.dvi", "-o", filePath] ""
-
+	unsafePerformIO $ do
+	exists <- doesFileExist filePath
+	when (not exists) generateImage
 	return $ "<img src='" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='Formula'/>"
 
 	where
 		imgClass (TeXMath Square _) = "mathblockimg"
 		imgClass (TeXMath _ _) = "mathinlineimg"
 		imgClass _ = "mathblockimg"
+
+		generateImage =
+			withSystemTempDirectory "genhtml" $ \tmp -> do
+			_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
+			_ <- readProcess "dvipng" ["-T", "tight", tmp ++ "/texput.dvi", "-o", filePath] ""
+			return ()
 
 		math = TeXRender.render m
 		fileName = (show . abs $ hash math) ++ ".png"
