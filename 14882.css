@@ -63,8 +63,20 @@ span.mathtt { font-family: monospace; font-style: normal; }
 span.mathscr { font-style: normal; }
 span.mbox { font-family: serif; font-style: normal; }
 span.ungap { display: inline-block; width: 2pt; }
+span.texttt { font-family: monospace; font-style: normal; }
 
-.math { font-style: italic; }
+span.math { }
+
+span.mathblock {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+}
+
+span.mathalpha {
+	font-style: italic;
+}
 
 img.mathinlineimg {
 	display: inline;

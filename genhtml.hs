@@ -12,7 +12,7 @@ import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isAlpha)
 import Data.Monoid (Monoid(mappend), mconcat)
 import Control.Monad (forM_)
 import qualified Prelude
@@ -112,6 +112,8 @@ simpleMacros =
 	, ("sqrt"           , "√")
 	, ("lfloor"         , "⌊")
 	, ("rfloor"         , "⌋")
+	, ("lceil"          , "⌈")
+	, ("rceil"          , "⌉")
 	, (";"              , " ")
 	, ("min"            , "<span class=\"mathrm\">min</span>")
 	, ("max"            , "<span class=\"mathrm\">max</span>")
@@ -271,26 +273,40 @@ isComplexMath _ = False
 renderMath :: LaTeX -> Text
 renderMath m
 	| isComplexMath m = renderComplexMath m
-	| otherwise = spanTag "math" $ renderSimpleMath m
+	| otherwise = spanTag s $ renderSimpleMath m
 	where
+		s = mathKind m
+		mathKind (TeXMath Square _) = "mathblock"
+		mathKind _ = "math"
 
 renderSimpleMath :: LaTeX -> Text
 renderSimpleMath (TeXRaw s) =
 	case suffix of
-		Just ('^', rest) -> entities prefix ++ output "sup" rest
-		Just ('_', rest) -> entities prefix ++ output "sub" rest
-		_ -> entities s
+		Just ('^', rest) -> italicise prefix ++ output "sup" rest
+		Just ('_', rest) -> italicise prefix ++ output "sub" rest
+		_ -> italicise s
 	where
 		(prefix, suffix') = Text.break (`elem` ['^', '_']) s
 		suffix = Text.uncons suffix'
 
 		output tag rest =
 			case Text.uncons rest of
-				Just (c, rest') -> xml tag [] (entities $ Text.singleton c) ++ (renderSimpleMath $ TeXRaw rest')
+				Just (c, rest') -> xml tag [] (italicise $ Text.singleton c) ++ (renderSimpleMath $ TeXRaw rest')
 				Nothing -> error "Malformed math"
-		entities =
-			Text.replace "<" "&lt;"
-			. Text.replace ">" "&gt;"
+
+		italicise t =
+			case Text.span isAlpha t of
+				("", "") -> ""
+				("", rest) ->
+					case Text.uncons rest of
+						Just (c, rest') -> entities c ++ italicise rest'
+						Nothing -> error ""
+				(alpha, rest) -> spanTag "mathalpha" alpha ++ italicise rest
+
+		entities :: Char -> Text
+		entities '<' = "&lt;"
+		entities '>' = "&gt;"
+		entities c = Text.singleton c
 renderSimpleMath (TeXSeq (TeXRaw s) rest)
 	| last `elem` ["^", "_"] =
 		renderSimpleMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
