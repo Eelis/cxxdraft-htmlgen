@@ -606,6 +606,7 @@ parseFile macros = fst
 	. TeXRender.render
 	. fst . eval macros
 	. doParseLaTeX
+	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
 	. newlineCurlies
 	. replace "``" "“"
