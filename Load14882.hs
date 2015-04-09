@@ -41,6 +41,7 @@ data Element
 		, columnSpec :: LaTeX
 		, tableAbbrs :: [LaTeX]
 		, tableBody :: [Row] }
+	| Tabbing LaTeX
 	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
 	| Footnote { number :: Int, text :: LaTeX }
 	deriving (Eq, Show)
@@ -136,6 +137,10 @@ isTable :: LaTeX -> Bool
 isTable (TeXEnv "TableBase" _ _) = True
 isTable _ = False
 
+isTabbing :: LaTeX -> Bool
+isTabbing (TeXEnv "tabbing" _ _) = True
+isTabbing _ = False
+
 isFigure :: LaTeX -> Bool
 isFigure (TeXEnv "importgraphic" _ _) = True
 isFigure _ = False
@@ -173,7 +178,7 @@ parseItems (x : more)
 parseItems _ = error "need items or nothing"
 
 isElementsEnd :: LaTeX -> Bool
-isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l || isFigure l
+isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l || isTabbing l || isFigure l
 
 isTableEnv :: String -> Bool
 isTableEnv = (`elem` ["tabular", "longtable"])
@@ -303,6 +308,8 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 				(map (texFromArg . head) (lookForCommand "label" stuff))
 				(parseTable content)
 			| isTable e = error $ "other table: " ++ show e
+
+			| isTabbing e = Tabbing stuff
 
 			| isBnf e = Bnf k stuff
 			| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)

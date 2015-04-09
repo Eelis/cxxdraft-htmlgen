@@ -122,6 +122,10 @@ span.itemdecl {
 	display: block;
 }
 
+code.tabbing {
+	display: block;
+}
+
 .footnote:before { content: "Footnote: \00a0"; }
 
 .footnote {

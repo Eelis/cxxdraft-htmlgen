@@ -227,6 +227,7 @@ instance Render Element where
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
 		++ renderTable columnSpec tableBody
+	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
 		xml "div" [("class", "figure")] $ figureSvg ++ "<br>" ++ render figureName
 	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
@@ -342,7 +343,7 @@ renderComplexMath m =
 	_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
 	_ <- readProcess "dvipng" ["-T", "tight", tmp ++ "/texput.dvi", "-o", filePath] ""
 
-	return $ xml "img" [("src", Text.pack fileName), ("class", imgClass m)] ""
+	return $ "<img src='" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='Formula'/>"
 
 	where
 		imgClass (TeXMath Square _) = "mathblockimg"
