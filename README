@@ -1,7 +1,8 @@
 Introduction
 
   genhtml parses the LaTeX sources of the draft, and generates
-  a HTML version, with figures embedded as inline SVG.
+  an HTML version, with figures embedded as inline SVG, and
+  math formulas as LaTeX-rendered PNG images.
 
 Prerequisites
 
@@ -39,7 +40,7 @@ Output
 
   The following will be created in ./14882/ :
 
-  - index.html    A long table of contents with links to...
+  - index.html    A table of contents with links to...
 
   - ~1660 interlinked section pages
 
@@ -59,10 +60,10 @@ Output
       temp.dep            (section 14.6.2 "Dependent names")
 
       temp.res#temp.dep   (the same section highlighted on the
-                                page for section 14.6 "Name resolution")
+                           page for section 14.6 "Name resolution")
 
       temp#temp.dep       (the same section highlighted on the
-                                page for chapter 14 "Templates")
+                           page for chapter 14 "Templates")
 
       full#temp.dep       (see below)
 
