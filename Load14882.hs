@@ -594,7 +594,7 @@ newlineCurlies =
 	replace "\n{" "{"
 	. replace "\n\t{" "{"
 	. replace "\n {" "{"
-	. replace "\n  {" "{"
+	. replace "}\n  {" "}{"
 		-- Todo: These are sometimes inappropriate...
 
 parseFile :: Macros -> Text -> [LinearSection]
