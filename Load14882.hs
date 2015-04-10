@@ -494,7 +494,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of

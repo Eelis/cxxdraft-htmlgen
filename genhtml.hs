@@ -190,7 +190,7 @@ instance Render LaTeX where
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = spanTag "nontermdef" s ++ ":"
 	render (TeXComm "bigoh" [FixArg content]) =
-		spanTag "math" $ spanTag "mathscr" "𝓞" ++ "(" ++ render content ++ ")"
+		spanTag "math" $ "𝓞(" ++ renderMath content ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
