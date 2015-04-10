@@ -524,6 +524,12 @@ renderChapter :: Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
 renderChapter specific parasEmitted p@(_, Section{abbreviation=chapter}) =
 	renderSection chapter specific parasEmitted p
 
+secnum :: Text -> SectionPath -> Text
+secnum href p@SectionPath{..}
+	| href == "" = spanTag c (render p)
+	| otherwise = render $ anchor{aClass=c, aHref=href, aText=render p}
+	where c = if chapterKind == NormalChapter then "secnum" else "annexnum"
+
 renderSection :: LaTeX -> Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
 renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 	| full = (, True) $
@@ -541,12 +547,7 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 	where
 		full = specific == Nothing || specific == Just abbreviation
 		header = h Nothing (min 4 $ length sectionNums) $
-			(if full
-				then render $ anchor{
-					aClass = "secnum",
-					aHref  = "#" ++ url abbreviation,
-					aText  = render path }
-				else spanTag "secnum" (render path))
+			secnum (if full then "#" ++ url abbreviation else "") path
 			++ render sectionName
 			++ if specific == Just abbreviation && abbreviation /= chapter
 				then xml "span" [("class","abbr_ref")] $ "[" ++ render abbreviation ++ "] "
@@ -560,8 +561,8 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 
 instance Render SectionPath where
 	render (SectionPath k ns)
-		| k == InformativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(informative)<br/>"
-		| k == NormativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(normative)<br/>"
+		| k == InformativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(informative)"
+		| k == NormativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(normative)"
 		| otherwise = Text.intercalate "." (chap : Text.pack . show . tail ns)
 		where
 			chap :: Text
@@ -600,7 +601,7 @@ tocSection :: (SectionPath, Section) -> Text
 tocSection (sectionPath, Section{..}) =
 	xml "div" [("id", render abbreviation)] $
 	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		spanTag "secnum" (render sectionPath) ++
+		secnum "" sectionPath ++
 		render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
 	mconcat (tocSection . numberSubsecs sectionPath subsections)
 
@@ -608,7 +609,7 @@ tocChapter :: (SectionPath, Section) -> Text
 tocChapter (sectionPath, Section{..}) =
 	xml "div" [("id", render abbreviation)] $
 	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		spanTag "secnum" (render sectionPath) ++
+		secnum "" sectionPath ++
 		render (sectionName, anchor{
 			aClass = "folded_abbr_ref",
 			aText  = "[" ++ render abbreviation ++ "]",
