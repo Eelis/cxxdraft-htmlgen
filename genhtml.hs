@@ -50,7 +50,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -183,8 +183,9 @@ instance Render LaTeX where
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
-	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = mconcat [spanTag "nontermdef" s, ":"]
-	render (TeXComm "bigoh" [FixArg content]) = spanTag "math" $ mconcat [spanTag "mathscr" "𝓞", "(", render content, ")"]
+	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = spanTag "nontermdef" s ++ ":"
+	render (TeXComm "bigoh" [FixArg content]) =
+		spanTag "math" $ spanTag "mathscr" "𝓞" ++ "(" ++ render content ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
@@ -192,8 +193,10 @@ instance Render LaTeX where
 	render (TeXComm "textbf" [FixArg x]) = "<b>" ++ render x ++ "</b>"
 	render (TeXComm "label" [FixArg (TeXRaw x)]) = render anchor{aId=x}
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
-	render (TeXComm "leftshift" [FixArg content]) = mconcat [spanTag "mathsf" "lshift", xml "sub" [("class", "math")] $ render content]
-	render (TeXComm "state" [FixArg a, FixArg b]) = mconcat [spanTag "tcode" (render a), xml "sub" [("class", "math")] $ render b]
+	render (TeXComm "leftshift" [FixArg content]) =
+		spanTag "mathsf" "lshift" ++ xml "sub" [("class", "math")] (render content)
+	render (TeXComm "state" [FixArg a, FixArg b]) =
+		spanTag "tcode" (render a) ++ xml "sub" [("class", "math")] (render b)
 	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
 	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) = makeFootnoteRef n
 	render (TeXComm x s)
@@ -201,7 +204,7 @@ instance Render LaTeX where
 	    | null s, Just y <-
 	       lookup x simpleMacros       = y
 	    | [FixArg z] <- s, Just y <-
-	       lookup x simpleMacros       = mconcat [y, render z]
+	       lookup x simpleMacros       = y ++ render z
 	    | otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
 	render (TeXCommS s)
 	    | s `elem` literal             = Text.pack s
@@ -209,35 +212,37 @@ instance Render LaTeX where
 	       lookup s simpleMacros       = x
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl" $ Text.replace "@" "" $ render t
+	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl"
+	                                     $ Text.strip
+	                                     $ Text.replace "@" "" $ render t
 	render (TeXEnv "tabbing" [] t)     = renderTabbing t
 	render env@(TeXEnv e _ t)
-	    | e `elem` makeCodeblock       = spanTag "codeblock" $ renderCode t
+	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.strip $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | isComplexMath env            = renderComplexMath env
-	    | otherwise                    = spanTag "poo" $ Text.pack e
+	    | otherwise                    = error "unexpected env"
 
 instance Render Element where
-	render (LatexElements t) = xml "p" [] $ render t
+	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
-		| otherwise = spanTag "poo" (Text.pack (e ++ show t))
+		| otherwise = error "unexpected bnf"
 	render Table{..} =
 		spanTag "tabletitle" (render tableCaption)
 		++ renderTable columnSpec tableBody
 	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
 		xml "div" [("class", "figure")] $ figureSvg ++ "<br>" ++ render figureName
-	render (Enumerated ek ps) = t $ mconcat $ map (xml "li" [] . render) ps
+	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
 			t = case ek of
-				"enumeraten" -> xml "ol" []
-				"enumeratea" -> xml "ol" []
-				"enumerate" -> xml "ol" []
-				"itemize" -> xml "ul" []
-				"description" -> xml "ul" []
+				"enumeraten" -> "ol"
+				"enumeratea" -> "ol"
+				"enumerate" -> "ol"
+				"itemize" -> "ul"
+				"description" -> "ul"
 				_ -> undefined
 	render (Footnote num content) =
 		xml "div" [("class", "footnote")] $
@@ -258,8 +263,8 @@ renderCode (TeXRaw s) =
 	$ Text.replace "@" ""
 	$ Text.replace "&" "&amp;"
 	$ s
-renderCode (TeXSeq a b) = (renderCode a) ++ (renderCode b)
-renderCode (TeXBraces x) = "{" ++ (renderCode x) ++ "}"
+renderCode (TeXSeq a b) = renderCode a ++ renderCode b
+renderCode (TeXBraces x) = "{" ++ renderCode x ++ "}"
 renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
 renderCode other = render other
 
@@ -351,7 +356,7 @@ renderComplexMath m =
 		generateImage =
 			withSystemTempDirectory "genhtml" $ \tmp -> do
 			_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
-			_ <- readProcess "dvipng" ["-T", "tight", tmp ++ "/texput.dvi", "-o", filePath] ""
+			_ <- readProcess "dvipng" ["-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
 			return ()
 
 		math = TeXRender.render m
@@ -441,15 +446,8 @@ preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
 
-strip :: Text -> Text
-strip =
-	Text.pack
-	. reverse . dropWhile isSpace
-	. reverse . dropWhile isSpace
-	. Text.unpack
-
 bnfPre :: Text -> Text
-bnfPre = xml "pre" [("class", "bnf")] . strip
+bnfPre = xml "pre" [("class", "bnf")] . Text.strip
 
 preprocessTabbing :: LaTeX -> LaTeX
 preprocessTabbing = go
@@ -585,10 +583,9 @@ tocFileContent sfs Draft{..} = applySectionFileStyle sfs $
 		section :: (SectionPath, Section) -> Text
 		section (sectionPath, Section{..}) =
 			xml "div" [("id", render abbreviation)] $
-			h Nothing (length $ sectionNums sectionPath) (
-				xml "small" [] (
+			h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
 				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"}))) ++
+				render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
 			mconcat (map section (numberSubsecs sectionPath subsections))
 
 fullFileContent :: SectionFileStyle -> [Chapter] -> Text
