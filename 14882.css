@@ -114,9 +114,7 @@ span.itemdecl {
 
 .codeblock {
 	font-family: monospace;
-	margin-bottom: 1.2em;
-	margin-left: 1.2em;
-	margin-top: 0em;
+	margin: 1.2em;
 	white-space: pre;
 	display: block;
 }
