@@ -1,4 +1,14 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, LambdaCase, TupleSections #-}
+{-# LANGUAGE
+	OverloadedStrings,
+	RecordWildCards,
+	ViewPatterns,
+	LambdaCase,
+	TupleSections,
+	NamedFieldPuns,
+	TypeSynonymInstances,
+	FlexibleInstances,
+	FlexibleContexts,
+	RankNTypes #-}
 
 module Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
 
@@ -23,6 +33,7 @@ import Data.Maybe (isJust, fromJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
+import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -36,14 +47,15 @@ data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
-	| Table 
-		{ tableCaption :: LaTeX
+	| Table
+		{ tableNumber :: Int
+		, tableCaption :: LaTeX
 		, columnSpec :: LaTeX
 		, tableAbbrs :: [LaTeX]
 		, tableBody :: [Row] }
 	| Tabbing LaTeX
-	| Figure { figureName, figureAbbr :: LaTeX, figureSvg :: Text }
-	| Footnote { number :: Int, text :: LaTeX }
+	| Figure { figureNumber :: Int, figureName, figureAbbr :: LaTeX, figureSvg :: Text }
+	| Footnote { footnoteNumber :: Int, text :: LaTeX }
 	deriving (Eq, Show)
 
 -- We don't represent examples as elements with nested content
@@ -279,24 +291,17 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
-extractFootnotes :: [LaTeX] -> Int -> ([LaTeX], [Element], Int)
-extractFootnotes [] c = ([], [], c)
-extractFootnotes (e : es) c =
-	(e' : es', f ++ fs, c'')
+extractFootnotes :: [LaTeX] -> ([LaTeX], [Element])
+extractFootnotes [] = ([], [])
+extractFootnotes (e : es) = (e' : es', f ++ fs)
 	where
-		extract (TeXComm "footnote" [FixArg content]) counter =
-			(TeXComm "footnoteref" [FixArg (TeXRaw (Text.pack $ show counter))], [Footnote counter content], counter + 1)
-		extract (TeXSeq a b) counter = (TeXSeq a' b', x ++ y, j)
-			where
-				(a', x, i) = extract a counter
-				(b', y, j) = extract b i
-		extract (TeXEnv env args content) counter = (TeXEnv env args $ content', footnotes, counter')
-			where
-				(content', footnotes, counter') = extract content counter
-		extract other counter = (other, [], counter)
-
-		(e', f, c') = extract e c
-		(es', fs, c'') = extractFootnotes es c'
+		extract (TeXComm "footnote" [FixArg content]) =
+			(TeXCommS "footnoteref", [Footnote (-1) content])
+		extract (TeXSeq a b) = extract a ++ extract b
+		extract (TeXEnv env args content) = first (TeXEnv env args) (extract content)
+		extract other = (other, [])
+		(e', f) = extract e
+		(es', fs) = extractFootnotes es
 
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
@@ -307,13 +312,11 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 		go e@(TeXEnv k a stuff)
 			| isFigure e
 			, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
-			= Figure{figureSvg=loadFigure figureFile, ..}
+			= Figure{figureNumber=(-1), figureSvg=loadFigure figureFile, ..}
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
 			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
-			= Table
-				(texFromArg x)
-				y
+			= Table (-1) (texFromArg x) y
 				(map (texFromArg . head) (lookForCommand "label" stuff))
 				(parseTable content)
 			| isTable e = error $ "other table: " ++ show e
@@ -324,12 +327,12 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
 
-		([e'], footnotes, _) = extractFootnotes [env] 1
+		([e'], footnotes) = extractFootnotes [env]
 
 parsePara x = LatexElements v' : footnotes ++ parsePara more
 	where
 		(v, more) = elems (dropWhile isJunk x)
-		(v', footnotes, _) = extractFootnotes v 1
+		(v', footnotes) = extractFootnotes v
 
 elems :: [LaTeX] -> ([LaTeX], [LaTeX])
 elems [] = ([], [])
@@ -638,6 +641,53 @@ getCommitUrl = do
 		$ Text.replace ".git" "/commit/" url)
 		++ commit
 
+-- Numbering
+
+data Numbers = Numbers { tableNr, figureNr, footnoteNr :: Int }
+
+class AssignNumbers a where
+	assignNumbers :: forall m . Functor m => MonadState Numbers m => a -> m a
+
+instance AssignNumbers LaTeX where
+	assignNumbers (TeXSeq x y) = liftM2 TeXSeq (assignNumbers x) (assignNumbers y)
+	assignNumbers (TeXEnv x y z) = TeXEnv x y . assignNumbers z
+	assignNumbers (TeXCommS "footnoteref") = do
+		Numbers{footnoteNr} <- get
+		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteNr]
+	assignNumbers x = return x
+
+instance AssignNumbers Element where
+	assignNumbers x@Figure{} = do
+		Numbers{..} <- get
+		put Numbers{figureNr = figureNr+1, ..}
+		return x{figureNumber=figureNr}
+	assignNumbers x@Table{} = do
+		Numbers{..} <- get
+		put Numbers{tableNr = tableNr+1, ..}
+		return x{tableNumber=tableNr}
+	assignNumbers x@Footnote{} = do
+		Numbers{..} <- get
+		put Numbers{footnoteNr = footnoteNr+1, ..}
+		return x{footnoteNumber=footnoteNr}
+	assignNumbers (Enumerated s p) = Enumerated s . assignNumbers p
+	assignNumbers (LatexElements x) = LatexElements . assignNumbers x
+	assignNumbers x = return x
+
+instance AssignNumbers Section where
+	assignNumbers s@Section{preamble,paragraphs,subsections} = do
+		preamble' <- assignNumbers preamble
+		paragraphs' <- assignNumbers paragraphs
+		subsections' <- assignNumbers subsections
+		return $ s{preamble=preamble', paragraphs=paragraphs', subsections=subsections'}
+
+instance AssignNumbers Chapter where
+	assignNumbers (k, s) = (k,) . assignNumbers s
+
+instance AssignNumbers a => AssignNumbers [a] where
+	assignNumbers = mapM assignNumbers
+
+
+
 data Draft = Draft { commitUrl :: Text, chapters :: [Chapter] }
 
 load14882 :: IO Draft
@@ -679,6 +729,6 @@ load14882 = do
 
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
-	let chapters = treeizeChapters $ mconcat sections
+	let chapters = evalState (assignNumbers $ treeizeChapters $ mconcat sections) (Numbers 1 1 1)
 
 	return Draft{..}

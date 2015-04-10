@@ -78,7 +78,6 @@ Todo
 
   - indentation for itemdescrs
   - index
-  - footnote numbers
   - list required hackage packages in prereqs
   - minipages side-by-side
   - comments in code supposed to be italic

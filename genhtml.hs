@@ -9,7 +9,7 @@ import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), 
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
-import Data.Text (Text)
+import Data.Text (Text, isPrefixOf)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Char (isSpace, isAlpha)
@@ -180,7 +180,10 @@ instance Render LaTeX where
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath m
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
-	render (TeXComm "ref" [FixArg x])  = render $ linkToSection SectionToSection x
+	render (TeXComm "ref" [FixArg abbr])
+		| "fig:" `isPrefixOf` render abbr || "tab:" `isPrefixOf` render abbr =
+			render anchor{aHref = "#" ++ url abbr, aText = "[" ++ render abbr ++ "]"}
+		| otherwise = render $ linkToSection SectionToSection abbr
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
 	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
@@ -200,7 +203,8 @@ instance Render LaTeX where
 	render (TeXComm "state" [FixArg a, FixArg b]) =
 		spanTag "tcode" (render a) ++ xml "sub" [("class", "math")] (render b)
 	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
-	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) = makeFootnoteRef n
+	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) =
+		render anchor{aClass="footnotenum", aText=n, aHref="#footnote-" ++ n}
 	render (TeXComm "raisebox" args)
 		| FixArg (TeXRaw d) <- head args
 		, FixArg content <- Prelude.last args =
@@ -239,11 +243,14 @@ instance Render Element where
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
 	render Table{..} =
-		spanTag "tabletitle" (render tableCaption)
-		++ renderTable columnSpec tableBody
+		xml "div" [("class", "numberedTable"), ("id", render (head tableAbbrs))] $
+		"Table " ++ Text.pack (show tableNumber) ++ " — " ++
+		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
-		xml "div" [("class", "figure")] $ figureSvg ++ "<br>" ++ render figureName
+		xml "div" [("class", "figure"), ("id", render figureAbbr)] $
+		figureSvg ++ "<br>" ++
+		"Figure " ++ Text.pack (show figureNumber) ++ " — " ++ render figureName
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
 			t = case ek of
@@ -253,12 +260,9 @@ instance Render Element where
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined
-	render (Footnote num content) =
-		xml "div" [("class", "footnote")] $
-		makeFootnoteRef (Text.pack $ show num) ++ render content
-
-makeFootnoteRef :: Text -> Text
-makeFootnoteRef n = xml "sup" [] $ spanTag "footnoteref" $ "&lang;" ++ n ++ "&rang;"
+	render (Footnote (show -> Text.pack -> num) content) =
+		xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
+		render anchor{aText=num, aHref="#footnote-" ++ num} ++ ")&emsp;" ++ render content
 
 renderVerb :: LaTeX -> Text
 renderVerb t@(TeXRaw _) = renderCode t
@@ -504,7 +508,7 @@ data Link = TocToSection | SectionToToc | SectionToSection | ToImage
 linkToSection :: Link -> LaTeX -> Anchor
 linkToSection link abbr = anchor
 	{	aHref = Text.pack (show link) ++ "/" ++ url abbr
-	,	aText  = "[" ++ render abbr ++ "]" }
+	,	aText = "[" ++ render abbr ++ "]" }
 
 url :: LaTeX -> Text
 url (TeXRaw x) = urlEncode x

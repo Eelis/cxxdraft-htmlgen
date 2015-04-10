@@ -130,11 +130,11 @@ code.tabbing {
 	display: block;
 }
 
-.footnote:before { content: "Footnote: \00a0"; }
+.footnotenum { vertical-align: super; font-size: smaller; }
+.footnote { font-size: small; margin: 2em; }
 
-.footnote {
-	font-size: small;
-	display: block;
+div.numberedTable {
+	text-align: center;
 	margin: 2em;
 }
 
@@ -201,9 +201,4 @@ div.table {
 	margin-right: auto;
 	text-align: center;
 	width: 90%;
-}
-
-span.tabletitle {
-	text-align: center;
-	display: block;
 }
