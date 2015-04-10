@@ -12,7 +12,28 @@ Prerequisites
 
 Usage
 
-  runhaskell genhtml.hs path/to/draft
+  runhaskell genhtml.hs path/to/draft [sectionfilestyle]
+
+  Where sectionfilestyle is one of:
+
+    Bare            (to generate e.g. intro.execution)
+    WithExtension   (to generate e.g. intro.execution.html)
+    InSubdir        (to generate e.g. intro.execution/index.html)
+
+  The default is WithExtension, since this is suitable
+  for direct browsing on a filesystem without a web server.
+
+  Bare may be used in conjunction with web server configuration
+  specifying a default text/html mime type for the directory
+  containing the section pages, to get URLs such as:
+
+    temp.res#temp.dep
+    temp.dep#3
+
+  InSubdir only requires defaulting to index.html, to give:
+
+    temp.res/#temp.dep
+    temp.dep/#3
 
 Output
 
@@ -22,43 +43,35 @@ Output
 
   - ~1660 interlinked section pages
 
-    These are named after the section abbrevation, e.g.:
+    These are named after the section abbrevation, which for
+    the Bare section file style look like:
 
-      stmt.goto.html
-      class.member.lookup.html
-      cpp.html
-      iterator.requirements.general.html
-      locale.moneypunct.virtuals.html
+      stmt.goto
+      class.member.lookup
+      cpp
+      iterator.requirements.general
+      locale.moneypunct.virtuals
 
     Since sections nest, content is duplicated at every level.
     This allows one to specify more or less context for a given
     section or paragraph citation. For example, one can link to:
 
-      temp.dep.html            (section 14.6.2 "Dependent names")
+      temp.dep            (section 14.6.2 "Dependent names")
 
-      temp.res.html#temp.dep   (the same section highlighted on the
+      temp.res#temp.dep   (the same section highlighted on the
                                 page for section 14.6 "Name resolution")
 
-      temp.html#temp.dep       (the same section highlighted on the
+      temp#temp.dep       (the same section highlighted on the
                                 page for chapter 14 "Templates")
 
-      full.html#temp.dep       (see below)
+      full#temp.dep       (see below)
 
-  - full.html    ~6 mbyte, the entire draft.
+  - full         ~6 mbyte, the entire draft.
 
   - 14882.css    Used by all of the above.
 
   - math/        Subdirectory with .png images containing rendered
                  mathematical formulas.
-
-  There is a setting in the code which can be used to generate either
-  files without the '.html' extension, or files called 'index.html'
-  in subdirectories. The former may be used in conjunction with webserver
-  configuration specifying a default text/html mime type for the directory
-  containing the section pages, to get URLs like:
-
-    temp.res#temp.dep
-    temp.dep#3
 
 Todo
 

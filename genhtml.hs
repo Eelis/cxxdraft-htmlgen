@@ -654,10 +654,7 @@ abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
 abbrAsPath (TeXCommS "dcr") = "--"
 abbrAsPath _ = "TODO"
 
-data SectionFileStyle
-	= Bare          -- e.g. intro.execution
-	| WithExtension -- e.g. intro.execution.html
-	| InSubdir      -- e.g. intro.execution/index.html
+data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)
 
 doLink :: SectionFileStyle -> Link -> Text -> Text
