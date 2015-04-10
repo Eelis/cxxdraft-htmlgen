@@ -393,7 +393,7 @@ renderComplexMath m =
 		generateImage =
 			withSystemTempDirectory "genhtml" $ \tmp -> do
 			_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
-			_ <- readProcess "dvipng" ["-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
+			_ <- readProcess "dvipng" ["-bg", "transparent", "-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
 			return ()
 
 		math = TeXRender.render m
