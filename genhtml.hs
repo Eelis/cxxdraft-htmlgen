@@ -528,7 +528,10 @@ secnum :: Text -> SectionPath -> Text
 secnum href p@SectionPath{..}
 	| href == "" = spanTag c (render p)
 	| otherwise = render $ anchor{aClass=c, aHref=href, aText=render p}
-	where c = if chapterKind == NormalChapter then "secnum" else "annexnum"
+	where
+		c	| chapterKind /= NormalChapter
+			, length sectionNums == 1 = "annexnum"
+			| otherwise = "secnum"
 
 renderSection :: LaTeX -> Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
 renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
