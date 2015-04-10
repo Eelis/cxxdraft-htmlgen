@@ -27,6 +27,8 @@ import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
 import Data.Hashable (hash)
+import Data.List (find)
+import Data.Maybe (isJust)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -50,7 +52,7 @@ h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
 
 kill, literal :: [String]
-kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist"]
+kill = ["indextext", "indexdefn", "indexlibrary", "indeximpldef", "printindex", "clearpage", "renewcommand", "brk", "newcommand", "footnotetext", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "setcounter", "addtocounter", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -199,6 +201,13 @@ instance Render LaTeX where
 		spanTag "tcode" (render a) ++ xml "sub" [("class", "math")] (render b)
 	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
 	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) = makeFootnoteRef n
+	render (TeXComm "raisebox" args)
+		| FixArg (TeXRaw d) <- head args
+		, FixArg content <- Prelude.last args =
+			let neg s
+				| Text.head s == '-' = Text.tail s
+				| otherwise = "-" ++ s
+			in xml "span" [("style", "position: relative; top: " ++ neg d)] $ render content
 	render (TeXComm x s)
 	    | x `elem` kill                = ""
 	    | null s, Just y <-
@@ -408,29 +417,37 @@ renderTable colspec =
 
 		renderRows _ [] = ""
 		renderRows cs (Row{..} : rest) =
-			(xml "tr" cls $ renderCols cs cells) ++ renderRows cs rest
+			(xml "tr" cls $ renderCols cs 1 clines cells) ++ renderRows cs rest
 			where
 				cls | RowSep <- rowSep = [("class", "rowsep")]
 				    | CapSep <- rowSep = [("class", "capsep")]
 				    | otherwise = []
+				clines
+					| Clines clns <- rowSep = clns
+					| otherwise = []
 
-		renderCols _ [] = ""
-		renderCols (c : cs) (Cell{..} : rest)
+		renderCols _ _ _ [] = ""
+		renderCols (c : cs) colnum clines (Cell{..} : rest)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let 
 					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
-					c' = combine c'' c
+					c' = combine c'' c ++ clineClass colnum clines
 					colspan
 						| rest == [] = length cs + 1
 						| otherwise = w
 				in
 					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ renderCell content)
-					++ renderCols (drop (colspan - 1) cs) rest
+					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				(xml "td" [("class", c)] $ renderCell content)
-				++ renderCols cs rest
-		renderCols [] (_ : _) = error "Too many columns"
+				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderCell content)
+				++ renderCols cs (colnum + 1) clines rest
+		renderCols [] _ _ (_ : _) = error "Too many columns"
+
+		clineClass n clines
+			| isJust $ find (\(begin, end) -> begin <= n && n <= end) clines =
+				" cline"
+			| otherwise = ""
 
 renderCell :: Paragraph -> Text
 renderCell = mconcat . map renderCell'

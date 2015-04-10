@@ -29,7 +29,7 @@ import Text.Regex (mkRegex, subRegex)
 
 data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
 data Cell = Cell { cellSpan :: CellSpan, content :: Paragraph } deriving (Eq, Show)
-data RowSepKind = RowSep | CapSep | NoSep deriving (Eq, Show)
+data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving (Eq, Show)
 data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving (Eq, Show)
 
 data Element
@@ -228,7 +228,16 @@ makeRow l = Row sep $ makeRowCells l
 		sep
 			| rowHas (== "hline") l = RowSep
 			| rowHas (== "capsep") l = CapSep
+			| rowHas (== "cline") l = Clines $ clines $ lookForCommand "cline" l
 			| otherwise = NoSep
+
+		clines [] = []
+		clines (([FixArg (TeXRaw c)]) : rest) = (begin, end) : clines rest
+			where
+				(begin', end') = Text.breakOn "-" c
+				begin = read $ Text.unpack begin' :: Int
+				end = read $ Text.unpack $ Text.tail end' :: Int
+		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
 makeRowCells :: LaTeX -> [Cell]
 makeRowCells TeXEmpty = []
