@@ -525,9 +525,7 @@ renderChapter specific parasEmitted p@(_, Section{abbreviation=chapter}) =
 	renderSection chapter specific parasEmitted p
 
 secnum :: Text -> SectionPath -> Text
-secnum href p@SectionPath{..}
-	| href == "" = spanTag c (render p)
-	| otherwise = render $ anchor{aClass=c, aHref=href, aText=render p}
+secnum href p@SectionPath{..} = render $ anchor{aClass=c, aHref=href, aText=render p}
 	where
 		c	| chapterKind /= NormalChapter
 			, length sectionNums == 1 = "annexnum"
