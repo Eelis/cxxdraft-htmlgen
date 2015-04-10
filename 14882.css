@@ -18,7 +18,16 @@ ul > li:before {
 
 :target { background-color: #E9FBE9; }
 
+div.tocChapter { display: none; }
+:target > div.tocChapter { display: block; }
+
 .abbr_ref { float: right; }
+
+.folded_abbr_ref { float: right; }
+:target .folded_abbr_ref { display: none; }
+
+:target .unfolded_abbr_ref { float: right; display: inherit; }
+.unfolded_abbr_ref { display: none; }
 
 .secnum {
 	display: inline-block;

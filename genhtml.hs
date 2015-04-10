@@ -503,19 +503,23 @@ data SectionPath = SectionPath
 numberSubsecs :: SectionPath -> [Section] -> [(SectionPath, Section)]
 numberSubsecs (SectionPath k ns) = zip [SectionPath k (ns ++ [i]) | i <- [1..]]
 
-renderSection :: Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
-renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
+renderChapter :: Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
+renderChapter specific parasEmitted p@(_, Section{abbreviation=chapter}) =
+	renderSection chapter specific parasEmitted p
+
+renderSection :: LaTeX -> Maybe LaTeX -> Bool -> (SectionPath, Section) -> (Text, Bool)
+renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 	| full = (, True) $
 		xml "div" [("id", render abbreviation)] $ header ++
 		xml "div" [("class", "para")] (render preamble) ++
 		mconcat (map
 			(renderParagraph (if parasEmitted then url abbreviation ++ "-" else ""))
 			(zip [1..] paragraphs)) ++
-		mconcat (fst . renderSection Nothing True . numberSubsecs path subsections)
+		mconcat (fst . renderSection chapter Nothing True . numberSubsecs path subsections)
 	| not anysubcontent = ("", False)
 	| otherwise =
 		( header ++
-		  mconcat (fst . renderSection specific False . numberSubsecs path subsections)
+		  mconcat (fst . renderSection chapter specific False . numberSubsecs path subsections)
 		, anysubcontent )
 	where
 		full = specific == Nothing || specific == Just abbreviation
@@ -527,14 +531,13 @@ renderSection specific parasEmitted (path@SectionPath{..}, Section{..})
 					aText  = render path }
 				else spanTag "secnum" (render path))
 			++ render sectionName
-			++ if specific == Just abbreviation
-				then xml "span" [("class","abbr_ref")] $
-					"[" ++ render abbreviation ++ "] "
-					++ render (linkToSection SectionToToc abbreviation){aText="⬆"}
-				else render (linkToSection SectionToSection abbreviation){aClass="abbr_ref"}
-				
+			++ if specific == Just abbreviation && abbreviation /= chapter
+				then xml "span" [("class","abbr_ref")] $ "[" ++ render abbreviation ++ "] "
+				else render (linkToSection
+					(if abbreviation == chapter then SectionToToc else SectionToSection)
+					abbreviation){aClass="abbr_ref"}
 		anysubcontent =
-			or $ map (snd . renderSection specific True)
+			or $ map (snd . renderSection chapter specific True)
 			   $ numberSubsecs path subsections
 
 
@@ -563,36 +566,50 @@ sectionFileContent :: SectionFileStyle -> [Chapter] -> LaTeX -> Text
 sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
 	fileContent
 		("[" ++ render abbreviation ++ "]")
-		(mconcat $ fst . renderSection (Just abbreviation) False . withPaths chapters)
+		(mconcat $ fst . renderChapter (Just abbreviation) False . withPaths chapters)
 		(if sfs == InSubdir then "../" else "")
 
-tocFileContent :: SectionFileStyle -> Draft -> Text
-tocFileContent sfs Draft{..} = applySectionFileStyle sfs $
-		fileContent
-			"14882: Contents"
-			(	"<p style='text-align:center'>"
-				++ "Generated on " ++ date
-				++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
-				++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
-				++ "</p><hr/>"
-				++ mconcat (map section (withPaths chapters))
-			)
-			""
+tocHeader :: Text -> Text
+tocHeader commitUrl =
+		"<p style='text-align:center'>"
+		++ "Generated on " ++ date
+		++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
+		++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
+		++ "</p><hr/>"
 	where
-		date = Text.pack (formatTime defaultTimeLocale "%F" (unsafePerformIO getCurrentTime))
-		section :: (SectionPath, Section) -> Text
-		section (sectionPath, Section{..}) =
-			xml "div" [("id", render abbreviation)] $
-			h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-				spanTag "secnum" (render sectionPath) ++
-				render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
-			mconcat (map section (numberSubsecs sectionPath subsections))
+		date = Text.pack $ formatTime defaultTimeLocale "%F" $ unsafePerformIO getCurrentTime
+
+tocSection :: (SectionPath, Section) -> Text
+tocSection (sectionPath, Section{..}) =
+	xml "div" [("id", render abbreviation)] $
+	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
+		spanTag "secnum" (render sectionPath) ++
+		render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
+	mconcat (tocSection . numberSubsecs sectionPath subsections)
+
+tocChapter :: (SectionPath, Section) -> Text
+tocChapter (sectionPath, Section{..}) =
+	xml "div" [("id", render abbreviation)] $
+	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
+		spanTag "secnum" (render sectionPath) ++
+		render (sectionName, anchor{
+			aClass = "folded_abbr_ref",
+			aText  = "[" ++ render abbreviation ++ "]",
+			aHref  = "#" ++ render abbreviation}) ++
+		render (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
+	xml "div" [("class", "tocChapter")] (mconcat (tocSection . numberSubsecs sectionPath subsections))
+
+tocFileContent :: SectionFileStyle -> Draft -> Text
+tocFileContent sfs Draft{..} =
+		applySectionFileStyle sfs $ fileContent "14882: Contents" body ""
+	where
+		body = tocHeader commitUrl ++ mconcat (tocChapter . withPaths chapters)
 
 fullFileContent :: SectionFileStyle -> [Chapter] -> Text
 fullFileContent sfs chapters = applySectionFileStyle sfs $
 	fileContent
 		"14882"
-		(mconcat $ applySectionFileStyle sfs . fst . renderSection Nothing True . withPaths chapters)
+		(mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters)
 		(if sfs == InSubdir then "../" else "")
 
 fileContent :: Text -> Text -> Text -> Text

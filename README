@@ -72,3 +72,5 @@ Todo
   - different kinds of enumeration
   - align paragraph numbers vertically with text
   - \raisebox
+  - split genhtml.hs up
+  - fix annex headers
