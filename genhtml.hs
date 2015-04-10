@@ -182,7 +182,9 @@ instance Render LaTeX where
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
 	render (TeXComm "ref" [FixArg abbr])
 		| "fig:" `isPrefixOf` render abbr || "tab:" `isPrefixOf` render abbr =
-			render anchor{aHref = "#" ++ url abbr, aText = "[" ++ render abbr ++ "]"}
+			render anchor{
+				aHref = "#" ++ Text.replace ":" "-" (render abbr),
+				aText = "[" ++ render abbr ++ "]"}
 		| otherwise = render $ linkToSection SectionToSection abbr
 	render (TeXComm "impldef" _) = "implementation-defined"
 	render (TeXComm "impdefx" [FixArg _description_for_index]) = "implementation-defined"
@@ -236,6 +238,8 @@ instance Render LaTeX where
 	    | isComplexMath env            = renderComplexMath env
 	    | otherwise                    = error "unexpected env"
 
+instance Render Int where render = Text.pack . show
+
 instance Render Element where
 	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
@@ -243,14 +247,14 @@ instance Render Element where
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
 	render Table{..} =
-		xml "div" [("class", "numberedTable"), ("id", render (head tableAbbrs))] $
-		"Table " ++ Text.pack (show tableNumber) ++ " — " ++
+		xml "div" [("class", "numberedTable"), ("id", Text.replace ":" "-" $ render (head tableAbbrs))] $ -- todo: multiple abbrs?
+		"Table " ++ render tableNumber ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
-		xml "div" [("class", "figure"), ("id", render figureAbbr)] $
+		xml "div" [("class", "figure"), ("id", Text.replace ":" "-" $ render figureAbbr)] $
 		figureSvg ++ "<br>" ++
-		"Figure " ++ Text.pack (show figureNumber) ++ " — " ++ render figureName
+		"Figure " ++ render figureNumber ++ " — " ++ render figureName
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
 			t = case ek of
@@ -260,7 +264,7 @@ instance Render Element where
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined
-	render (Footnote (show -> Text.pack -> num) content) =
+	render (Footnote (render -> num) content) =
 		xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
 		render anchor{aText=num, aHref="#footnote-" ++ num} ++ ")&emsp;" ++ render content
 
@@ -461,7 +465,7 @@ renderTable colspec =
 						| rest == [] = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ renderCell content)
+					(xml "td" [("colspan", render colspan), ("class", c')] $ renderCell content)
 					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
 				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderCell content)
@@ -516,7 +520,7 @@ renderTabbing :: LaTeX -> Text
 renderTabbing = xml "pre" [] . htmlTabs . render . preprocessTabbing . preprocessPre
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
-renderParagraph idPrefix (show -> Text.pack -> i, x) =
+renderParagraph idPrefix (render -> i, x) =
 	xml "div" [("class", "para"), ("id", idPrefix ++ i)] $
 	xml "div" [("class", "paranumberparent")]
 		(render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i})) ++
@@ -588,11 +592,11 @@ instance Render SectionPath where
 	render (SectionPath k ns)
 		| k == InformativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(informative)"
 		| k == NormativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(normative)"
-		| otherwise = Text.intercalate "." (chap : Text.pack . show . tail ns)
+		| otherwise = Text.intercalate "." (chap : render . tail ns)
 		where
 			chap :: Text
 			chap
-				| k == NormalChapter = Text.pack (show (head ns))
+				| k == NormalChapter = render (head ns)
 				| otherwise = Text.pack [['A'..] !! (head ns - 1)]
 
 abbreviations :: Section -> [LaTeX]
