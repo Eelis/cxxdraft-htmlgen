@@ -270,16 +270,36 @@ renderVerb (TeXBraces _) = ""
 renderVerb other = render other
 
 renderCode :: LaTeX -> Text
-renderCode (TeXRaw s) =
-	Text.replace "<" "&lt;"
-	$ Text.replace ">" "&gt;"
-	$ Text.replace "@" ""
-	$ Text.replace "&" "&amp;"
-	$ s
-renderCode (TeXSeq a b) = renderCode a ++ renderCode b
-renderCode (TeXBraces x) = "{" ++ renderCode x ++ "}"
-renderCode (TeXEnv e [] x) | e `elem` makeCodeblock = renderCode x
-renderCode other = render other
+renderCode = comments . doRender
+	where
+		doRender (TeXRaw s) =
+			Text.replace "<" "&lt;"
+			$ Text.replace ">" "&gt;"
+			$ Text.replace "@" ""
+			$ Text.replace "&" "&amp;"
+			$ s
+		doRender (TeXSeq a b) = doRender a ++ doRender b
+		doRender (TeXBraces x) = "{" ++ doRender x ++ "}"
+		doRender (TeXEnv e [] x) | e `elem` makeCodeblock = doRender x
+		doRender other = render other
+
+		comments = blockComments . Text.unlines . map commentLine . Text.lines
+		commentLine l =
+			case Text.breakOn "//" l of
+				(stuff, "") -> stuff
+				(stuff, comment) -> stuff ++ (spanTag "comment" $ commentText comment)
+		blockComments l =
+			case Text.breakOn "/*" l of
+				(stuff, "") -> stuff
+				(stuff, commentStart) ->
+					case Text.breakOn "*/" commentStart of
+						(_, "") -> error "Unbalanced /**/"
+						(comment, rest')
+							| Just rest <- Text.stripPrefix "*/" rest' ->
+								stuff ++ (spanTag "comment" ((commentText comment) ++ "*/")) ++ blockComments rest
+							| otherwise -> error $ "Bad /**/: " ++ Text.unpack l
+
+		commentText = Text.replace "~" "&nbsp;"
 
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 

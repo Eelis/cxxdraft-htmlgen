@@ -126,6 +126,16 @@ span.itemdecl {
 	display: block;
 }
 
+code {
+	font-family: monospace;
+	font-style: normal;
+}
+
+.comment {
+	font-style: italic;
+}
+
+
 code.tabbing {
 	display: block;
 }
