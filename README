@@ -82,5 +82,5 @@ Todo
   - minipages side-by-side
   - paragraphs include wrong code in library chapters
   - different kinds of enumeration
-  - align paragraph numbers vertically with text
   - split genhtml.hs up
+  - fix links to tables on other pages
