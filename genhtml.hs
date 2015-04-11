@@ -535,10 +535,10 @@ linkToSection link abbr = anchor
 	,	aText = "[" ++ render abbr ++ "]" }
 
 url :: LaTeX -> Text
-url (TeXRaw x) = urlEncode x
-url (TeXSeq x y) = url x ++ url y
-url (TeXCommS "dcr") = "--"
-url _ = "TODO"
+url = Text.replace "&lt;" "%3c"
+	. Text.replace "&gt;" "%3e"
+	. Text.replace ":" "%3a"
+	. render
 
 data SectionPath = SectionPath
 	{ chapterKind :: ChapterKind
@@ -671,17 +671,11 @@ fileContent title body pathHome =
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"
 
-urlEncode :: Text -> Text
-urlEncode
-	= Text.replace "<" "%3c"
-	. Text.replace ">" "%3e"
-	. Text.replace ":" "%3a"
-
 abbrAsPath :: LaTeX -> Text
-abbrAsPath (TeXRaw x) = x
-abbrAsPath (TeXSeq x y) = abbrAsPath x ++ abbrAsPath y
-abbrAsPath (TeXCommS "dcr") = "--"
-abbrAsPath _ = "TODO"
+abbrAsPath
+	= Text.replace "&lt;" "<"
+	. Text.replace "&gt;" ">"
+	. render
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)
