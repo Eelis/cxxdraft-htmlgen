@@ -297,6 +297,10 @@ extractFootnotes (e : es) = (e' : es', f ++ fs)
 	where
 		extract (TeXComm "footnote" [FixArg content]) =
 			(TeXCommS "footnoteref", [Footnote (-1) content])
+		extract (TeXCommS "footnotemark") =
+			(TeXCommS "footnoteref", [])
+		extract (TeXComm "footnotetext" [FixArg content]) =
+			(TeXEmpty, [Footnote (-1) content])
 		extract (TeXSeq a b) = extract a ++ extract b
 		extract (TeXEnv env args content) = first (TeXEnv env args) (extract content)
 		extract other = (other, [])
@@ -682,15 +686,26 @@ instance AssignNumbers LaTeX where
 		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteNr]
 	assignNumbers x = return x
 
+instance AssignNumbers Cell where
+	assignNumbers x@Cell{..} = do
+		content' <- assignNumbers content
+		return x{content=content'}
+
+instance AssignNumbers Row where
+	assignNumbers x@Row{..} = do
+		cells' <- assignNumbers cells
+		return x{cells=cells'}
+
 instance AssignNumbers Element where
 	assignNumbers x@Figure{} = do
 		Numbers{..} <- get
 		put Numbers{figureNr = figureNr+1, ..}
 		return x{figureNumber=figureNr}
-	assignNumbers x@Table{} = do
+	assignNumbers x@Table{..} = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
-		return x{tableNumber=tableNr}
+		body <- assignNumbers tableBody
+		return x{tableNumber=tableNr, tableBody=body}
 	assignNumbers x@Footnote{} = do
 		Numbers{..} <- get
 		put Numbers{footnoteNr = footnoteNr+1, ..}
