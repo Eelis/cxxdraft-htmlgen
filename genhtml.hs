@@ -383,7 +383,7 @@ renderComplexMath m =
 	unsafePerformIO $ do
 	exists <- doesFileExist filePath
 	when (not exists) generateImage
-	return $ "<img src='ToImage/" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='Formula'/>"
+	return $ "<img src='ToImage/" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='" ++ escape math ++ "'/>"
 
 	where
 		imgClass (TeXMath Square _) = "mathblockimg"
@@ -395,6 +395,8 @@ renderComplexMath m =
 			_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
 			_ <- readProcess "dvipng" ["-bg", "transparent", "-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
 			return ()
+
+		escape = Text.replace "'" "&apos;" . Text.replace "&" "&amp;"
 
 		math = TeXRender.render m
 		fileName = (show . abs $ hash math) ++ ".png"
