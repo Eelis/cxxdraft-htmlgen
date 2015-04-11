@@ -274,34 +274,41 @@ renderVerb (TeXBraces _) = ""
 renderVerb other = render other
 
 renderCode :: LaTeX -> Text
-renderCode = comments . doRender
+renderCode = comments . renderOutsideAt
 	where
 		doRender (TeXRaw s) =
 			Text.replace "<" "&lt;"
 			$ Text.replace ">" "&gt;"
-			$ Text.replace "@" ""
 			$ Text.replace "&" "&amp;"
 			$ s
-		doRender (TeXSeq a b) = doRender a ++ doRender b
-		doRender (TeXBraces x) = "{" ++ doRender x ++ "}"
-		doRender (TeXEnv e [] x) | e `elem` makeCodeblock = doRender x
 		doRender other = render other
 
-		comments = blockComments . Text.unlines . map commentLine . Text.lines
+		renderOutsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderInsideAt b
+		renderOutsideAt (TeXSeq a b) = renderOutsideAt a ++ renderOutsideAt b
+		renderOutsideAt (TeXBraces x) = "{" ++ renderOutsideAt x ++ "}"
+		renderOutsideAt (TeXEnv e [] x) | e `elem` makeCodeblock = renderOutsideAt x
+		renderOutsideAt other = doRender other 
+
+		renderInsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderOutsideAt b
+		renderInsideAt (TeXSeq a b) = renderInsideAt a ++ renderInsideAt b
+		renderInsideAt (TeXBraces x) = renderInsideAt x
+		renderInsideAt other = doRender other
+
+		mapOdd _ [] = []
+		mapOdd f [only] = [f only]
+		mapOdd f (first : second : rest) = (f first) : second : (mapOdd f rest)
+
+		comments = 	
+			Text.intercalate ""
+		 	. mapOdd (blockComments . Text.intercalate "\n" . map commentLine . Text.lines)  -- Because unlines would emit one unfortunate extra newline
+			. Text.splitOn "@"
 		commentLine l =
 			case Text.breakOn "//" l of
 				(stuff, "") -> stuff
 				(stuff, comment) -> stuff ++ (spanTag "comment" $ commentText comment)
-		blockComments l =
-			case Text.breakOn "/*" l of
-				(stuff, "") -> stuff
-				(stuff, commentStart) ->
-					case Text.breakOn "*/" commentStart of
-						(_, "") -> error "Unbalanced /**/"
-						(comment, rest')
-							| Just rest <- Text.stripPrefix "*/" rest' ->
-								stuff ++ (spanTag "comment" ((commentText comment) ++ "*/")) ++ blockComments rest
-							| otherwise -> error $ "Bad /**/: " ++ Text.unpack l
+		blockComments =
+			Text.replace "/*" "<span class='comment'>/*"
+			. Text.replace "*/" "*/</span>"
 
 		commentText = Text.replace "~" "&nbsp;"
 

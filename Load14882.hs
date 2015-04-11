@@ -574,10 +574,36 @@ eval macros@Macros{..} l = case l of
 mapTeX :: (LaTeX -> Maybe LaTeX) -> (LaTeX -> LaTeX)
 mapTeX f = texmap (isJust . f) (fromJust . f)
 
+flatten :: LaTeX -> LaTeX
+flatten (TeXSeq (TeXSeq a b) c) = (flatten a) <> (flatten b) <> (flatten c)
+flatten other = other
+
+normalizeAtSigns :: LaTeX -> LaTeX
+normalizeAtSigns = flatten . (mapTeX go)
+	where
+		go (TeXRaw stuff)
+			| (before, after) <- Text.breakOn "@" stuff
+			, after /= "" 
+			, after' <- TeXRaw (Text.tail after) =
+				Just $ (TeXRaw before) <> (TeXRaw "@") <> (maybe after' id $ go after')
+			| otherwise = Nothing
+		go _ = Nothing
+
+mapOutsideAts :: (LaTeX -> Maybe LaTeX) -> LaTeX -> LaTeX
+mapOutsideAts f = go . normalizeAtSigns
+	where
+		go (TeXSeq (TeXRaw "@") rest) = TeXSeq (TeXRaw "@") (dontGo rest)
+		go (TeXSeq a b) = TeXSeq (go a) (go b)
+		go other = maybe other id $ f other
+
+		dontGo (TeXSeq (TeXRaw "@") rest) = TeXSeq (TeXRaw "@") (go rest)
+		dontGo (TeXSeq a b) = TeXSeq a (dontGo b)
+		dontGo other = other
+
 fixCommentsInCodeblocks :: LaTeX -> LaTeX
 fixCommentsInCodeblocks = mapTeX $
 	\case
-		TeXEnv "codeblock" [] body -> Just $ TeXEnv "codeblock" [] $ mapTeX f body
+		TeXEnv "codeblock" [] body -> Just $ TeXEnv "codeblock" [] $ mapOutsideAts f body
 		_ -> Nothing
 	where
 		f :: LaTeX -> Maybe LaTeX
