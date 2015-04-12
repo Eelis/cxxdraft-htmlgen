@@ -288,7 +288,6 @@ renderCode = comments . renderOutsideAt
 		renderOutsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderInsideAt b
 		renderOutsideAt (TeXSeq a b) = renderOutsideAt a ++ renderOutsideAt b
 		renderOutsideAt (TeXBraces x) = "{" ++ renderOutsideAt x ++ "}"
-		renderOutsideAt (TeXEnv e [] x) | e `elem` makeCodeblock = renderOutsideAt x
 		renderOutsideAt other = doRender other 
 
 		renderInsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderOutsideAt b
