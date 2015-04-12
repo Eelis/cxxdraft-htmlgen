@@ -230,7 +230,6 @@ instance Render LaTeX where
 	                                     $ Text.strip
 	                                     $ replace "@" "" $ render t
 	render env@(TeXEnv e _ t)
-	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.strip $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | isComplexMath env            = renderComplexMath env
@@ -255,6 +254,7 @@ instance Render Element where
 		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
 		figureSvg ++ "<br>" ++
 		"Figure " ++ render figureNumber ++ " — " ++ render figureName
+	render Codeblock{..} = xml "pre" [("class", "codeblock")] $ renderCode code
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
 			t = case ek of

@@ -56,6 +56,7 @@ data Element
 	| Tabbing LaTeX
 	| Figure { figureNumber :: Int, figureName, figureAbbr :: LaTeX, figureSvg :: Text }
 	| Footnote { footnoteNumber :: Int, footnoteText :: Paragraph }
+	| Codeblock { code :: LaTeX }
 	deriving (Eq, Show)
 
 -- We don't represent examples as elements with nested content
@@ -157,6 +158,11 @@ isFigure :: LaTeX -> Bool
 isFigure (TeXEnv "importgraphic" _ _) = True
 isFigure _ = False
 
+isCodeblock :: LaTeX -> Bool
+isCodeblock (TeXEnv "codeblock" _ _) = True
+isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
+isCodeblock _ = False
+
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
 isComment _ = False
@@ -190,7 +196,9 @@ parseItems (x : more)
 parseItems _ = error "need items or nothing"
 
 isElementsEnd :: LaTeX -> Bool
-isElementsEnd l = isEnumerate l /= Nothing || isBnf l || isTable l || isTabbing l || isFigure l
+isElementsEnd l =
+	isEnumerate l /= Nothing || isBnf l || isTable l
+	|| isTabbing l || isFigure l || isCodeblock l
 
 isTableEnv :: String -> Bool
 isTableEnv = (`elem` ["tabular", "longtable"])
@@ -324,9 +332,8 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 				(map (texFromArg . head) (lookForCommand "label" stuff))
 				(parseTable content)
 			| isTable e = error $ "other table: " ++ show e
-
 			| isTabbing e = Tabbing stuff
-
+			| isCodeblock e = Codeblock stuff
 			| isBnf e = Bnf k stuff
 			| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
@@ -447,7 +454,9 @@ data Macros = Macros
 
 initialMacros :: Macros
 initialMacros = mempty
-	{environments = Map.fromList[("ttfamily", Environment mempty mempty)]}
+	{environments = Map.fromList
+		[ ("ttfamily", Environment mempty mempty)
+		, ("minipage", Environment mempty mempty) ]}
 
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty

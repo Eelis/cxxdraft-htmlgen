@@ -122,10 +122,7 @@ span.itemdecl {
 }
 
 .codeblock {
-	font-family: monospace;
 	margin: 1.2em;
-	white-space: pre;
-	display: block;
 }
 
 code {
