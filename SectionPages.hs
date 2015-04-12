@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns #-}
 
-module SectionPages (writeSectionFiles, writeFullFile) where
+module SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile) where
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
@@ -54,39 +54,45 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 			or $ map (snd . renderSection chapter specific True)
 			   $ numberSubsecs path subsections
 
-fullFileContent :: SectionFileStyle -> [Chapter] -> Text
-fullFileContent sfs chapters = applySectionFileStyle sfs $
-	fileContent (if sfs == InSubdir then "../" else "") "14882" $
-		mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters
+writeSectionFile :: FilePath -> SectionFileStyle -> Text -> Text -> IO ()
+writeSectionFile n sfs title body = do
+	file <- case sfs of
+		Bare -> return n
+		WithExtension -> return $ n ++ ".html"
+		InSubdir -> do
+			createDirectoryIfMissing True (outputDir ++ n)
+			return $ n ++ "/index.html"
+	writeFile (outputDir ++ file) $ applySectionFileStyle sfs $
+		fileContent (if sfs == InSubdir then "../" else "") title body
+
+writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
+writeFiguresFile sfs figures = writeSectionFile "figures" sfs "14882: Figures" $
+	"<h1>List of Figures</h1>" ++ mconcat (render . figures)
+
+writeTablesFile :: SectionFileStyle -> [Table] -> IO ()
+writeTablesFile sfs tables = writeSectionFile "tables" sfs "14882: Tables" $
+	"<h1>List of Tables</h1>" ++ mconcat (r . tables)
+	where
+		r :: Table -> Text
+		r t@Table{tableSection=Section{..}, ..} =
+			h Nothing 2
+				(render sectionName ++ " " ++
+				render anchor
+					{ aHref  = "SectionToSection/" ++ url abbreviation
+						++ "#" ++ replace ":" "-" (url $ head tableAbbrs)
+					, aClass = "abbr_ref"
+					, aText  = "[" ++ render abbreviation ++ "]" })
+			++ render t
 
 writeFullFile :: SectionFileStyle -> [Chapter] -> IO ()
-writeFullFile sfs chapters = do
-	fullFile <- case sfs of
-		Bare -> return "full"
-		WithExtension -> return "full.html"
-		InSubdir -> do
-			createDirectoryIfMissing True (outputDir ++ "/full")
-			return "full/index.html"
-	writeFile (outputDir ++ fullFile) $ fullFileContent sfs chapters
-
-sectionFileContent :: SectionFileStyle -> [Chapter] -> LaTeX -> Text
-sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
-	fileContent
-		(if sfs == InSubdir then "../" else "")
-		("[" ++ render abbreviation ++ "]")
-		(mconcat $ fst . renderChapter (Just abbreviation) False . withPaths chapters)
+writeFullFile sfs chapters = writeSectionFile "full" sfs "14882" $
+	mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters
 
 writeSectionFiles :: SectionFileStyle -> [Chapter] -> IO ()
 writeSectionFiles sfs chapters = do
 	let allAbbrs = concatMap abbreviations (snd . chapters)
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
-		f <- case sfs of
-			Bare -> return $ Text.unpack $ abbrAsPath abbreviation
-			WithExtension -> return $ Text.unpack $ abbrAsPath abbreviation ++ ".html"
-			InSubdir -> do
-				let dir = "/" ++ Text.unpack (abbrAsPath abbreviation)
-				createDirectoryIfMissing True (outputDir ++ dir)
-				return $ dir ++ "/index.html"
-		writeFile (outputDir ++ f) $ sectionFileContent sfs chapters abbreviation
+		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs ("[" ++ render abbreviation ++ "]") $
+			(mconcat $ fst . renderChapter (Just abbreviation) False . withPaths chapters)
 	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"

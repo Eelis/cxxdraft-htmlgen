@@ -9,7 +9,7 @@ import System.Environment (getArgs)
 import Util
 
 import Toc (writeTocFile)
-import SectionPages (writeSectionFiles, writeFullFile)
+import SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
@@ -35,5 +35,7 @@ main = do
 	createDirectoryIfMissing True (outputDir ++ imgDir)
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 	writeTocFile sectionFileStyle draft
+	writeFiguresFile sectionFileStyle figures
+	writeTablesFile sectionFileStyle tables
 	writeFullFile sectionFileStyle chapters
 	writeSectionFiles sectionFileStyle chapters

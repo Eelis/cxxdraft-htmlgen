@@ -11,7 +11,7 @@ import Render (
 	render, secnum, SectionPath(..), Link(..), linkToSection, numberSubsecs,
 	fileContent, applySectionFileStyle, url, withPaths, SectionFileStyle(..), outputDir)
 import Util
-import Load14882 (Figure(..), Table(..), Section(..), LaTeX, Draft(..))
+import Load14882 (Figure(..), Table(..), Section(..), Draft(..))
 
 tocSection :: (SectionPath, Section) -> Text
 tocSection (sectionPath, Section{..}) =

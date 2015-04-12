@@ -213,25 +213,31 @@ instance Render LaTeX where
 
 instance Render Int where render = Text.pack . show
 
+instance Render Table where
+	render Table{..} =
+		xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
+			"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
+			render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
+		where id_ = replace ":" "-" $ render (head tableAbbrs)
+
+instance Render Figure where
+	render Figure{..} =
+		xml "div" [("class", "figure"), ("id", id_)] $
+			figureSvg ++ "<br>" ++
+			"Figure " ++ render anchor{aText=render figureNumber, aHref="#" ++ id_} ++ " — " ++
+			render figureName
+		where id_ = replace ":" "-" $ render figureAbbr
+
 instance Render Element where
 	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
-	render (TableElement Table{..}) =
-		xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
-			"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
-			render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
-		where id_ = replace ":" "-" $ render (head tableAbbrs)
+	render (TableElement t) = render t
 	render (Tabbing t) =
 		xml "pre" [] $ htmlTabs $ render $ preprocessTabbing $ preprocessPre t
-	render (FigureElement Figure{..}) =
-		xml "div" [("class", "figure"), ("id", id_)] $
-			figureSvg ++ "<br>" ++
-			"Figure " ++ render anchor{aText=render figureNumber, aHref="#" ++ id_} ++ " — " ++
-			render figureName
-		where id_ = replace ":" "-" $ render figureAbbr
+	render (FigureElement f) = render f
 	render Codeblock{..} = xml "pre" [("class", "codeblock")] $ renderCode code
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
