@@ -13,6 +13,7 @@
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
 	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), Figure(..),
+	LaTeX,
 	load14882) where
 
 import Text.LaTeX.Base.Parser
@@ -757,8 +758,30 @@ instance AssignNumbers a => AssignNumbers [a] where
 	assignNumbers = mapM assignNumbers
 
 
+tablesInSection :: Section -> [(LaTeX, Table)]
+tablesInSection Section{..} =
+	(abbreviation, ) . (concatMap tablesInElement (preamble ++ concat paragraphs))
+	++ concatMap tablesInSection subsections
+tablesInElement :: Element -> [Table]
+tablesInElement (TableElement t) = [t]
+tablesInElement _ = []
 
-data Draft = Draft { commitUrl :: Text, chapters :: [Chapter] }
+figuresInSection :: Section -> [(LaTeX, Figure)]
+figuresInSection Section{..} =
+	(abbreviation, ) . (concatMap figuresInElement (preamble ++ concat paragraphs))
+	++ concatMap figuresInSection subsections
+
+figuresInElement :: Element -> [Figure]
+figuresInElement (FigureElement f) = [f]
+figuresInElement _ = []
+
+
+data Draft = Draft
+	{ commitUrl :: Text
+	, chapters :: [Chapter]
+	, tables :: [(LaTeX {- smallest enclosing section #-}, Table)]
+	, figures :: [(LaTeX {- smallest enclosing section #-}, Figure)]
+	}
 
 load14882 :: IO Draft
 load14882 = do
@@ -800,5 +823,7 @@ load14882 = do
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
 	let chapters = evalState (assignNumbers $ treeizeChapters $ mconcat sections) (Numbers 1 1 1)
+	let tables = concatMap (tablesInSection . snd) chapters
+	let figures = concatMap (figuresInSection . snd) chapters
 
 	return Draft{..}
