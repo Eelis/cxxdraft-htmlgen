@@ -5,7 +5,6 @@ module Toc (writeTocFile) where
 import qualified Data.Text as Text
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
-import System.IO.Unsafe (unsafePerformIO)
 import Data.Time.Clock (getCurrentTime)
 import Prelude hiding ((.), (++), writeFile)
 import Render (
@@ -13,17 +12,6 @@ import Render (
 	fileContent, applySectionFileStyle, url, withPaths, SectionFileStyle(..), outputDir)
 import Util
 import Load14882 (Figure(..), Table(..), Section(..), LaTeX, Draft(..))
-
-tocHeader :: Text -> Text
-tocHeader commitUrl =
-	xml "div" [("class", "tocHeader")] (
-		"Generated on " ++ date ++
-		" from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>" ++
-		" by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>." ++
-		"<hr/>") ++
-	"<h1>Contents</h1>"
-	where
-		date = Text.pack $ formatTime defaultTimeLocale "%F" $ unsafePerformIO getCurrentTime
 
 tocSection :: (SectionPath, Section) -> Text
 tocSection (sectionPath, Section{..}) =
@@ -45,8 +33,8 @@ tocChapter (sectionPath, Section{..}) =
 		render (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . numberSubsecs sectionPath subsections))
 
-tocListOfTables :: [(LaTeX, Table)] -> Text
-tocListOfTables tables =
+listOfTables :: [(LaTeX, Table)] -> Text
+listOfTables tables =
 	xml "div" [("id", "tables")] $
 		"<h2><a href='#tables'>List of Tables</a></h2>"
 		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tables))
@@ -62,8 +50,8 @@ tocListOfTables tables =
 				aClass = "abbr_ref"}
 			++ "<br>"
 
-tocListOfFigures :: [(LaTeX, Figure)] -> Text
-tocListOfFigures figures =
+listOfFigures :: [(LaTeX, Figure)] -> Text
+listOfFigures figures =
 	xml "div" [("id", "figures")] $
 		"<h2><a href='#figures'>List of Figures</a></h2>"
 		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figures))
@@ -79,13 +67,17 @@ tocListOfFigures figures =
 				aClass = "abbr_ref"}
 			++ "<br>"
 
-tocFileContent :: SectionFileStyle -> Draft -> Text
-tocFileContent sfs Draft{..} =
-		applySectionFileStyle sfs $ fileContent "" "14882: Contents" $
-			tocHeader commitUrl ++
-			tocListOfTables tables ++
-			tocListOfFigures figures ++
-			mconcat (tocChapter . withPaths chapters)
-
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
-writeTocFile sfs d = writeFile (outputDir ++ "/index.html") $ tocFileContent sfs d
+writeTocFile sfs Draft{..} = do
+	date <- Text.pack . formatTime defaultTimeLocale "%F" . getCurrentTime
+	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $
+		fileContent "" "14882: Contents" $
+			xml "div" [("class", "tocHeader")]
+				( "Generated on " ++ date
+				++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
+				++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
+				++ "<hr/>") ++
+			"<h1>Contents</h1>" ++
+			listOfTables tables ++
+			listOfFigures figures ++
+			mconcat (tocChapter . withPaths chapters)
