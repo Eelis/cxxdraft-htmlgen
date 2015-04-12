@@ -669,7 +669,7 @@ fullFileContent sfs chapters = applySectionFileStyle sfs $
 fileContent :: Text -> Text -> Text -> Text
 fileContent title body pathHome =
 	"<!DOCTYPE html>" ++
-	"<html>" ++
+	"<html lang='en'>" ++
 		"<head>" ++
 			"<title>" ++ title ++ "</title>" ++
 			"<meta charset='UTF-8'/>" ++
