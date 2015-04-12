@@ -115,12 +115,6 @@ span.minipage {
 	display: block;
 }
 
-span.itemdecl {
-	font-family: monospace;
-	white-space: pre;
-	display: block;
-}
-
 .codeblock {
 	margin: 1.2em;
 }
