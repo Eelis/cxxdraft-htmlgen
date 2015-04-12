@@ -583,7 +583,7 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 	where
 		full = specific == Nothing || specific == Just abbreviation
 		header = h Nothing (min 4 $ length sectionNums) $
-			secnum (if full then "#" ++ url abbreviation else "") path ++ " "
+			secnum (if specific == Nothing then "#" ++ url abbreviation else "") path ++ " "
 			++ render sectionName ++ " "
 			++ if specific == Just abbreviation && abbreviation /= chapter
 				then xml "span" [("class","abbr_ref")] $ "[" ++ render abbreviation ++ "] "
