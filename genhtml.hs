@@ -248,15 +248,17 @@ instance Render Element where
 		| otherwise = error "unexpected bnf"
 	render (TableElement Table{..}) =
 		xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
-		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
-		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
+			"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
+			render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 		where id_ = replace ":" "-" $ render (head tableAbbrs)
 	render (Tabbing t) =
 		xml "pre" [] $ htmlTabs $ render $ preprocessTabbing $ preprocessPre t
 	render (FigureElement Figure{..}) =
-		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
-		figureSvg ++ "<br>" ++
-		"Figure " ++ render figureNumber ++ " — " ++ render figureName
+		xml "div" [("class", "figure"), ("id", id_)] $
+			figureSvg ++ "<br>" ++
+			"Figure " ++ render anchor{aText=render figureNumber, aHref="#" ++ id_} ++ " — " ++
+			render figureName
+		where id_ = replace ":" "-" $ render figureAbbr
 	render Codeblock{..} = xml "pre" [("class", "codeblock")] $ renderCode code
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
 		where
