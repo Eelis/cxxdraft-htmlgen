@@ -8,7 +8,12 @@
 	TypeSynonymInstances,
 	FlexibleInstances,
 	FlexibleContexts,
-	RankNTypes #-}
+	RankNTypes,
+	MultiParamTypeClasses,
+	FunctionalDependencies,
+	UndecidableInstances,
+	OverlappingInstances,
+	RecursiveDo #-}
 
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
@@ -37,29 +42,47 @@ import Data.Maybe (isJust, fromJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
+import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
 
 data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving Show
-data Cell = Cell { cellSpan :: CellSpan, content :: Paragraph } deriving Show
+data Cell a = Cell { cellSpan :: CellSpan, content :: a } deriving Show
 data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving Show
-data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving Show
+data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving Show
+
+data RawElement
+	= RawLatexElements [LaTeX]
+	| RawEnumerated String [RawParagraph]
+	| RawBnf String LaTeX
+	| RawTable
+		{ rawTableCaption :: LaTeX
+		, rawColumnSpec :: LaTeX
+		, rawTableAbbrs :: [LaTeX]
+		, rawTableBody :: [Row RawParagraph] }
+	| RawTabbing LaTeX
+	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
+	| RawFootnote RawParagraph
+	| RawCodeblock LaTeX
+	deriving Show
 
 data Table = Table
 	{ tableNumber :: Int
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
 	, tableAbbrs :: [LaTeX]
-	, tableBody :: [Row] }
+	, tableBody :: [Row Paragraph]
+	, tableSection :: Section }
 	deriving Show
 
 data Figure = Figure
 	{ figureNumber :: Int
 	, figureName :: LaTeX
 	, figureAbbr :: LaTeX
-	, figureSvg :: Text }
+	, figureSvg :: Text
+	, figureSection :: Section }
 	deriving Show
 
 data Element
@@ -69,13 +92,14 @@ data Element
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
-	| Footnote { footnoteNumber :: Int, footnoteText :: Paragraph }
+	| Footnote { footnoteNumber :: Int, footnoteContent :: Paragraph }
 	| Codeblock { code :: LaTeX }
 	deriving Show
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
 
+type RawParagraph = [RawElement]
 type Paragraph = [Element]
 
 data SectionKind
@@ -92,8 +116,8 @@ data LinearSection = LinearSection
 	{ lsectionAbbreviation :: LaTeX
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
-	, lsectionPreamble :: Paragraph
-	, lsectionParagraphs :: [Paragraph] }
+	, lsectionPreamble :: RawParagraph
+	, lsectionParagraphs :: [RawParagraph] }
 	deriving Show
 
 type Chapter = (ChapterKind, Section)
@@ -105,38 +129,6 @@ data Section = Section
 	, paragraphs :: [Paragraph]
 	, subsections :: [Section] }
 	deriving Show
-
-lsectionLevel :: LinearSection -> Int
-lsectionLevel (lsectionKind -> NormalSection l) = l
-lsectionLevel (lsectionKind -> DefinitionSection) = 2
-lsectionLevel _ = 0
-
-treeizeChapters :: [LinearSection] -> [Chapter]
-treeizeChapters [] = []
-treeizeChapters (LinearSection{..} : more) =
-		(chapterKind, Section{..}) : treeizeChapters more'
-	where
-		chapterKind
-			| lsectionKind == InformativeAnnexSection = InformativeAnnex
-			| lsectionKind == NormativeAnnexSection = NormativeAnnex
-			| otherwise = NormalChapter
-		abbreviation = lsectionAbbreviation
-		paragraphs = lsectionParagraphs
-		sectionName = lsectionName
-		preamble = lsectionPreamble
-		(treeizeSections -> subsections, more') = span ((> 0) . lsectionLevel) more
-
-treeizeSections :: [LinearSection] -> [Section]
-treeizeSections [] = []
-treeizeSections (s@LinearSection{..} : more) =
-		Section{..} : treeizeSections more'
-	where
-		abbreviation = lsectionAbbreviation
-		paragraphs = lsectionParagraphs
-		sectionName = lsectionName
-		preamble = lsectionPreamble
-		n = lsectionLevel s
-		(treeizeSections -> subsections, more') = span ((> n) . lsectionLevel) more
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -201,7 +193,7 @@ isItem (TeXComm "item" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
-parseItems :: [LaTeX] -> [Paragraph]
+parseItems :: [LaTeX] -> [RawParagraph]
 parseItems [] = []
 parseItems (x : more)
 	| isItem x = parsePara a : parseItems b
@@ -233,7 +225,7 @@ texTail _ = error "Not a sequence"
 rowHas :: (String -> Bool) -> LaTeX -> Bool
 rowHas f = not . null . matchCommand f
 
-parseTable :: LaTeX -> [Row]
+parseTable :: LaTeX -> [Row RawParagraph]
 parseTable TeXEmpty = []
 parseTable latex@(TeXSeq _ _)
 	| TeXEmpty <- row = parseTable $ texTail rest
@@ -256,7 +248,7 @@ parseTable latex@(TeXSeq _ _)
 
 parseTable latex = [makeRow latex]
 
-makeRow :: LaTeX -> Row
+makeRow :: LaTeX -> Row RawParagraph
 makeRow l = Row sep $ makeRowCells l
 	where
 		sep
@@ -273,7 +265,7 @@ makeRow l = Row sep $ makeRowCells l
 				end = read $ Text.unpack $ Text.tail end' :: Int
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
-makeRowCells :: LaTeX -> [Cell]
+makeRowCells :: LaTeX -> [Cell RawParagraph]
 makeRowCells TeXEmpty = []
 makeRowCells latex =
 	case rest of
@@ -313,51 +305,50 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
-extractFootnotes :: [LaTeX] -> ([LaTeX], [Element])
+extractFootnotes :: [LaTeX] -> ([LaTeX], [RawElement])
 extractFootnotes [] = ([], [])
 extractFootnotes (e : es) = (e' : es', f ++ fs)
 	where
 		extract (TeXComm "footnote" [FixArg content]) =
-			(TeXCommS "footnoteref", [Footnote (-1) $ parsePara $ rmseqs content])
+			(TeXCommS "footnoteref", [RawFootnote $ parsePara $ rmseqs content])
 		extract (TeXCommS "footnotemark") =
 			(TeXCommS "footnoteref", [])
 		extract (TeXComm "footnotetext" [FixArg content]) =
-			(TeXEmpty, [Footnote (-1) $ parsePara $ rmseqs content])
+			(TeXEmpty, [RawFootnote $ parsePara $ rmseqs content])
 		extract (TeXSeq a b) = extract a ++ extract b
 		extract (TeXEnv env args content) = first (TeXEnv env args) (extract content)
 		extract other = (other, [])
 		(e', f) = extract e
 		(es', fs) = extractFootnotes es
 
-parsePara :: [LaTeX] -> Paragraph
+parsePara :: [LaTeX] -> RawParagraph
 parsePara [] = []
 parsePara (env@(TeXEnv _ _ _) : more) =
 	go e' : parsePara more ++ footnotes
 	where
-		go :: LaTeX -> Element
+		go :: LaTeX -> RawElement
 		go e@(TeXEnv k a stuff)
 			| isFigure e
-			, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
-			= FigureElement Figure{figureNumber=(-1), figureSvg=loadFigure figureFile, ..}
+			, [FixArg rawFigureName, FixArg rawFigureAbbr, FixArg (TeXRaw figureFile)] <- a
+			= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
 			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
-			= TableElement Table
-				{ tableNumber = (-1)
-				, tableCaption = texFromArg x
-				, columnSpec = y
-				, tableAbbrs = map (texFromArg . head) (lookForCommand "label" stuff)
-				, tableBody = parseTable content }
+			= RawTable
+				{ rawTableCaption = texFromArg x
+				, rawColumnSpec = y
+				, rawTableAbbrs = map (texFromArg . head) (lookForCommand "label" stuff)
+				, rawTableBody = parseTable content }
 			| isTable e = error $ "other table: " ++ show e
-			| isTabbing e = Tabbing stuff
-			| isCodeblock e = Codeblock stuff
-			| isBnf e = Bnf k stuff
-			| Just ek <- isEnumerate e = Enumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
+			| isTabbing e = RawTabbing stuff
+			| isCodeblock e = RawCodeblock stuff
+			| isBnf e = RawBnf k stuff
+			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
 
 		([e'], footnotes) = extractFootnotes [env]
 
-parsePara x = LatexElements v' : parsePara more ++ footnotes
+parsePara x = RawLatexElements v' : parsePara more ++ footnotes
 	where
 		(v, more) = elems (dropWhile isJunk x)
 		(v', footnotes) = extractFootnotes v
@@ -370,7 +361,7 @@ elems y@(x:xs)
 	, b /= "" = ([TeXRaw a], TeXRaw (Text.drop 2 b) : xs)
 	| otherwise = first (x :) (elems xs)
 
-parseParas :: [LaTeX] -> ([Paragraph], [LaTeX])
+parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX])
 parseParas (TeXCommS "pnum" : more)
 		= first (parsePara para :) (parseParas more')
 	where (para, more') = span (not . isParaEnd) more
@@ -705,70 +696,114 @@ getCommitUrl = do
 
 data Numbers = Numbers { tableNr, figureNr, footnoteNr :: Int }
 
-class AssignNumbers a where
-	assignNumbers :: forall m . Functor m => MonadState Numbers m => a -> m a
+class AssignNumbers a b | a -> b where
+	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
 
-instance AssignNumbers LaTeX where
-	assignNumbers (TeXSeq x y) = liftM2 TeXSeq (assignNumbers x) (assignNumbers y)
-	assignNumbers (TeXEnv x y z) = TeXEnv x y . assignNumbers z
-	assignNumbers (TeXCommS "footnoteref") = do
+instance AssignNumbers LaTeX LaTeX where
+	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
+	assignNumbers s (TeXEnv x y z) = TeXEnv x y . assignNumbers s z
+	assignNumbers _ (TeXCommS "footnoteref") = do
 		Numbers{footnoteNr} <- get
 		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteNr]
-	assignNumbers x = return x
+	assignNumbers _ x = return x
 
-instance AssignNumbers Cell where
-	assignNumbers x@Cell{..} = do
-		content' <- assignNumbers content
+instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
+	assignNumbers s x@Cell{..} = do
+		content' <- assignNumbers s content
 		return x{content=content'}
 
-instance AssignNumbers Row where
-	assignNumbers x@Row{..} = do
-		cells' <- assignNumbers cells
+instance AssignNumbers a b => AssignNumbers (Row a) (Row b) where
+	assignNumbers s x@Row{..} = do
+		cells' <- assignNumbers s cells
 		return x{cells=cells'}
 
-instance AssignNumbers Element where
-	assignNumbers (FigureElement x@Figure{}) = do
+instance AssignNumbers RawElement Element where
+	assignNumbers section RawFigure{..} = do
 		Numbers{..} <- get
 		put Numbers{figureNr = figureNr+1, ..}
-		return $ FigureElement x{figureNumber=figureNr}
-	assignNumbers (TableElement x@Table{..}) = do
+		return $ FigureElement Figure
+			{ figureNumber  = figureNr
+			, figureName    = rawFigureName
+			, figureAbbr    = rawFigureAbbr
+			, figureSvg     = rawFigureSvg
+			, figureSection = section }
+	assignNumbers s RawTable{..} = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
-		body <- assignNumbers tableBody
-		return $ TableElement x{tableNumber=tableNr, tableBody=body}
-	assignNumbers x@Footnote{} = do
+		tableBody <- assignNumbers s rawTableBody
+		return $ TableElement Table
+			{ tableNumber  = tableNr
+			, columnSpec   = rawColumnSpec
+			, tableAbbrs   = rawTableAbbrs
+			, tableCaption = rawTableCaption
+			, tableSection = s
+			, .. }
+	assignNumbers s (RawFootnote t) = do
 		Numbers{..} <- get
 		put Numbers{footnoteNr = footnoteNr+1, ..}
-		return x{footnoteNumber=footnoteNr}
-	assignNumbers (Enumerated s p) = Enumerated s . assignNumbers p
-	assignNumbers (LatexElements x) = LatexElements . assignNumbers x
-	assignNumbers x = return x
+		t' <- assignNumbers s t
+		return Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
+	assignNumbers s (RawEnumerated x p) = Enumerated x . assignNumbers s p
+	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
+	assignNumbers _ (RawBnf x y) = return $ Bnf x y
+	assignNumbers _ (RawTabbing x) = return $ Tabbing x
+	assignNumbers _ (RawCodeblock x) = return $ Codeblock x
 
-instance AssignNumbers Section where
-	assignNumbers s@Section{preamble,paragraphs,subsections} = do
-		preamble' <- assignNumbers preamble
-		paragraphs' <- assignNumbers paragraphs
-		subsections' <- assignNumbers subsections
-		return $ s{preamble=preamble', paragraphs=paragraphs', subsections=subsections'}
+lsectionLevel :: LinearSection -> Int
+lsectionLevel (lsectionKind -> NormalSection l) = l
+lsectionLevel (lsectionKind -> DefinitionSection) = 2
+lsectionLevel _ = 0
 
-instance AssignNumbers Chapter where
-	assignNumbers (k, s) = (k,) . assignNumbers s
+treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
+	[LinearSection] -> m [Chapter]
+treeizeChapters [] = return []
+treeizeChapters (LinearSection{..} : more) = mdo
+		newSec <- return Section{..}
+		preamble <- assignNumbers newSec lsectionPreamble
+		paragraphs <- assignNumbers newSec lsectionParagraphs
+		subsections <- treeizeSections newSec lsubsections
+		more'' <- treeizeChapters more'
+		return $ (chapterKind, newSec) : more''
+	where
+		chapterKind
+			| lsectionKind == InformativeAnnexSection = InformativeAnnex
+			| lsectionKind == NormativeAnnexSection = NormativeAnnex
+			| otherwise = NormalChapter
+		abbreviation = lsectionAbbreviation
+		sectionName = lsectionName
+		(lsubsections, more') = span ((> 0) . lsectionLevel) more
 
-instance AssignNumbers a => AssignNumbers [a] where
-	assignNumbers = mapM assignNumbers
+treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
+	Section -> [LinearSection] -> m [Section]
+treeizeSections _ [] = return []
+treeizeSections parent (s@LinearSection{..} : more) = mdo
+		newSec <- return Section{..}
+		preamble <- assignNumbers newSec lsectionPreamble
+		paragraphs <- assignNumbers newSec lsectionParagraphs
+		subsections <- treeizeSections newSec lsubsections
+		more'' <- treeizeSections parent more'
+		return $ newSec : more''
+	where
+		abbreviation = lsectionAbbreviation
+		sectionName = lsectionName
+		n = lsectionLevel s
+		(lsubsections, more') = span ((> n) . lsectionLevel) more
+
+instance AssignNumbers a b => AssignNumbers [a] [b] where
+	assignNumbers s = mapM (assignNumbers s)
 
 
-tablesInSection :: Section -> [(LaTeX, Table)]
+tablesInSection :: Section -> [Table]
 tablesInSection Section{..} =
-	(abbreviation, ) . (concatMap tablesInElement (preamble ++ concat paragraphs))
+	concatMap tablesInElement (preamble ++ concat paragraphs)
 	++ concatMap tablesInSection subsections
 tablesInElement :: Element -> [Table]
 tablesInElement (TableElement t) = [t]
 tablesInElement _ = []
 
-figuresInSection :: Section -> [(LaTeX, Figure)]
+figuresInSection :: Section -> [Figure]
 figuresInSection Section{..} =
-	(abbreviation, ) . (concatMap figuresInElement (preamble ++ concat paragraphs))
+	concatMap figuresInElement (preamble ++ concat paragraphs)
 	++ concatMap figuresInSection subsections
 
 figuresInElement :: Element -> [Figure]
@@ -779,9 +814,8 @@ figuresInElement _ = []
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters :: [Chapter]
-	, tables :: [(LaTeX {- smallest enclosing section #-}, Table)]
-	, figures :: [(LaTeX {- smallest enclosing section #-}, Figure)]
-	}
+	, tables :: [Table]
+	, figures :: [Figure] }
 
 load14882 :: IO Draft
 load14882 = do
@@ -822,7 +856,7 @@ load14882 = do
 
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
-	let chapters = evalState (assignNumbers $ treeizeChapters $ mconcat sections) (Numbers 1 1 1)
+	let chapters = evalState (treeizeChapters $ mconcat sections) (Numbers 1 1 1)
 	let tables = concatMap (tablesInSection . snd) chapters
 	let figures = concatMap (figuresInSection . snd) chapters
 

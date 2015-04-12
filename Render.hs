@@ -400,7 +400,7 @@ renderComplexMath m =
 			++
 			"\\end{document}\n"
 
-renderTable :: LaTeX -> [Row] -> Text
+renderTable :: LaTeX -> [Row Paragraph] -> Text
 renderTable colspec =
 	xml "table" [] .
 	renderRows (parseColspec $ Text.unpack $ stripColspec colspec)

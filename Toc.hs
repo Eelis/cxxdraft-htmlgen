@@ -33,35 +33,35 @@ tocChapter (sectionPath, Section{..}) =
 		render (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . numberSubsecs sectionPath subsections))
 
-listOfTables :: [(LaTeX, Table)] -> Text
+listOfTables :: [Table] -> Text
 listOfTables tables =
 	xml "div" [("id", "tables")] $
 		"<h2><a href='#tables'>List of Tables</a></h2>"
 		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tables))
 	where
-		tableItem :: (LaTeX, Table) -> Text
-		tableItem (section, Table{..}) =
+		tableItem :: Table -> Text
+		tableItem Table{..} =
 			spanTag "secnum" (render tableNumber)
 			++ render tableCaption
 			++ render anchor{
-				aHref  = "TocToSection/" ++ url section
+				aHref  = "TocToSection/" ++ url (abbreviation tableSection)
 				         ++ "#" ++ replace ":" "-" (render $ head tableAbbrs),
 				aText  = "[" ++ render (head tableAbbrs) ++ "]",
 				aClass = "abbr_ref"}
 			++ "<br>"
 
-listOfFigures :: [(LaTeX, Figure)] -> Text
+listOfFigures :: [Figure] -> Text
 listOfFigures figures =
 	xml "div" [("id", "figures")] $
 		"<h2><a href='#figures'>List of Figures</a></h2>"
 		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figures))
 	where
-		figureItem :: (LaTeX, Figure) -> Text
-		figureItem (section, Figure{..}) =
+		figureItem :: Figure -> Text
+		figureItem Figure{..} =
 			spanTag "secnum" (render figureNumber)
 			++ render figureName
 			++ render anchor{
-				aHref  = "TocToSection/" ++ url section
+				aHref  = "TocToSection/" ++ url (abbreviation figureSection)
 				         ++ "#" ++ replace ":" "-" (render figureAbbr),
 				aText  = "[" ++ render figureAbbr ++ "]",
 				aClass = "abbr_ref"}
