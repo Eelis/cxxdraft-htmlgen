@@ -584,8 +584,8 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 	where
 		full = specific == Nothing || specific == Just abbreviation
 		header = h Nothing (min 4 $ length sectionNums) $
-			secnum (if full then "#" ++ url abbreviation else "") path
-			++ render sectionName
+			secnum (if full then "#" ++ url abbreviation else "") path ++ " "
+			++ render sectionName ++ " "
 			++ if specific == Just abbreviation && abbreviation /= chapter
 				then xml "span" [("class","abbr_ref")] $ "[" ++ render abbreviation ++ "] "
 				else render (linkToSection
@@ -637,16 +637,16 @@ tocSection :: (SectionPath, Section) -> Text
 tocSection (sectionPath, Section{..}) =
 	xml "div" [("id", render abbreviation)] $
 	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		secnum "" sectionPath ++
-		render (sectionName, (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
+		secnum "" sectionPath ++ " " ++
+		render (sectionName ++ " ", (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
 	mconcat (tocSection . numberSubsecs sectionPath subsections)
 
 tocChapter :: (SectionPath, Section) -> Text
 tocChapter (sectionPath, Section{..}) =
 	xml "div" [("id", render abbreviation)] $
 	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		secnum "" sectionPath ++
-		render (sectionName, anchor{
+		secnum "" sectionPath ++ " " ++
+		render (sectionName ++ " ", anchor{
 			aClass = "folded_abbr_ref",
 			aText  = "[" ++ render abbreviation ++ "]",
 			aHref  = "#" ++ render abbreviation}) ++
