@@ -18,6 +18,8 @@ ul > li:before {
 
 :target { background-color: #E9FBE9; }
 
+.tocHeader { text-align: center; }
+
 div.tocChapter { display: none; }
 :target > div.tocChapter { display: block; }
 

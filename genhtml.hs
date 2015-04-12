@@ -626,12 +626,11 @@ sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
 		(if sfs == InSubdir then "../" else "")
 
 tocHeader :: Text -> Text
-tocHeader commitUrl =
-		"<p style='text-align:center'>"
-		++ "Generated on " ++ date
-		++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
-		++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
-		++ "</p><hr/>"
+tocHeader commitUrl = xml "div" [("class", "tocHeader")] $
+		"Generated on " ++ date ++
+		" from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>" ++
+		" by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>." ++
+		"<hr/>"
 	where
 		date = Text.pack $ formatTime defaultTimeLocale "%F" $ unsafePerformIO getCurrentTime
 
