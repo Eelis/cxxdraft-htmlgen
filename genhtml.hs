@@ -549,7 +549,6 @@ linkToSection link abbr = anchor
 url :: LaTeX -> Text
 url = replace "&lt;" "%3c"
 	. replace "&gt;" "%3e"
-	. replace ":" "%3a"
 	. render
 
 data SectionPath = SectionPath
@@ -756,17 +755,20 @@ doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
 		f :: Text -> Text
 		f u = case (sfs, l) of
 			(Bare, SectionToToc) -> "./#" ++ u
-			(Bare, TocToSection) -> u
-			(Bare, SectionToSection) -> u
+			(Bare, TocToSection) -> dotSlashForColon u
+			(Bare, SectionToSection) -> dotSlashForColon u
 			(Bare, ToImage) -> idir ++ u
 			(InSubdir, SectionToToc) -> "../#" ++ u
 			(InSubdir, TocToSection) -> u ++ "/"
 			(InSubdir, SectionToSection) -> "../" ++ u
 			(InSubdir, ToImage) -> "../" ++ idir ++ u
 			(WithExtension, SectionToToc) -> "index.html#" ++ u
-			(WithExtension, TocToSection) -> u ++ ".html"
-			(WithExtension, SectionToSection) -> u ++ ".html"
+			(WithExtension, TocToSection) -> dotSlashForColon u ++ ".html"
+			(WithExtension, SectionToSection) -> dotSlashForColon u ++ ".html"
 			(WithExtension, ToImage) -> idir ++ u
+		dotSlashForColon x = if ':' `elem` Text.unpack x then "./" ++ x else x
+			-- Without this, we generate urls like "string::replace.html",
+			-- in which "string" is parsed as the protocol.
 
 applySectionFileStyle :: SectionFileStyle -> Text -> Text
 applySectionFileStyle sfs =
