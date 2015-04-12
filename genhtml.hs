@@ -246,9 +246,10 @@ instance Render Element where
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
 	render Table{..} =
-		xml "div" [("class", "numberedTable"), ("id", replace ":" "-" $ render (head tableAbbrs))] $ -- todo: multiple abbrs?
-		"Table " ++ render tableNumber ++ " — " ++
+		xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
+		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
+		where id_ = replace ":" "-" $ render (head tableAbbrs)
 	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
 		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
