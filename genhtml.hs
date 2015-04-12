@@ -9,7 +9,7 @@ import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), 
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
-import Data.Text (Text, isPrefixOf)
+import Data.Text (Text, isPrefixOf, replace)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
 import Data.Char (isSpace, isAlpha)
@@ -165,12 +165,12 @@ instance Render LaTeX where
 				| otherwise = s
 	render (TeXSeq (TeXCommS "itshape") x) = "<i>" ++ render x ++ "</i>"
 	render (TeXSeq x y               ) = render x ++ render y
-	render (TeXRaw x                 ) = Text.replace "~" " "
-	                                   $ Text.replace "--" "–"
-	                                   $ Text.replace "---" "—"
-	                                   $ Text.replace ">" "&gt;"
-	                                   $ Text.replace "<" "&lt;"
-	                                   $ Text.replace "&" "&amp;"
+	render (TeXRaw x                 ) = replace "~" " "
+	                                   $ replace "--" "–"
+	                                   $ replace "---" "—"
+	                                   $ replace ">" "&gt;"
+	                                   $ replace "<" "&lt;"
+	                                   $ replace "&" "&amp;"
 	                                   $ x
 	render (TeXComment _             ) = ""
 	render (TeXCommS "br"            ) = "<br/>"
@@ -183,7 +183,7 @@ instance Render LaTeX where
 	render (TeXComm "ref" [FixArg abbr])
 		| "fig:" `isPrefixOf` render abbr || "tab:" `isPrefixOf` render abbr =
 			render anchor{
-				aHref = "#" ++ Text.replace ":" "-" (render abbr),
+				aHref = "#" ++ replace ":" "-" (render abbr),
 				aText = "[" ++ render abbr ++ "]"}
 		| otherwise = render $ linkToSection SectionToSection abbr
 	render (TeXComm "impldef" _) = "implementation-defined"
@@ -229,7 +229,7 @@ instance Render LaTeX where
 	    | otherwise                    = spanTag (Text.pack s) ""
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl"
 	                                     $ Text.strip
-	                                     $ Text.replace "@" "" $ render t
+	                                     $ replace "@" "" $ render t
 	render (TeXEnv "tabbing" [] t)     = renderTabbing t
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.strip $ renderCode t
@@ -247,12 +247,12 @@ instance Render Element where
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
 	render Table{..} =
-		xml "div" [("class", "numberedTable"), ("id", Text.replace ":" "-" $ render (head tableAbbrs))] $ -- todo: multiple abbrs?
+		xml "div" [("class", "numberedTable"), ("id", replace ":" "-" $ render (head tableAbbrs))] $ -- todo: multiple abbrs?
 		"Table " ++ render tableNumber ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 	render (Tabbing t) = renderTabbing t
 	render Figure{..} =
-		xml "div" [("class", "figure"), ("id", Text.replace ":" "-" $ render figureAbbr)] $
+		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
 		figureSvg ++ "<br>" ++
 		"Figure " ++ render figureNumber ++ " — " ++ render figureName
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
@@ -277,9 +277,9 @@ renderCode :: LaTeX -> Text
 renderCode = comments . renderOutsideAt
 	where
 		doRender (TeXRaw s) =
-			Text.replace "<" "&lt;"
-			$ Text.replace ">" "&gt;"
-			$ Text.replace "&" "&amp;"
+			replace "<" "&lt;"
+			$ replace ">" "&gt;"
+			$ replace "&" "&amp;"
 			$ s
 		doRender other = render other
 
@@ -307,10 +307,10 @@ renderCode = comments . renderOutsideAt
 				(stuff, "") -> stuff
 				(stuff, comment) -> stuff ++ (spanTag "comment" $ commentText comment)
 		blockComments =
-			Text.replace "/*" "<span class='comment'>/*"
-			. Text.replace "*/" "*/</span>"
+			replace "/*" "<span class='comment'>/*"
+			. replace "*/" "*/</span>"
 
-		commentText = Text.replace "~" "&nbsp;"
+		commentText = replace "~" "&nbsp;"
 
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 
@@ -403,7 +403,7 @@ renderComplexMath m =
 			_ <- readProcess "dvipng" ["-bg", "transparent", "-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
 			return ()
 
-		escape = Text.replace "'" "&apos;" . Text.replace "&" "&amp;"
+		escape = replace "'" "&apos;" . replace "&" "&amp;"
 
 		math = TeXRender.render m
 		fileName = (show . abs $ hash math) ++ ".png"
@@ -520,7 +520,7 @@ preprocessTabbing = go
 		go other = other
 
 htmlTabs :: Text -> Text
-htmlTabs = Text.replace "\t" "&#9;"
+htmlTabs = replace "\t" "&#9;"
 
 renderBnfTable :: LaTeX -> Text
 renderBnfTable = bnfPre . htmlTabs . render . preprocessTabbing . preprocessPre
@@ -544,9 +544,9 @@ linkToSection link abbr = anchor
 	,	aText = "[" ++ render abbr ++ "]" }
 
 url :: LaTeX -> Text
-url = Text.replace "&lt;" "%3c"
-	. Text.replace "&gt;" "%3e"
-	. Text.replace ":" "%3a"
+url = replace "&lt;" "%3c"
+	. replace "&gt;" "%3e"
+	. replace ":" "%3a"
 	. render
 
 data SectionPath = SectionPath
@@ -681,8 +681,8 @@ fileContent title body pathHome =
 
 abbrAsPath :: LaTeX -> Text
 abbrAsPath
-	= Text.replace "&lt;" "<"
-	. Text.replace "&gt;" ">"
+	= replace "&lt;" "<"
+	. replace "&gt;" ">"
 	. render
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
