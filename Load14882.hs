@@ -318,7 +318,7 @@ extractFootnotes (e : es) = (e' : es', f ++ fs)
 parsePara :: [LaTeX] -> Paragraph
 parsePara [] = []
 parsePara (env@(TeXEnv _ _ _) : more) =
-	go e' : footnotes ++ parsePara more
+	go e' : parsePara more ++ footnotes
 	where
 		go :: LaTeX -> Element
 		go e@(TeXEnv k a stuff)
@@ -340,7 +340,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 
 		([e'], footnotes) = extractFootnotes [env]
 
-parsePara x = LatexElements v' : footnotes ++ parsePara more
+parsePara x = LatexElements v' : parsePara more ++ footnotes
 	where
 		(v, more) = elems (dropWhile isJunk x)
 		(v', footnotes) = extractFootnotes v
