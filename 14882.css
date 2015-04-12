@@ -137,11 +137,6 @@ code {
 	font-style: italic;
 }
 
-
-code.tabbing {
-	display: block;
-}
-
 .footnotenum { vertical-align: super; font-size: smaller; }
 .footnote { font-size: small; margin: 2em; }
 
