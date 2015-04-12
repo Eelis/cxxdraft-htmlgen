@@ -12,7 +12,7 @@ import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (Text, isPrefixOf, replace)
 import qualified Data.Text as Text
 import Data.Text.IO (writeFile)
-import Data.Char (isSpace, isAlpha)
+import Data.Char (isAlpha)
 import Data.Monoid (Monoid(mappend), mconcat)
 import Control.Monad (forM_, when)
 import qualified Prelude
@@ -127,12 +127,11 @@ simpleMacros =
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	]
 
-makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeRowsep, makeCodeblock :: [String]
+makeSpan, makeDiv, makeBnfTable, makeBnfPre, makeCodeblock :: [String]
 makeSpan = words "indented itemdescr minipage center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
-makeRowsep = words "hline"
 makeCodeblock = words "codeblock codeblockdigitsep"
 
 data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
