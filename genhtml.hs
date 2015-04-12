@@ -229,7 +229,6 @@ instance Render LaTeX where
 	render (TeXEnv "itemdecl" [] t)    = spanTag "itemdecl"
 	                                     $ Text.strip
 	                                     $ replace "@" "" $ render t
-	render (TeXEnv "tabbing" [] t)     = renderTabbing t
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeCodeblock       = spanTag "codeblock" $ Text.strip $ renderCode t
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
@@ -250,7 +249,8 @@ instance Render Element where
 		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 		where id_ = replace ":" "-" $ render (head tableAbbrs)
-	render (Tabbing t) = renderTabbing t
+	render (Tabbing t) =
+		xml "pre" [] $ htmlTabs $ render $ preprocessTabbing $ preprocessPre t
 	render Figure{..} =
 		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
 		figureSvg ++ "<br>" ++
@@ -526,9 +526,6 @@ htmlTabs = replace "\t" "&#9;"
 
 renderBnfTable :: LaTeX -> Text
 renderBnfTable = bnfPre . htmlTabs . render . preprocessTabbing . preprocessPre
-
-renderTabbing :: LaTeX -> Text
-renderTabbing = xml "pre" [] . htmlTabs . render . preprocessTabbing . preprocessPre
 
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (render -> i, x) =

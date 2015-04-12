@@ -445,6 +445,10 @@ data Macros = Macros
 	, counters :: Map Text Int }
 	deriving Show
 
+initialMacros :: Macros
+initialMacros = mempty
+	{environments = Map.fromList[("ttfamily", Environment mempty mempty)]}
+
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty
 	mappend x y = Macros (commands x ++ commands y) (environments x ++ environments y) (counters x ++ counters y)
@@ -737,8 +741,8 @@ load14882 = do
 	commitUrl <- getCommitUrl
 
 	m@Macros{..} <-
-		snd
-		. eval mempty
+		(initialMacros ++)
+		. snd . eval mempty
 		. doParseLaTeX
 		. newlineCurlies
 		. mconcat
