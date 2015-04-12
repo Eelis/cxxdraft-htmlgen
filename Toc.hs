@@ -1,16 +1,18 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 
-module Toc (tocFileContent) where
+module Toc (writeTocFile) where
 
 import qualified Data.Text as Text
 import Data.Time.Format (formatTime)
 import System.Locale (defaultTimeLocale)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.Time.Clock (getCurrentTime)
-import Prelude hiding ((.), (++))
-import Render
+import Prelude hiding ((.), (++), writeFile)
+import Render (
+	render, secnum, SectionPath(..), Link(..), linkToSection, numberSubsecs,
+	fileContent, applySectionFileStyle, url, withPaths, SectionFileStyle(..), outputDir)
 import Util
-import Load14882
+import Load14882 (Figure(..), Table(..), Section(..), LaTeX, Draft(..))
 
 tocHeader :: Text -> Text
 tocHeader commitUrl =
@@ -84,3 +86,6 @@ tocFileContent sfs Draft{..} =
 			tocListOfTables tables ++
 			tocListOfFigures figures ++
 			mconcat (tocChapter . withPaths chapters)
+
+writeTocFile :: SectionFileStyle -> Draft -> IO ()
+writeTocFile sfs d = writeFile (outputDir ++ "/index.html") $ tocFileContent sfs d

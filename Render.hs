@@ -6,7 +6,7 @@
 	LambdaCase #-}
 
 module Render (
-	Render(render), xml, h, url, spanTag, anchor, Anchor(..),
+	Render(render), url,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, SectionPath(..),
 	withPaths, fileContent, numberSubsecs, Link(..), outputDir,
 	abbrAsPath, abbreviations, imgDir
@@ -114,11 +114,6 @@ makeSpan = words "indented itemdescr minipage center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
-
-data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
-
-anchor :: Anchor
-anchor = Anchor{aClass="", aId="", aHref="", aText=""}
 
 instance Render Anchor where
 	render Anchor{..} = xml "a" ([("class", aClass) | aClass /= "" ] ++

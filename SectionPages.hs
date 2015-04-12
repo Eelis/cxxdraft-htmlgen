@@ -1,8 +1,12 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns #-}
 
-module SectionPages (sectionFileContent, fullFileContent) where
+module SectionPages (writeSectionFiles, writeFullFile) where
 
-import Prelude hiding ((++), (.))
+import Prelude hiding ((++), (.), writeFile)
+import System.Directory (createDirectoryIfMissing)
+import System.IO (hFlush, stdout)
+import Control.Monad (forM_)
+import qualified Data.Text as Text
 import Render
 import Load14882
 import Util
@@ -55,9 +59,34 @@ fullFileContent sfs chapters = applySectionFileStyle sfs $
 	fileContent (if sfs == InSubdir then "../" else "") "14882" $
 		mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters
 
+writeFullFile :: SectionFileStyle -> [Chapter] -> IO ()
+writeFullFile sfs chapters = do
+	fullFile <- case sfs of
+		Bare -> return "full"
+		WithExtension -> return "full.html"
+		InSubdir -> do
+			createDirectoryIfMissing True (outputDir ++ "/full")
+			return "full/index.html"
+	writeFile (outputDir ++ fullFile) $ fullFileContent sfs chapters
+
 sectionFileContent :: SectionFileStyle -> [Chapter] -> LaTeX -> Text
 sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
 	fileContent
 		(if sfs == InSubdir then "../" else "")
 		("[" ++ render abbreviation ++ "]")
 		(mconcat $ fst . renderChapter (Just abbreviation) False . withPaths chapters)
+
+writeSectionFiles :: SectionFileStyle -> [Chapter] -> IO ()
+writeSectionFiles sfs chapters = do
+	let allAbbrs = concatMap abbreviations (snd . chapters)
+	forM_ allAbbrs $ \abbreviation -> do
+		putStr "."; hFlush stdout
+		f <- case sfs of
+			Bare -> return $ Text.unpack $ abbrAsPath abbreviation
+			WithExtension -> return $ Text.unpack $ abbrAsPath abbreviation ++ ".html"
+			InSubdir -> do
+				let dir = "/" ++ Text.unpack (abbrAsPath abbreviation)
+				createDirectoryIfMissing True (outputDir ++ dir)
+				return $ dir ++ "/index.html"
+		writeFile (outputDir ++ f) $ sectionFileContent sfs chapters abbreviation
+	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"

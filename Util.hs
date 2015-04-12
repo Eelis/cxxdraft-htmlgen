@@ -1,11 +1,15 @@
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 
-module Util (mconcat, (.), (++), Data.Text.Text, Text.replace, xml, spanTag, h) where
+module Util (
+	mconcat, (.), (++), Text, replace, xml, spanTag, h,
+	anchor, Anchor(..), writeFile
+	) where
 
+import Prelude hiding ((.), (++), writeFile)
 import qualified Data.Text as Text
-import Data.Text (Text)
-import Prelude hiding ((.), (++))
+import Data.Text (Text, replace)
 import Data.Monoid (Monoid(mappend), mconcat)
+import Data.Text.IO (writeFile)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -23,3 +27,8 @@ spanTag = xml "span" . (:[]) . ("class",)
 
 h :: Maybe Text -> Int -> Text -> Text
 h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
+
+data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
+
+anchor :: Anchor
+anchor = Anchor{aClass="", aId="", aHref="", aText=""}
