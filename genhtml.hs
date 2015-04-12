@@ -266,7 +266,9 @@ instance Render Element where
 				_ -> undefined
 	render (Footnote (render -> num) content) =
 		xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
-		render anchor{aText=num, aHref="#footnote-" ++ num} ++ ")&emsp;" ++ render content
+		xml "div" [("class", "marginalizedparent")]
+			(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"}) ++
+		render content
 
 renderVerb :: LaTeX -> Text
 renderVerb t@(TeXRaw _) = renderCode t
@@ -531,8 +533,8 @@ renderTabbing = xml "pre" [] . htmlTabs . render . preprocessTabbing . preproces
 renderParagraph :: Text -> (Int, Paragraph) -> Text
 renderParagraph idPrefix (render -> i, x) =
 	xml "div" [("class", "para"), ("id", idPrefix ++ i)] $
-	xml "div" [("class", "paranumberparent")]
-		(render (anchor{aClass="paranumber", aHref="#" ++ idPrefix ++ i,aText=i})) ++
+	xml "div" [("class", "marginalizedparent")]
+		(render (anchor{aClass="marginalized", aHref="#" ++ idPrefix ++ i,aText=i})) ++
 	render x
 
 data Link = TocToSection | SectionToToc | SectionToSection | ToImage

@@ -34,14 +34,14 @@ div.tocChapter { display: none; }
 .secnum { display: inline-block; width: 73pt; }
 .annexnum { display: block; }
 
-div.paranumberparent {
+div.marginalizedparent {
 	position: relative;
 	left: -2em;
 }
 
-a.paranumber {
+a.marginalized {
 	position: absolute;
-	font-size: small;
+	font-size: smaller;
 }
 
 div.para { text-align: justify; }

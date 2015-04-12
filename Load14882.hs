@@ -55,7 +55,7 @@ data Element
 		, tableBody :: [Row] }
 	| Tabbing LaTeX
 	| Figure { figureNumber :: Int, figureName, figureAbbr :: LaTeX, figureSvg :: Text }
-	| Footnote { footnoteNumber :: Int, text :: LaTeX }
+	| Footnote { footnoteNumber :: Int, footnoteText :: Paragraph }
 	deriving (Eq, Show)
 
 -- We don't represent examples as elements with nested content
@@ -296,11 +296,11 @@ extractFootnotes [] = ([], [])
 extractFootnotes (e : es) = (e' : es', f ++ fs)
 	where
 		extract (TeXComm "footnote" [FixArg content]) =
-			(TeXCommS "footnoteref", [Footnote (-1) content])
+			(TeXCommS "footnoteref", [Footnote (-1) $ parsePara $ rmseqs content])
 		extract (TeXCommS "footnotemark") =
 			(TeXCommS "footnoteref", [])
 		extract (TeXComm "footnotetext" [FixArg content]) =
-			(TeXEmpty, [Footnote (-1) content])
+			(TeXEmpty, [Footnote (-1) $ parsePara $ rmseqs content])
 		extract (TeXSeq a b) = extract a ++ extract b
 		extract (TeXEnv env args content) = first (TeXEnv env args) (extract content)
 		extract other = (other, [])
