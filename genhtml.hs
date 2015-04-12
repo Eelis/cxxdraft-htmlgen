@@ -5,7 +5,10 @@
 	ViewPatterns,
 	LambdaCase #-}
 
-import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), load14882)
+import Load14882 (
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
+	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), Figure(..),
+	load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -250,7 +253,7 @@ instance Render Element where
 		where id_ = replace ":" "-" $ render (head tableAbbrs)
 	render (Tabbing t) =
 		xml "pre" [] $ htmlTabs $ render $ preprocessTabbing $ preprocessPre t
-	render Figure{..} =
+	render (FigureElement Figure{..}) =
 		xml "div" [("class", "figure"), ("id", replace ":" "-" $ render figureAbbr)] $
 		figureSvg ++ "<br>" ++
 		"Figure " ++ render figureNumber ++ " — " ++ render figureName
@@ -614,15 +617,26 @@ abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
 tablesInChapters :: [Chapter] -> [(LaTeX, Table)]
-tablesInChapters = concatMap (tablesInSection . snd)
+tablesInChapters = concatMap (inSection . snd)
 	where
-		tablesInSection :: Section -> [(LaTeX, Table)]
-		tablesInSection Section{..} =
-			(abbreviation, ) . (concatMap tablesInElement (preamble ++ concat paragraphs))
-			++ concatMap tablesInSection subsections
-		tablesInElement :: Element -> [Table]
-		tablesInElement (TableElement t) = [t]
-		tablesInElement _ = []
+		inSection :: Section -> [(LaTeX, Table)]
+		inSection Section{..} =
+			(abbreviation, ) . (concatMap inElement (preamble ++ concat paragraphs))
+			++ concatMap inSection subsections
+		inElement :: Element -> [Table]
+		inElement (TableElement t) = [t]
+		inElement _ = []
+
+figuresInChapters :: [Chapter] -> [(LaTeX, Figure)]
+figuresInChapters = concatMap (inSection . snd)
+	where
+		inSection :: Section -> [(LaTeX, Figure)]
+		inSection Section{..} =
+			(abbreviation, ) . (concatMap inElement (preamble ++ concat paragraphs))
+			++ concatMap inSection subsections
+		inElement :: Element -> [Figure]
+		inElement (FigureElement f) = [f]
+		inElement _ = []
 
 withPaths :: [Chapter] -> [(SectionPath, Section)]
 withPaths chapters = f normals ++ f annexes
@@ -634,9 +648,9 @@ withPaths chapters = f normals ++ f annexes
 sectionFileContent :: SectionFileStyle -> [Chapter] -> LaTeX -> Text
 sectionFileContent sfs chapters abbreviation = applySectionFileStyle sfs $
 	fileContent
+		(if sfs == InSubdir then "../" else "")
 		("[" ++ render abbreviation ++ "]")
 		(mconcat $ fst . renderChapter (Just abbreviation) False . withPaths chapters)
-		(if sfs == InSubdir then "../" else "")
 
 tocHeader :: Text -> Text
 tocHeader commitUrl =
@@ -671,9 +685,12 @@ tocChapter (sectionPath, Section{..}) =
 
 tocFileContent :: SectionFileStyle -> Draft -> Text
 tocFileContent sfs Draft{..} =
-		applySectionFileStyle sfs $ fileContent "14882: Contents" body ""
+		applySectionFileStyle sfs $ fileContent "" "14882: Contents" $
+			tocHeader commitUrl ++
+			listOfTables ++
+			listOfFigures ++
+			mconcat (tocChapter . withPaths chapters)
 	where
-		body = tocHeader commitUrl ++ listOfTables ++ mconcat (tocChapter . withPaths chapters)
 		listOfTables = xml "div" [("id", "tables")] $
 			"<h2><a href='#tables'>List of Tables</a></h2>"
 			++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tablesInChapters chapters))
@@ -687,16 +704,27 @@ tocFileContent sfs Draft{..} =
 				aText  = "[" ++ render (head tableAbbrs) ++ "]",
 				aClass = "abbr_ref"}
 			++ "<br>"
+		listOfFigures = xml "div" [("id", "figures")] $
+			"<h2><a href='#figures'>List of Figures</a></h2>"
+			++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figuresInChapters chapters))
+		figureItem :: (LaTeX, Figure) -> Text
+		figureItem (section, Figure{..}) =
+			spanTag "secnum" (render figureNumber)
+			++ render figureName
+			++ render anchor{
+				aHref  = "TocToSection/" ++ url section
+				         ++ "#" ++ replace ":" "-" (render figureAbbr),
+				aText  = "[" ++ render figureAbbr ++ "]",
+				aClass = "abbr_ref"}
+			++ "<br>"
 
 fullFileContent :: SectionFileStyle -> [Chapter] -> Text
 fullFileContent sfs chapters = applySectionFileStyle sfs $
-	fileContent
-		"14882"
-		(mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters)
-		(if sfs == InSubdir then "../" else "")
+	fileContent (if sfs == InSubdir then "../" else "") "14882" $
+		mconcat $ applySectionFileStyle sfs . fst . renderChapter Nothing True . withPaths chapters
 
 fileContent :: Text -> Text -> Text -> Text
-fileContent title body pathHome =
+fileContent pathHome title body =
 	"<!DOCTYPE html>" ++
 	"<html lang='en'>" ++
 		"<head>" ++

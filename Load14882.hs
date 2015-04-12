@@ -12,7 +12,7 @@
 
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
-	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..),
+	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), Figure(..),
 	load14882) where
 
 import Text.LaTeX.Base.Parser
@@ -54,13 +54,20 @@ data Table = Table
 	, tableBody :: [Row] }
 	deriving Show
 
+data Figure = Figure
+	{ figureNumber :: Int
+	, figureName :: LaTeX
+	, figureAbbr :: LaTeX
+	, figureSvg :: Text }
+	deriving Show
+
 data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
 	| TableElement Table
 	| Tabbing LaTeX
-	| Figure { figureNumber :: Int, figureName, figureAbbr :: LaTeX, figureSvg :: Text }
+	| FigureElement Figure
 	| Footnote { footnoteNumber :: Int, footnoteText :: Paragraph }
 	| Codeblock { code :: LaTeX }
 	deriving Show
@@ -330,13 +337,16 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 		go e@(TeXEnv k a stuff)
 			| isFigure e
 			, [FixArg figureName, FixArg figureAbbr, FixArg (TeXRaw figureFile)] <- a
-			= Figure{figureNumber=(-1), figureSvg=loadFigure figureFile, ..}
+			= FigureElement Figure{figureNumber=(-1), figureSvg=loadFigure figureFile, ..}
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
 			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
-			= TableElement $ Table (-1) (texFromArg x) y
-				(map (texFromArg . head) (lookForCommand "label" stuff))
-				(parseTable content)
+			= TableElement Table
+				{ tableNumber = (-1)
+				, tableCaption = texFromArg x
+				, columnSpec = y
+				, tableAbbrs = map (texFromArg . head) (lookForCommand "label" stuff)
+				, tableBody = parseTable content }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = Tabbing stuff
 			| isCodeblock e = Codeblock stuff
@@ -716,10 +726,10 @@ instance AssignNumbers Row where
 		return x{cells=cells'}
 
 instance AssignNumbers Element where
-	assignNumbers x@Figure{} = do
+	assignNumbers (FigureElement x@Figure{}) = do
 		Numbers{..} <- get
 		put Numbers{figureNr = figureNr+1, ..}
-		return x{figureNumber=figureNr}
+		return $ FigureElement x{figureNumber=figureNr}
 	assignNumbers (TableElement x@Table{..}) = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
