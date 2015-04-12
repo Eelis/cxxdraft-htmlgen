@@ -10,7 +10,10 @@
 	FlexibleContexts,
 	RankNTypes #-}
 
-module Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882) where
+module Load14882 (
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
+	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..),
+	load14882) where
 
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -38,26 +41,29 @@ import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
 
-data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
-data Cell = Cell { cellSpan :: CellSpan, content :: Paragraph } deriving (Eq, Show)
-data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving (Eq, Show)
-data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving (Eq, Show)
+data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving Show
+data Cell = Cell { cellSpan :: CellSpan, content :: Paragraph } deriving Show
+data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving Show
+data Row = Row { rowSep :: RowSepKind, cells :: [Cell] } deriving Show
+
+data Table = Table
+	{ tableNumber :: Int
+	, tableCaption :: LaTeX
+	, columnSpec :: LaTeX
+	, tableAbbrs :: [LaTeX]
+	, tableBody :: [Row] }
+	deriving Show
 
 data Element
 	= LatexElements [LaTeX]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
-	| Table
-		{ tableNumber :: Int
-		, tableCaption :: LaTeX
-		, columnSpec :: LaTeX
-		, tableAbbrs :: [LaTeX]
-		, tableBody :: [Row] }
+	| TableElement Table
 	| Tabbing LaTeX
 	| Figure { figureNumber :: Int, figureName, figureAbbr :: LaTeX, figureSvg :: Text }
 	| Footnote { footnoteNumber :: Int, footnoteText :: Paragraph }
 	| Codeblock { code :: LaTeX }
-	deriving (Eq, Show)
+	deriving Show
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
@@ -328,7 +334,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
 			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
-			= Table (-1) (texFromArg x) y
+			= TableElement $ Table (-1) (texFromArg x) y
 				(map (texFromArg . head) (lookForCommand "label" stuff))
 				(parseTable content)
 			| isTable e = error $ "other table: " ++ show e
@@ -714,11 +720,11 @@ instance AssignNumbers Element where
 		Numbers{..} <- get
 		put Numbers{figureNr = figureNr+1, ..}
 		return x{figureNumber=figureNr}
-	assignNumbers x@Table{..} = do
+	assignNumbers (TableElement x@Table{..}) = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
 		body <- assignNumbers tableBody
-		return x{tableNumber=tableNr, tableBody=body}
+		return $ TableElement x{tableNumber=tableNr, tableBody=body}
 	assignNumbers x@Footnote{} = do
 		Numbers{..} <- get
 		put Numbers{footnoteNr = footnoteNr+1, ..}

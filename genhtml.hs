@@ -5,7 +5,7 @@
 	ViewPatterns,
 	LambdaCase #-}
 
-import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), load14882)
+import Load14882 (CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph, ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), load14882)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -243,7 +243,7 @@ instance Render Element where
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
 		| otherwise = error "unexpected bnf"
-	render Table{..} =
+	render (TableElement Table{..}) =
 		xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
 		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
@@ -472,7 +472,7 @@ renderTable colspec =
 					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
 					c' = combine c'' c ++ clineClass colnum clines
 					colspan
-						| rest == [] = length cs + 1
+						| null rest = length cs + 1
 						| otherwise = w
 				in
 					(xml "td" [("colspan", render colspan), ("class", c')] $ renderCell content)
@@ -613,6 +613,17 @@ instance Render SectionPath where
 abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
+tablesInChapters :: [Chapter] -> [(LaTeX, Table)]
+tablesInChapters = concatMap (tablesInSection . snd)
+	where
+		tablesInSection :: Section -> [(LaTeX, Table)]
+		tablesInSection Section{..} =
+			(abbreviation, ) . (concatMap tablesInElement (preamble ++ concat paragraphs))
+			++ concatMap tablesInSection subsections
+		tablesInElement :: Element -> [Table]
+		tablesInElement (TableElement t) = [t]
+		tablesInElement _ = []
+
 withPaths :: [Chapter] -> [(SectionPath, Section)]
 withPaths chapters = f normals ++ f annexes
 	where
@@ -662,7 +673,20 @@ tocFileContent :: SectionFileStyle -> Draft -> Text
 tocFileContent sfs Draft{..} =
 		applySectionFileStyle sfs $ fileContent "14882: Contents" body ""
 	where
-		body = tocHeader commitUrl ++ mconcat (tocChapter . withPaths chapters)
+		body = tocHeader commitUrl ++ listOfTables ++ mconcat (tocChapter . withPaths chapters)
+		listOfTables = xml "div" [("id", "tables")] $
+			"<h2><a href='#tables'>List of Tables</a></h2>"
+			++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tablesInChapters chapters))
+		tableItem :: (LaTeX, Table) -> Text
+		tableItem (section, Table{..}) =
+			spanTag "secnum" (render tableNumber)
+			++ render tableCaption
+			++ render anchor{
+				aHref  = "TocToSection/" ++ url section
+				         ++ "#" ++ replace ":" "-" (render $ head tableAbbrs),
+				aText  = "[" ++ render (head tableAbbrs) ++ "]",
+				aClass = "abbr_ref"}
+			++ "<br>"
 
 fullFileContent :: SectionFileStyle -> [Chapter] -> Text
 fullFileContent sfs chapters = applySectionFileStyle sfs $
