@@ -585,11 +585,15 @@ renderSection chapter specific parasEmitted (path@SectionPath{..}, Section{..})
 		header = h Nothing (min 4 $ length sectionNums) $
 			secnum (if specific == Nothing then "#" ++ url abbreviation else "") path ++ " "
 			++ render sectionName ++ " "
-			++ if specific == Just abbreviation && abbreviation /= chapter
-				then xml "span" [("class","abbr_ref")] $ "[" ++ render abbreviation ++ "] "
-				else render (linkToSection
+			++ render abbr{aClass="abbr_ref", aText="[" ++ render abbreviation ++ "]"}
+		abbr
+			| specific == Just abbreviation && abbreviation /= chapter
+				= anchor
+			| Just s <- specific, s /= abbreviation, abbreviation /= chapter
+				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url s}
+			| otherwise = linkToSection
 					(if abbreviation == chapter then SectionToToc else SectionToSection)
-					abbreviation){aClass="abbr_ref"}
+					abbreviation
 		anysubcontent =
 			or $ map (snd . renderSection chapter specific True)
 			   $ numberSubsecs path subsections
@@ -691,7 +695,7 @@ data SectionFileStyle = Bare | WithExtension | InSubdir
 doLink :: SectionFileStyle -> Link -> Text -> Text
 doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
 	where
-		go (x : (Text.breakOn "'" -> (a, b)) : z) = x ++ f a ++ go (b : z)
+		go (x : (Text.break (`elem` "'#") -> (a, b)) : z) = x ++ f a ++ go (b : z)
 		go [x] = x
 		go _ = undefined
 		idir = Text.pack imgDir
