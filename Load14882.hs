@@ -641,14 +641,16 @@ mapOutsideAts f = go . normalizeAtSigns
 		dontGo (TeXSeq a b) = TeXSeq a (dontGo b)
 		dontGo other = other
 
-fixCommentsInCodeblocks :: LaTeX -> LaTeX
-fixCommentsInCodeblocks = mapTeX $
+reparseCodeblocks :: LaTeX -> LaTeX
+reparseCodeblocks = mapTeX $
 	\case
 		TeXEnv "codeblock" [] body -> Just $ TeXEnv "codeblock" [] $ mapOutsideAts f body
 		_ -> Nothing
 	where
 		f :: LaTeX -> Maybe LaTeX
-		f (TeXComment t) = Just $ (TeXRaw "%") <> (mapTeX f $ doParseLaTeX (t ++ "\n"))
+		f (TeXComment t) = Just $ (TeXRaw "%") <> (mapOutsideAts f $ doParseLaTeX (t ++ "\n"))
+		f (TeXCommS c) = Just $ TeXRaw $ ("\\" ++ Text.pack c)
+		f (TeXLineBreak _ _) = Just $ TeXRaw "\\\\"
 		f _ = Nothing
 
 moreArgs :: LaTeX -> LaTeX
@@ -663,7 +665,7 @@ moreArgs x = x
 
 doParseLaTeX :: Text -> LaTeX
 doParseLaTeX =
-	fixCommentsInCodeblocks
+	reparseCodeblocks
 	. moreArgs
 	. either (error "latex parse error") id
 	. parseLaTeX
