@@ -16,7 +16,7 @@ import Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
 	Section(..), Chapter(..), Table(..), Figure(..))
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, (<>))
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
@@ -501,6 +501,10 @@ preprocessTabbing = go
 		initialTab other = other
 
 		go (TeXBraces t) = t
+		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXSeq (TeXRaw s) a)) b)) =
+			(TeXRaw $ "\t" ++ s) <> (go a) <> (go b)
+		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXRaw s)) a)) =
+			(TeXRaw $ "\t" ++ s) <> (go a)
 		go (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
 			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ go rest)
 		go (TeXSeq (TeXCommS "") (TeXRaw s)) =
