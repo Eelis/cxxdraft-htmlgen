@@ -866,6 +866,7 @@ resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
 	Section{
 		paragraphs=map (map (resolve links)) paragraphs,
+		preamble=map (resolve links) preamble,
 		subsections=map (resolveGrammarterms links) subsections,
 		..}
 	where
