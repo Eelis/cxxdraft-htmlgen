@@ -229,6 +229,7 @@ renderFig stripFig Figure{..} =
 
 instance Render Element where
 	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
+	render (Itemdescr t) = xml "div" [("class", "itemdescr")] $ render t
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t

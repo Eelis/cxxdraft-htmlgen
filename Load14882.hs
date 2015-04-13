@@ -55,6 +55,7 @@ data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving Show
 
 data RawElement
 	= RawLatexElements [LaTeX]
+	| RawItemdescr [RawElement]
 	| RawEnumerated String [RawParagraph]
 	| RawBnf String LaTeX
 	| RawTable
@@ -87,6 +88,7 @@ data Figure = Figure
 
 data Element
 	= LatexElements [LaTeX]
+	| Itemdescr [Element]
 	| Enumerated String [Paragraph]
 	| Bnf String LaTeX
 	| TableElement Table
@@ -137,7 +139,14 @@ data Section = Section
 
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
-rmseqs (TeXEnv "itemdescr" [] x) = rmseqs x
+rmseqs (TeXEnv "itemdescr" [] x) = makeItemdescrs $ dropWhile isJunk $ rmseqs x
+	where
+		makeItemdescrs [] = []
+		makeItemdescrs ((TeXCommS "pnum") : rest) =
+			(TeXCommS "pnum") : (TeXEnv "itemdescr_" [] (foldl1 TeXSeq para)) : (makeItemdescrs rest')
+			where
+				(para, rest') = span (not . isParaEnd) rest
+		makeItemdescrs other = other
 rmseqs (TeXEnv "paras" [] x) = rmseqs x
 rmseqs x = [x]
 
@@ -346,6 +355,8 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isCodeblock e = RawCodeblock stuff
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
+		go (TeXEnv "itemdescr_" [] stuff) =
+			RawItemdescr $ parsePara $ rmseqs stuff
 		go other = error $ "Unexpected " ++ show other
 
 		([e'], footnotes) = extractFootnotes [env]
@@ -521,7 +532,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -747,6 +758,7 @@ instance AssignNumbers RawElement Element where
 		return Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 	assignNumbers s (RawEnumerated x p) = Enumerated x . assignNumbers s p
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
+	assignNumbers s (RawItemdescr x) = Itemdescr . assignNumbers s x
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers _ (RawCodeblock x) = return $ Codeblock x

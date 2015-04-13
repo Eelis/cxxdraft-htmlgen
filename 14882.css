@@ -46,6 +46,10 @@ a.marginalized {
 
 div.para { text-align: justify; }
 
+div.itemdescr {
+	margin-left: 3em;
+}
+
 .bnf {
 	font-style: italic;
 	margin: 1.2em;
