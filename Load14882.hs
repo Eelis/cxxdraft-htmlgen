@@ -707,7 +707,7 @@ getCommitUrl = do
 
 -- Numbering
 
-data Numbers = Numbers { tableNr, figureNr, footnoteNr :: Int }
+data Numbers = Numbers { tableNr, figureNr, footnoteRefNr, footnoteNr :: Int }
 
 class AssignNumbers a b | a -> b where
 	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
@@ -716,8 +716,9 @@ instance AssignNumbers LaTeX LaTeX where
 	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
 	assignNumbers s (TeXEnv x y z) = TeXEnv x y . assignNumbers s z
 	assignNumbers _ (TeXCommS "footnoteref") = do
-		Numbers{footnoteNr} <- get
-		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteNr]
+		Numbers{..} <- get
+		put Numbers{footnoteRefNr = footnoteRefNr+1, ..}
+		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteRefNr]
 	assignNumbers _ x = return x
 
 instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
@@ -870,7 +871,7 @@ load14882 = do
 
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
-	let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1)
+	let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1 1)
 	let tables = concatMap tablesInSection chapters
 	let figures = concatMap figuresInSection chapters
 
