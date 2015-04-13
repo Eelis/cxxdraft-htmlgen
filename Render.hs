@@ -202,7 +202,7 @@ instance Render LaTeX where
 	       lookup s simpleMacros       = x
 	    | s `elem` kill                = ""
 	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = xml "pre" [("class", "itemdecl")] $ renderCode t
+	render (TeXEnv "itemdecl" [] t)    = xml "code" [("class", "itemdecl")] $ renderCode t
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
