@@ -536,7 +536,7 @@ secnum href Section{sectionNumber=n,..} =
 		chap :: Text
 		chap
 			| chapter == NormalChapter = render (head ns)
-			| otherwise = Text.pack [['A'..] !! (head ns - 1)]
+			| otherwise = Text.pack [['A'..] !! (head ns - 31)] -- todo
 
 abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
