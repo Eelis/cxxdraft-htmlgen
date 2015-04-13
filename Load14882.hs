@@ -895,7 +895,7 @@ bnfGrammarterms links = go links . mapTeX wordify
 				f s | isName $ Text.head s = Just $ Text.span isName s
 				f s = Just $ Text.break isName s
 
-				isName c = isAlpha c || c == '-'
+				isName c = isAlpha c || c `elem` ['-', '_']
 		wordify _ = Nothing
 
 		go g n@(TeXRaw name)
