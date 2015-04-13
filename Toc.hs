@@ -35,10 +35,13 @@ tocChapter s@Section{..} =
 
 listOfTables :: [Table] -> Text
 listOfTables tables =
-	xml "div" [("id", "tables")] $
-		"<h2><a href='#tables'>List of Tables</a></h2>"
+	xml "div" [("id", "tab")] $
+		h 2 ("List of Tables "
+			++ render abbrAnchor{aHref="#tab", aClass="folded_abbr_ref"}
+			++ render abbrAnchor{aHref="TocToSection/tab", aClass="unfolded_abbr_ref"})
 		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tables))
 	where
+		abbrAnchor = anchor{aText="[tab]"}
 		tableItem :: Table -> Text
 		tableItem Table{..} =
 			spanTag "secnum" (render tableNumber)
@@ -52,10 +55,13 @@ listOfTables tables =
 
 listOfFigures :: [Figure] -> Text
 listOfFigures figures =
-	xml "div" [("id", "figures")] $
-		"<h2><a href='#figures'>List of Figures</a></h2>"
+	xml "div" [("id", "fig")] $
+		h 2 ("List of Figures "
+			++ render abbrAnchor{aHref="#fig", aClass="folded_abbr_ref"}
+			++ render abbrAnchor{aHref="TocToSection/fig", aClass="unfolded_abbr_ref"})
 		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figures))
 	where
+		abbrAnchor = anchor{aText="[fig]"}
 		figureItem :: Figure -> Text
 		figureItem Figure{..} =
 			spanTag "secnum" (render figureNumber)

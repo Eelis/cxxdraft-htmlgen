@@ -67,8 +67,9 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref = h hLevel $
 	render abbr_ref{aClass = "abbr_ref", aText = "[" ++ render abbreviation ++ "]"}
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
-writeFiguresFile sfs figures = writeSectionFile "figures" sfs "14882: Figures" $
-	"<h1>List of Figures</h1>" ++ mconcat (r . figures)
+writeFiguresFile sfs figures = writeSectionFile "fig" sfs "14882: Figures" $
+	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
+	++ mconcat (r . figures)
 	where
 		r :: Figure -> Text
 		r f@Figure{figureSection=s@Section{..}, ..} =
@@ -76,11 +77,12 @@ writeFiguresFile sfs figures = writeSectionFile "figures" sfs "14882: Figures" $
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
 					++ "#" ++ replace ":" "-" (url figureAbbr) }
-			++ render f
+			++ renderFig True f
 
 writeTablesFile :: SectionFileStyle -> [Table] -> IO ()
-writeTablesFile sfs tables = writeSectionFile "tables" sfs "14882: Tables" $
-	"<h1>List of Tables</h1>" ++ mconcat (r . tables)
+writeTablesFile sfs tables = writeSectionFile "tab" sfs "14882: Tables" $
+	"<h1>List of Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
+	++ mconcat (r . tables)
 	where
 		r :: Table -> Text
 		r t@Table{tableSection=s@Section{..}, ..} =
@@ -88,7 +90,7 @@ writeTablesFile sfs tables = writeSectionFile "tables" sfs "14882: Tables" $
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
 					++ "#" ++ replace ":" "-" (url $ head tableAbbrs) }
-			++ render t
+			++ renderTab True t
 
 writeFullFile :: SectionFileStyle -> [Section] -> IO ()
 writeFullFile sfs chapters = writeSectionFile "full" sfs "14882" $
