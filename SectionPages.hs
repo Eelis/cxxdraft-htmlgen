@@ -34,10 +34,9 @@ renderSection specific parasEmitted s@Section{..}
 		, anysubcontent )
 	where
 		full = specific == Nothing || specific == Just abbreviation
-		header = h Nothing (min 4 $ 1 + length parents) $
-			secnum (if specific == Nothing then "#" ++ url abbreviation else "") s ++ " "
-			++ render sectionName ++ " "
-			++ render abbr{aClass="abbr_ref", aText="[" ++ render abbreviation ++ "]"}
+		header = sectionHeader (min 4 $ 1 + length parents) s
+			(if specific == Nothing then "#" ++ url abbreviation else "")
+			abbr
 		abbr
 			| specific == Just abbreviation && not (null parents)
 				= anchor
@@ -61,23 +60,34 @@ writeSectionFile n sfs title body = do
 	writeFile (outputDir ++ file) $ applySectionFileStyle sfs $
 		fileContent (if sfs == InSubdir then "../" else "") title body
 
+sectionHeader :: Int -> Section -> Text -> Anchor -> Text
+sectionHeader hLevel s@Section{..} secnumHref abbr_ref = h hLevel $
+	secnum secnumHref s ++ " " ++
+	render sectionName ++ " " ++
+	render abbr_ref{aClass = "abbr_ref", aText = "[" ++ render abbreviation ++ "]"}
+
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
 writeFiguresFile sfs figures = writeSectionFile "figures" sfs "14882: Figures" $
-	"<h1>List of Figures</h1>" ++ mconcat (render . figures)
+	"<h1>List of Figures</h1>" ++ mconcat (r . figures)
+	where
+		r :: Figure -> Text
+		r f@Figure{figureSection=s@Section{..}, ..} =
+			"<hr>" ++
+			sectionHeader 4 s "" anchor{
+				aHref = "SectionToSection/" ++ url abbreviation
+					++ "#" ++ replace ":" "-" (url figureAbbr) }
+			++ render f
 
 writeTablesFile :: SectionFileStyle -> [Table] -> IO ()
 writeTablesFile sfs tables = writeSectionFile "tables" sfs "14882: Tables" $
 	"<h1>List of Tables</h1>" ++ mconcat (r . tables)
 	where
 		r :: Table -> Text
-		r t@Table{tableSection=Section{..}, ..} =
-			h Nothing 2
-				(render sectionName ++ " " ++
-				render anchor
-					{ aHref  = "SectionToSection/" ++ url abbreviation
-						++ "#" ++ replace ":" "-" (url $ head tableAbbrs)
-					, aClass = "abbr_ref"
-					, aText  = "[" ++ render abbreviation ++ "]" })
+		r t@Table{tableSection=s@Section{..}, ..} =
+			"<hr>" ++
+			sectionHeader 4 s "" anchor{
+				aHref = "SectionToSection/" ++ url abbreviation
+					++ "#" ++ replace ":" "-" (url $ head tableAbbrs) }
 			++ render t
 
 writeFullFile :: SectionFileStyle -> [Section] -> IO ()

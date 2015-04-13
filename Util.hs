@@ -25,8 +25,8 @@ xml t attrs = (("<" ++ t ++ " " ++ Text.unwords (map f attrs) ++ ">") ++) . (++ 
 spanTag :: Text -> Text -> Text
 spanTag = xml "span" . (:[]) . ("class",)
 
-h :: Maybe Text -> Int -> Text -> Text
-h mc = flip xml (maybe [] ((:[]) . ("class",)) mc) . ("h" ++) . Text.pack . show
+h :: Int -> Text -> Text
+h = flip xml [] . ("h" ++) . Text.pack . show
 
 data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
 

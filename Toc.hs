@@ -16,7 +16,7 @@ import Load14882 (Figure(..), Table(..), Section(..), Draft(..))
 tocSection :: Section -> Text
 tocSection s@Section{..} =
 	xml "div" [("id", render abbreviation)] $
-	h Nothing (min 4 $ 2 + length parents) (
+	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render (sectionName ++ " ", (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
 	mconcat (tocSection . subsections)
@@ -24,7 +24,7 @@ tocSection s@Section{..} =
 tocChapter :: Section -> Text
 tocChapter s@Section{..} =
 	xml "div" [("id", render abbreviation)] $
-	h Nothing (min 4 $ 2 + length parents) (
+	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render (sectionName ++ " ", anchor{
 			aClass = "folded_abbr_ref",
