@@ -378,10 +378,21 @@ elems y@(x:xs)
 	| otherwise = first (x :) (elems xs)
 
 parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX])
-parseParas (TeXCommS "pnum" : more)
-		= first (parsePara para :) (parseParas more')
-	where (para, more') = span (not . isParaEnd) more
-parseParas x = ([], x)
+parseParas stuff = (goFootnotes paras [], rest)
+	where
+		(paras, rest) = collectParas stuff
+
+		goFootnotes :: [[LaTeX]] -> [RawElement] -> [RawParagraph]
+		goFootnotes [] _ = []
+		goFootnotes [p] fs = [(parsePara p') ++ (fs ++ f)]
+			where (p', f) = extractFootnotes p
+		goFootnotes (p : ps) fs = (parsePara p') : goFootnotes ps (fs ++ f)
+			where (p', f) = extractFootnotes p
+
+		collectParas :: [LaTeX] -> ([[LaTeX]], [LaTeX])
+		collectParas (TeXCommS "pnum" : more) = first (p :) (collectParas more')
+			where (p, more') = span (not . isParaEnd) more
+		collectParas x = ([], x)
 
 parseSections :: [LaTeX] -> ([LinearSection], [LaTeX])
 parseSections (TeXComm "normannex" [
