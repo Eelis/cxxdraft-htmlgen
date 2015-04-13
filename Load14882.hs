@@ -880,7 +880,7 @@ grammarterms :: GrammarLinks -> LaTeX -> LaTeX
 grammarterms links = mapTeX (go links)
 	where
 		go g (TeXComm "grammarterm" args@((FixArg (TeXRaw name)) : _))
-			| Just Section{..} <- Map.lookup name g =
+			| Just Section{..} <- Map.lookup (Text.toLower name) g =
 			Just $ TeXComm "grammarterm_" ((FixArg abbreviation) : args)
 		go _ _ = Nothing
 
