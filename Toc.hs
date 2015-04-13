@@ -8,30 +8,30 @@ import System.Locale (defaultTimeLocale)
 import Data.Time.Clock (getCurrentTime)
 import Prelude hiding ((.), (++), writeFile)
 import Render (
-	render, secnum, SectionPath(..), Link(..), linkToSection, numberSubsecs,
-	fileContent, applySectionFileStyle, url, withPaths, SectionFileStyle(..), outputDir)
+	render, secnum, Link(..), linkToSection,
+	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
 import Util
 import Load14882 (Figure(..), Table(..), Section(..), Draft(..))
 
-tocSection :: (SectionPath, Section) -> Text
-tocSection (sectionPath, Section{..}) =
+tocSection :: Section -> Text
+tocSection s@Section{..} =
 	xml "div" [("id", render abbreviation)] $
-	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		secnum "" sectionPath ++ " " ++
+	h Nothing (min 4 $ 2 + length parents) (
+		secnum "" s ++ " " ++
 		render (sectionName ++ " ", (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
-	mconcat (tocSection . numberSubsecs sectionPath subsections)
+	mconcat (tocSection . subsections)
 
-tocChapter :: (SectionPath, Section) -> Text
-tocChapter (sectionPath, Section{..}) =
+tocChapter :: Section -> Text
+tocChapter s@Section{..} =
 	xml "div" [("id", render abbreviation)] $
-	h Nothing (min 4 $ 1 + length (sectionNums sectionPath)) (
-		secnum "" sectionPath ++ " " ++
+	h Nothing (min 4 $ 2 + length parents) (
+		secnum "" s ++ " " ++
 		render (sectionName ++ " ", anchor{
 			aClass = "folded_abbr_ref",
 			aText  = "[" ++ render abbreviation ++ "]",
 			aHref  = "#" ++ render abbreviation}) ++
 		render (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
-	xml "div" [("class", "tocChapter")] (mconcat (tocSection . numberSubsecs sectionPath subsections))
+	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
 
 listOfTables :: [Table] -> Text
 listOfTables tables =
@@ -80,4 +80,4 @@ writeTocFile sfs Draft{..} = do
 			"<h1>Contents</h1>" ++
 			listOfTables tables ++
 			listOfFigures figures ++
-			mconcat (tocChapter . withPaths chapters)
+			mconcat (tocChapter . chapters)

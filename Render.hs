@@ -7,14 +7,14 @@
 
 module Render (
 	Render(render), url,
-	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, SectionPath(..),
-	withPaths, fileContent, numberSubsecs, Link(..), outputDir,
+	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
+	fileContent, Link(..), outputDir,
 	abbrAsPath, abbreviations, imgDir
 	) where
 
 import Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
-	ChapterKind(..), Section(..), Chapter, Table(..), Figure(..))
+	Section(..), Chapter(..), Table(..), Figure(..))
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -523,40 +523,24 @@ url = replace "&lt;" "%3c"
     . replace "&gt;" "%3e"
     . render
 
-data SectionPath = SectionPath
-	{ chapterKind :: ChapterKind
-	, sectionNums :: [Int] }
-
-numberSubsecs :: SectionPath -> [Section] -> [(SectionPath, Section)]
-numberSubsecs (SectionPath k ns) = zip [SectionPath k (ns ++ [i]) | i <- [1..]]
-
-secnum :: Text -> SectionPath -> Text
-secnum href p@SectionPath{..} = render $ anchor{aClass=c, aHref=href, aText=render p}
+secnum :: Text -> Section -> Text
+secnum href Section{sectionNumber=n,..} =
+	render $ anchor{aClass=c, aHref=href, aText=text}
 	where
-		c	| chapterKind /= NormalChapter
-			, length sectionNums == 1 = "annexnum"
+		text
+			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
+			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
+			| otherwise = Text.intercalate "." (chap : render . tail ns)
+		ns = reverse $ n : sectionNumber . parents
+		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
-
-instance Render SectionPath where
-	render (SectionPath k ns)
-		| k == InformativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(informative)"
-		| k == NormativeAnnex, [_] <- ns = "Annex " ++ chap ++ "&emsp;(normative)"
-		| otherwise = Text.intercalate "." (chap : render . tail ns)
-		where
-			chap :: Text
-			chap
-				| k == NormalChapter = render (head ns)
-				| otherwise = Text.pack [['A'..] !! (head ns - 1)]
+		chap :: Text
+		chap
+			| chapter == NormalChapter = render (head ns)
+			| otherwise = Text.pack [['A'..] !! (head ns - 1)]
 
 abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
-
-withPaths :: [Chapter] -> [(SectionPath, Section)]
-withPaths chapters = f normals ++ f annexes
-	where
-		f :: [(ChapterKind, Section)] -> [(SectionPath, Section)]
-		f x = (\(i, (k, s)) -> (SectionPath k [i], s)) . zip [1..] x
-		(normals, annexes) = span ((== NormalChapter) . fst) chapters
 
 fileContent :: Text -> Text -> Text -> Text
 fileContent pathHome title body =

@@ -17,7 +17,7 @@
 
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
-	ChapterKind(..), Section(..), Chapter, Draft(..), Table(..), Figure(..),
+	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
 	LaTeX,
 	load14882) where
 
@@ -109,7 +109,7 @@ data SectionKind
 	| NormativeAnnexSection
 	deriving (Eq, Show)
 
-data ChapterKind = NormalChapter | InformativeAnnex | NormativeAnnex
+data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving (Eq, Show)
 
 data LinearSection = LinearSection
@@ -120,14 +120,16 @@ data LinearSection = LinearSection
 	, lsectionParagraphs :: [RawParagraph] }
 	deriving Show
 
-type Chapter = (ChapterKind, Section)
-
 data Section = Section
 	{ abbreviation :: LaTeX
 	, sectionName :: LaTeX
 	, preamble :: Paragraph
 	, paragraphs :: [Paragraph]
-	, subsections :: [Section] }
+	, subsections :: [Section]
+	, sectionNumber :: Int
+	, chapter :: Chapter
+	, parents :: [Section] -- if empty, this is the chapter
+	}
 	deriving Show
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
@@ -755,17 +757,18 @@ lsectionLevel (lsectionKind -> DefinitionSection) = 2
 lsectionLevel _ = 0
 
 treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
-	[LinearSection] -> m [Chapter]
-treeizeChapters [] = return []
-treeizeChapters (LinearSection{..} : more) = mdo
+	Int -> [LinearSection] -> m [Section]
+treeizeChapters _ [] = return []
+treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 		newSec <- return Section{..}
 		preamble <- assignNumbers newSec lsectionPreamble
 		paragraphs <- assignNumbers newSec lsectionParagraphs
-		subsections <- treeizeSections newSec lsubsections
-		more'' <- treeizeChapters more'
-		return $ (chapterKind, newSec) : more''
+		subsections <- treeizeSections 1 chapter [newSec] lsubsections
+		more'' <- treeizeChapters (sectionNumber + 1) more'
+		return $ newSec : more''
 	where
-		chapterKind
+		parents = []
+		chapter
 			| lsectionKind == InformativeAnnexSection = InformativeAnnex
 			| lsectionKind == NormativeAnnexSection = NormativeAnnex
 			| otherwise = NormalChapter
@@ -774,14 +777,14 @@ treeizeChapters (LinearSection{..} : more) = mdo
 		(lsubsections, more') = span ((> 0) . lsectionLevel) more
 
 treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
-	Section -> [LinearSection] -> m [Section]
-treeizeSections _ [] = return []
-treeizeSections parent (s@LinearSection{..} : more) = mdo
+	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
+treeizeSections _ _ _ [] = return []
+treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
 		newSec <- return Section{..}
 		preamble <- assignNumbers newSec lsectionPreamble
 		paragraphs <- assignNumbers newSec lsectionParagraphs
-		subsections <- treeizeSections newSec lsubsections
-		more'' <- treeizeSections parent more'
+		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
+		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
 		return $ newSec : more''
 	where
 		abbreviation = lsectionAbbreviation
@@ -810,10 +813,9 @@ figuresInElement :: Element -> [Figure]
 figuresInElement (FigureElement f) = [f]
 figuresInElement _ = []
 
-
 data Draft = Draft
 	{ commitUrl :: Text
-	, chapters :: [Chapter]
+	, chapters :: [Section]
 	, tables :: [Table]
 	, figures :: [Figure] }
 
@@ -856,8 +858,8 @@ load14882 = do
 
 	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
 
-	let chapters = evalState (treeizeChapters $ mconcat sections) (Numbers 1 1 1)
-	let tables = concatMap (tablesInSection . snd) chapters
-	let figures = concatMap (figuresInSection . snd) chapters
+	let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1)
+	let tables = concatMap tablesInSection chapters
+	let figures = concatMap figuresInSection chapters
 
 	return Draft{..}
