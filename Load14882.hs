@@ -334,6 +334,11 @@ extractFootnotes (e : es) = (e' : es', f ++ fs)
 
 parsePara :: [LaTeX] -> RawParagraph
 parsePara [] = []
+parsePara ((TeXEnv "itemdescr_" [] stuff) : more) =
+	(RawItemdescr $ parsePara $ rmseqs stuff') : footnotes ++ parsePara more
+	where
+		([stuff'], footnotes) = extractFootnotes [stuff]
+
 parsePara (env@(TeXEnv _ _ _) : more) =
 	go e' : parsePara more ++ footnotes
 	where
@@ -355,8 +360,6 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isCodeblock e = RawCodeblock stuff
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
-		go (TeXEnv "itemdescr_" [] stuff) =
-			RawItemdescr $ parsePara $ rmseqs stuff
 		go other = error $ "Unexpected " ++ show other
 
 		([e'], footnotes) = extractFootnotes [env]
