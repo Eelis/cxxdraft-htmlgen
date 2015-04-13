@@ -32,12 +32,12 @@ import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
 import Prelude hiding (take, (.), takeWhile, (++), lookup)
-import Data.Char (isSpace, ord, isDigit)
+import Data.Char (isSpace, ord, isDigit, isAlpha)
 import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import Data.List (sort)
+import Data.List (sort, unfoldr)
 import Data.Maybe (isJust, fromJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -873,6 +873,7 @@ resolveGrammarterms links Section{..} =
 		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
 		resolve g (Itemdescr e) = Itemdescr $ map (resolve g) e
 		resolve g (Enumerated s ps) = Enumerated s $ map (map (resolve g)) ps
+		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
 		resolve _ other = other
 
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
@@ -882,6 +883,25 @@ grammarterms links = mapTeX (go links)
 			| Just Section{..} <- Map.lookup name g =
 			Just $ TeXComm "grammarterm_" ((FixArg abbreviation) : args)
 		go _ _ = Nothing
+
+bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
+bnfGrammarterms links = go links . mapTeX wordify
+	where
+		wordify :: LaTeX -> Maybe LaTeX
+		wordify (TeXRaw stuff) = Just $ mconcat $ map TeXRaw $ unfoldr f stuff
+			where
+				f s | Text.null s = Nothing
+				f s | isName $ Text.head s = Just $ Text.span isName s
+				f s = Just $ Text.break isName s
+
+				isName c = isAlpha c || c == '-'
+		wordify _ = Nothing
+
+		go g n@(TeXRaw name)
+			| Just Section{..} <- Map.lookup name g =
+				TeXComm "grammarterm_" [(FixArg abbreviation), (FixArg n)]
+		go g (TeXSeq a b) = TeXSeq (go g a) (go g b)
+		go _ other = other
 
 data Draft = Draft
 	{ commitUrl :: Text
