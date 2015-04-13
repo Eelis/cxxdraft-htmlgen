@@ -546,7 +546,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -842,6 +842,47 @@ figuresInElement :: Element -> [Figure]
 figuresInElement (FigureElement f) = [f]
 figuresInElement _ = []
 
+type GrammarLinks = Map Text Section
+
+nontermdefsInSection :: Section -> GrammarLinks
+nontermdefsInSection s@Section{..} =
+	Map.unions $
+	((Map.fromList $ map (, s) (concatMap nontermdefsInElement (preamble ++ concat paragraphs)))
+	: map nontermdefsInSection subsections)
+
+nontermdefsInElement :: Element -> [Text]
+nontermdefsInElement (LatexElements e) = concatMap nontermdefs e
+nontermdefsInElement (Bnf _ e) = nontermdefs e
+nontermdefsInElement _ = []
+
+nontermdefs :: LaTeX -> [Text]
+nontermdefs (TeXSeq a b) = (nontermdefs a) ++ (nontermdefs b)
+nontermdefs (TeXEnv _ _ x) = nontermdefs x
+nontermdefs (TeXBraces x) = nontermdefs x
+nontermdefs (TeXComm "nontermdef" [FixArg (TeXRaw name)]) = [name]
+nontermdefs _ = []
+
+resolveGrammarterms :: GrammarLinks -> Section -> Section
+resolveGrammarterms links Section{..} =
+	Section{
+		paragraphs=map (map (resolve links)) paragraphs,
+		subsections=map (resolveGrammarterms links) subsections,
+		..}
+	where
+		resolve :: GrammarLinks -> Element -> Element
+		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
+		resolve g (Itemdescr e) = Itemdescr $ map (resolve g) e
+		resolve g (Enumerated s ps) = Enumerated s $ map (map (resolve g)) ps
+		resolve _ other = other
+
+grammarterms :: GrammarLinks -> LaTeX -> LaTeX
+grammarterms links = mapTeX (go links)
+	where
+		go g (TeXComm "grammarterm" args@((FixArg (TeXRaw name)) : _))
+			| Just Section{..} <- Map.lookup name g =
+			Just $ TeXComm "grammarterm_" ((FixArg abbreviation) : args)
+		go _ _ = Nothing
+
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters :: [Section]
@@ -891,4 +932,7 @@ load14882 = do
 	let tables = concatMap tablesInSection chapters
 	let figures = concatMap figuresInSection chapters
 
-	return Draft{..}
+	let ntdefs = Map.unions $ map nontermdefsInSection chapters
+	let chapters' = map (resolveGrammarterms ntdefs) chapters
+
+	return Draft{chapters=chapters', ..}

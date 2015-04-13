@@ -111,7 +111,7 @@ simpleMacros =
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented itemdescr minipage center"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph grammarterm exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
+makeDiv = words "defn definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
 
@@ -129,6 +129,11 @@ instance Render a => Render [a] where
 
 instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
+
+instance Render TeXArg where
+	render (FixArg l) = render l
+	render (OptArg l) = render l
+	render _ = error "Oxyd is too lazy to type out all the arg types"
 
 instance Render LaTeX where
 	render (TeXSeq (TeXCommS "textbackslash") y)
@@ -163,7 +168,9 @@ instance Render LaTeX where
 		| otherwise = render $ linkToSection SectionToSection abbr
 	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
 	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
-	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = spanTag "nontermdef" s ++ ":"
+	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId=s, aText=(s ++ ":")}
+	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
+		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs}
 	render (TeXComm "bigoh" [FixArg content]) =
 		spanTag "math" $ "𝓞(" ++ renderMath content ++ ")"
 	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
@@ -507,6 +514,9 @@ htmlTabs = replace "\t" "&#9;"
 
 renderBnfTable :: LaTeX -> Text
 renderBnfTable = bnfPre . htmlTabs . render . preprocessTabbing . preprocessPre
+
+grammarNameRef :: Text -> Text -> Text
+grammarNameRef s n = "SectionToSection/" ++ s ++ "#" ++ (Text.toLower n)
 
 data Link = TocToSection | SectionToToc | SectionToSection | ToImage
 	deriving Show
