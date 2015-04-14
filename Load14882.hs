@@ -393,22 +393,22 @@ parseParas stuff = (goFootnotes paras [], rest)
 			where (p, more') = span (not . isParaEnd) more
 		collectParas x = ([], x)
 
-sectionKind :: String -> [TeXArg] -> Maybe (LaTeX, LaTeX, SectionKind)
-sectionKind "normannex" [FixArg abbr, FixArg name] = Just (abbr, name, NormativeAnnexSection)
-sectionKind "infannex"  [FixArg abbr, FixArg name] = Just (abbr, name, InformativeAnnexSection)
-sectionKind "rSec" [OptArg (TeXRaw level), OptArg abbr, FixArg name]
-	= Just (abbr, name, NormalSection $ read $ Text.unpack level)
-sectionKind "definition" [FixArg name, FixArg abbr] = Just (abbr, name, DefinitionSection)
-sectionKind _ _ = Nothing
-
-parseSections :: [LaTeX] -> ([LinearSection], [LaTeX])
-parseSections (TeXComm c args : more)
-        | Just (lsectionAbbreviation, lsectionName, lsectionKind) <- sectionKind c args
-		= first (LinearSection{..} :) (parseSections more'')
-	where
-		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
-		(lsectionParagraphs, more'') = parseParas more'
-parseSections x = ([], x)
+parseSections :: [LaTeX] -> ([LinearSection])
+parseSections
+	(TeXComm c args
+		: (break isParaEnd ->
+			( parsePara -> lsectionPreamble
+			, parseParas -> (lsectionParagraphs, parseSections -> moreSections))))
+		| (lsectionAbbreviation, lsectionName, lsectionKind) <- case (c, args) of
+			("normannex", [FixArg abbr, FixArg name]) -> (abbr, name, NormativeAnnexSection)
+			("infannex", [FixArg abbr, FixArg name]) -> (abbr, name, InformativeAnnexSection)
+			("rSec", [OptArg (TeXRaw level), OptArg abbr, FixArg name]) ->
+				(abbr, name, NormalSection $ read $ Text.unpack level)
+			("definition", [FixArg name, FixArg abbr]) -> (abbr, name, DefinitionSection)
+			_ -> error "not a section command"
+		= LinearSection{..} : moreSections
+parseSections [] = []
+parseSections _ = error "parseSections"
 
 translateVerb :: String -> String
 translateVerb ('\\':'v':'e':'r':'b':delim:rest) =
@@ -669,8 +669,8 @@ newlineCurlies =
 		-- Todo: These are sometimes inappropriate...
 
 parseFile :: Macros -> Text -> [LinearSection]
-parseFile macros = fst
-	. parseSections
+parseFile macros =
+	parseSections
 	. filter (not . isComment)
 	. rmseqs
 	. doParseLaTeX
