@@ -110,7 +110,7 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "indented minipage center"
+makeSpan = words "indented center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
@@ -212,7 +212,7 @@ instance Render LaTeX where
 	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
 	    | isComplexMath env            = renderComplexMath env
-	    | otherwise                    = error "unexpected env"
+	    | otherwise                    = error $ "unexpected env " ++ e
 
 instance Render Int where render = Text.pack . show
 
@@ -257,6 +257,8 @@ instance Render Element where
 		xml "div" [("class", "marginalizedparent")]
 			(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"}) ++
 		render content
+	render (Minipage content) =
+		xml "div" [("class", "minipage")] $ render content
 
 renderVerb :: LaTeX -> Text
 renderVerb t@(TeXRaw _) = renderCode t

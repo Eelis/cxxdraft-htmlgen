@@ -66,6 +66,7 @@ data RawElement
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
 	| RawFootnote RawElements
 	| RawCodeblock LaTeX
+	| RawMinipage RawElements
 	deriving Show
 
 data Table = Table
@@ -94,6 +95,7 @@ data Element
 	| FigureElement Figure
 	| Footnote { footnoteNumber :: Int, footnoteContent :: Elements }
 	| Codeblock { code :: LaTeX }
+	| Minipage Elements
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -179,6 +181,10 @@ isCodeblock (TeXEnv "codeblock" _ _) = True
 isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
 isCodeblock _ = False
 
+isMinipage :: LaTeX -> Bool
+isMinipage (TeXEnv "minipage" _ _) = True
+isMinipage _ = False
+
 isComment :: LaTeX -> Bool
 isComment (TeXComment _) = True
 isComment _ = False
@@ -218,7 +224,7 @@ parseItems _ = error "need items or nothing"
 isElementsEnd :: LaTeX -> Bool
 isElementsEnd l =
 	isEnumerate l /= Nothing || isBnf l || isTable l
-	|| isTabbing l || isFigure l || isCodeblock l
+	|| isTabbing l || isFigure l || isCodeblock l || isMinipage l
 
 isTableEnv :: String -> Bool
 isTableEnv = (`elem` ["tabular", "longtable"])
@@ -358,6 +364,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isTabbing e = RawTabbing stuff
 			| isCodeblock e = RawCodeblock stuff
 			| isBnf e = RawBnf k stuff
+			| isMinipage e = RawMinipage $ parsePara $ dropWhile isJunk $ rmseqs stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
 
@@ -473,8 +480,7 @@ initialMacros :: Macros
 initialMacros = mempty
 	{environments = Map.fromList
 		[ ("ttfamily", Environment mempty mempty)
-		, ("paras",    Environment mempty mempty)
-		, ("minipage", Environment mempty mempty) ]}
+		, ("paras",    Environment mempty mempty) ]}
 
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty
@@ -761,6 +767,7 @@ instance AssignNumbers RawElement Element where
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers _ (RawCodeblock x) = return $ Codeblock x
+	assignNumbers s (RawMinipage x) = Minipage . assignNumbers s x
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l

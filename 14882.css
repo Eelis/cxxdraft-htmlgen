@@ -140,6 +140,11 @@ code.itemdecl {
 .footnotenum { vertical-align: super; font-size: smaller; }
 .footnote { font-size: small; margin: 2em; }
 
+div.minipage {
+	display: inline-block;
+	margin-right: 3em;
+}
+
 div.numberedTable {
 	text-align: center;
 	margin: 2em;
