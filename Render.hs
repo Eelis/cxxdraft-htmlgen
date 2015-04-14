@@ -501,10 +501,10 @@ preprocessTabbing = go
 		initialTab other = other
 
 		go (TeXBraces t) = t
-		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXSeq (TeXRaw s) a)) b)) =
-			(TeXRaw $ "\t" ++ s) <> (go a) <> (go b)
-		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXRaw s)) a)) =
-			(TeXRaw $ "\t" ++ s) <> (go a)
+		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXSeq s a)) b)) =
+			(TeXRaw $ "\t") <> (go s) <> (go a) <> (go b)
+		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") s) a)) =
+			(TeXRaw $ "\t") <> (go s) <> (go a)
 		go (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
 			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ go rest)
 		go (TeXSeq (TeXCommS "") (TeXRaw s)) =
