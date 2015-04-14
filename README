@@ -76,10 +76,8 @@ Output
 
 Todo
 
-  - indentation for itemdescrs
   - index
   - list required hackage packages in prereqs
   - minipages side-by-side
-  - paragraphs include wrong code in library chapters
   - different kinds of enumeration
   - fix links to tables on other pages

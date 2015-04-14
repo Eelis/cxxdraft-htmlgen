@@ -13,7 +13,7 @@ module Render (
 	) where
 
 import Load14882 (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements,
 	Section(..), Chapter(..), Table(..), Figure(..))
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, (<>))
@@ -110,7 +110,7 @@ simpleMacros =
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "indented itemdescr minipage center"
+makeSpan = words "indented minipage center"
 makeDiv = words "defn definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
@@ -234,7 +234,6 @@ renderFig stripFig Figure{..} =
 
 instance Render Element where
 	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
-	render (Itemdescr t) = xml "div" [("class", "itemdescr")] $ render t
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
@@ -411,7 +410,7 @@ renderComplexMath m =
 			++
 			"\\end{document}\n"
 
-renderTable :: LaTeX -> [Row Paragraph] -> Text
+renderTable :: LaTeX -> [Row Elements] -> Text
 renderTable colspec =
 	xml "table" [] .
 	renderRows (parseColspec $ Text.unpack $ stripColspec colspec)
@@ -476,7 +475,7 @@ renderTable colspec =
 				" cline"
 			| otherwise = ""
 
-renderCell :: Paragraph -> Text
+renderCell :: Elements -> Text
 renderCell = mconcat . map renderCell'
 	where
 		renderCell' (LatexElements t) = render t

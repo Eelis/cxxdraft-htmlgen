@@ -16,7 +16,7 @@
 	RecursiveDo #-}
 
 module Load14882 (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph,
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
 	LaTeX,
 	load14882) where
@@ -55,17 +55,16 @@ data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving Show
 
 data RawElement
 	= RawLatexElements [LaTeX]
-	| RawItemdescr [RawElement]
-	| RawEnumerated String [RawParagraph]
+	| RawEnumerated String [RawElements]
 	| RawBnf String LaTeX
 	| RawTable
 		{ rawTableCaption :: LaTeX
 		, rawColumnSpec :: LaTeX
 		, rawTableAbbrs :: [LaTeX]
-		, rawTableBody :: [Row RawParagraph] }
+		, rawTableBody :: [Row RawElements] }
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
-	| RawFootnote RawParagraph
+	| RawFootnote RawElements
 	| RawCodeblock LaTeX
 	deriving Show
 
@@ -74,7 +73,7 @@ data Table = Table
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
 	, tableAbbrs :: [LaTeX]
-	, tableBody :: [Row Paragraph]
+	, tableBody :: [Row Elements]
 	, tableSection :: Section }
 	deriving Show
 
@@ -88,21 +87,26 @@ data Figure = Figure
 
 data Element
 	= LatexElements [LaTeX]
-	| Itemdescr [Element]
-	| Enumerated String [Paragraph]
+	| Enumerated String [Elements]
 	| Bnf String LaTeX
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
-	| Footnote { footnoteNumber :: Int, footnoteContent :: Paragraph }
+	| Footnote { footnoteNumber :: Int, footnoteContent :: Elements }
 	| Codeblock { code :: LaTeX }
 	deriving Show
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
 
-type RawParagraph = [RawElement]
-type Paragraph = [Element]
+type RawElements = [RawElement]
+type Elements = [Element]
+
+data RawParagraph = RawParagraph
+	{ paraNumbered :: Bool
+	, rawParaInItemdescr :: Bool
+	, rawParaElems :: RawElements }
+	deriving Show
 
 data SectionKind
 	= NormalSection { _level :: Int }
@@ -118,14 +122,18 @@ data LinearSection = LinearSection
 	{ lsectionAbbreviation :: LaTeX
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
-	, lsectionPreamble :: RawParagraph
 	, lsectionParagraphs :: [RawParagraph] }
+	deriving Show
+
+data Paragraph = Paragraph
+	{ paraNumber :: Maybe Int
+	, paraInItemdescr :: Bool
+	, paraElems :: Elements }
 	deriving Show
 
 data Section = Section
 	{ abbreviation :: LaTeX
 	, sectionName :: LaTeX
-	, preamble :: Paragraph
 	, paragraphs :: [Paragraph]
 	, subsections :: [Section]
 	, sectionNumber :: Int
@@ -139,14 +147,6 @@ data Section = Section
 
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
-rmseqs (TeXEnv "itemdescr" [] x) = makeItemdescrs $ dropWhile isJunk $ rmseqs x
-	where
-		makeItemdescrs [] = []
-		makeItemdescrs ((TeXCommS "pnum") : rest) =
-			(TeXCommS "pnum") : (TeXEnv "itemdescr_" [] (foldl1 TeXSeq para)) : (makeItemdescrs rest')
-			where
-				(para, rest') = span (not . isParaEnd) rest
-		makeItemdescrs other = other
 rmseqs x = [x]
 
 isEnumerate :: LaTeX -> Maybe String
@@ -184,12 +184,16 @@ isComment (TeXComment _) = True
 isComment _ = False
 
 isParaEnd :: LaTeX -> Bool
+isParaEnd (TeXEnv "itemdescr" _ _) = True
 isParaEnd (TeXCommS "pnum") = True
-isParaEnd (TeXComm "definition" _) = True
-isParaEnd (TeXComm "rSec" _) = True
-isParaEnd (TeXComm "infannex" _) = True
-isParaEnd (TeXComm "normannex" _) = True
-isParaEnd _ = False
+isParaEnd x = isParasEnd x
+
+isParasEnd :: LaTeX -> Bool
+isParasEnd (TeXComm "definition" _) = True
+isParasEnd (TeXComm "rSec" _) = True
+isParasEnd (TeXComm "infannex" _) = True
+isParasEnd (TeXComm "normannex" _) = True
+isParasEnd _ = False
 
 isJunk :: LaTeX -> Bool
 isJunk (TeXRaw x) = all isSpace (Text.unpack x)
@@ -203,7 +207,7 @@ isItem (TeXComm "item" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
-parseItems :: [LaTeX] -> [RawParagraph]
+parseItems :: [LaTeX] -> [RawElements]
 parseItems [] = []
 parseItems (x : more)
 	| isItem x = parsePara a : parseItems b
@@ -235,7 +239,7 @@ texTail _ = error "Not a sequence"
 rowHas :: (String -> Bool) -> LaTeX -> Bool
 rowHas f = not . null . matchCommand f
 
-parseTable :: LaTeX -> [Row RawParagraph]
+parseTable :: LaTeX -> [Row RawElements]
 parseTable TeXEmpty = []
 parseTable latex@(TeXSeq _ _)
 	| TeXEmpty <- row = parseTable $ texTail rest
@@ -258,7 +262,7 @@ parseTable latex@(TeXSeq _ _)
 
 parseTable latex = [makeRow latex]
 
-makeRow :: LaTeX -> Row RawParagraph
+makeRow :: LaTeX -> Row RawElements
 makeRow l = Row sep $ makeRowCells l
 	where
 		sep
@@ -275,7 +279,7 @@ makeRow l = Row sep $ makeRowCells l
 				end = read $ Text.unpack $ Text.tail end' :: Int
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
-makeRowCells :: LaTeX -> [Cell RawParagraph]
+makeRowCells :: LaTeX -> [Cell RawElements]
 makeRowCells TeXEmpty = []
 makeRowCells latex =
 	case rest of
@@ -315,31 +319,27 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
-extractFootnotes :: [LaTeX] -> ([LaTeX], [RawElement])
-extractFootnotes [] = ([], [])
-extractFootnotes (e : es) = (e' : es', f ++ fs)
-	where
-		extract (TeXComm "footnote" [FixArg content]) =
-			(TeXCommS "footnoteref", [RawFootnote $ parsePara $ rmseqs content])
-		extract (TeXCommS "footnotemark") =
-			(TeXCommS "footnoteref", [])
-		extract (TeXComm "footnotetext" [FixArg content]) =
-			(TeXEmpty, [RawFootnote $ parsePara $ rmseqs content])
-		extract (TeXSeq a b) = extract a ++ extract b
-		extract (TeXEnv env args content) = first (TeXEnv env args) (extract content)
-		extract other = (other, [])
-		(e', f) = extract e
-		(es', fs) = extractFootnotes es
+class ExtractFootnotes a where extractFootnotes :: a -> (a, [RawElements])
 
-parsePara :: [LaTeX] -> RawParagraph
+instance (Monoid a, ExtractFootnotes a) => ExtractFootnotes [a] where
+	extractFootnotes l = (map fst x, x >>= snd)
+		where x = extractFootnotes . l
+
+instance ExtractFootnotes LaTeX where
+	extractFootnotes (TeXComm "footnote" [FixArg content]) =
+		(TeXCommS "footnoteref", [parsePara $ rmseqs content])
+	extractFootnotes (TeXCommS "footnotemark") =
+		(TeXCommS "footnoteref", [])
+	extractFootnotes (TeXComm "footnotetext" [FixArg content]) =
+		(TeXEmpty, [parsePara $ rmseqs content])
+	extractFootnotes (TeXSeq a b) = extractFootnotes a ++ extractFootnotes b
+	extractFootnotes (TeXEnv env args content) = first (TeXEnv env args) (extractFootnotes content)
+	extractFootnotes other = (other, [])
+
+parsePara :: [LaTeX] -> RawElements
 parsePara [] = []
-parsePara ((TeXEnv "itemdescr_" [] stuff) : more) =
-	(RawItemdescr $ parsePara $ rmseqs stuff') : footnotes ++ parsePara more
-	where
-		([stuff'], footnotes) = extractFootnotes [stuff]
-
 parsePara (env@(TeXEnv _ _ _) : more) =
-	go e' : parsePara more ++ footnotes
+	go e' : parsePara more ++ (RawFootnote . footnotes)
 	where
 		go :: LaTeX -> RawElement
 		go e@(TeXEnv k a stuff)
@@ -361,9 +361,9 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
 
-		([e'], footnotes) = extractFootnotes [env]
+		(e', footnotes) = extractFootnotes env
 
-parsePara x = RawLatexElements v' : parsePara more ++ footnotes
+parsePara x = RawLatexElements v' : parsePara more ++ (RawFootnote . footnotes)
 	where
 		(v, more) = elems (dropWhile isJunk x)
 		(v', footnotes) = extractFootnotes v
@@ -376,39 +376,43 @@ elems y@(x:xs)
 	, b /= "" = ([TeXRaw a], TeXRaw (Text.drop 2 b) : xs)
 	| otherwise = first (x :) (elems xs)
 
-parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX])
-parseParas stuff = (goFootnotes paras [], rest)
+parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX] {- rest -})
+parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
+		= (collectParas stuff ++ [RawParagraph False False $ RawFootnote . fs], rest)
 	where
-		(paras, rest) = collectParas stuff
+		collectParas :: [LaTeX] -> [RawParagraph]
+		collectParas (TeXEnv "itemdescr" _ desc : more) =
+			map (\p -> p{rawParaInItemdescr=True}) (collectParas $ rmseqs desc)
+			++ collectParas more
+		collectParas (TeXCommS "pnum" : more) =
+			(\(p : x) -> p{paraNumbered=True} : x) (collectParas more)
+		collectParas [] = []
+		collectParas x = (RawParagraph False False (parsePara p) : ps)
+			where
+				ps = collectParas more
+				(p, more) = break isParaEnd x
 
-		goFootnotes :: [[LaTeX]] -> [RawElement] -> [RawParagraph]
-		goFootnotes [] _ = []
-		goFootnotes [p] fs = [(parsePara p') ++ (fs ++ f)]
-			where (p', f) = extractFootnotes p
-		goFootnotes (p : ps) fs = (parsePara p') : goFootnotes ps (fs ++ f)
-			where (p', f) = extractFootnotes p
-
-		collectParas :: [LaTeX] -> ([[LaTeX]], [LaTeX])
-		collectParas (TeXCommS "pnum" : more) = first (p :) (collectParas more')
-			where (p, more') = span (not . isParaEnd) more
-		collectParas x = ([], x)
-
-parseSections :: [LaTeX] -> ([LinearSection])
+parseSections :: [LaTeX] -> [LinearSection]
+parseSections ((isJunk -> True) : x) = parseSections x
 parseSections
 	(TeXComm c args
-		: (break isParaEnd ->
-			( parsePara -> lsectionPreamble
-			, parseParas -> (lsectionParagraphs, parseSections -> moreSections))))
-		| (lsectionAbbreviation, lsectionName, lsectionKind) <- case (c, args) of
-			("normannex", [FixArg abbr, FixArg name]) -> (abbr, name, NormativeAnnexSection)
-			("infannex", [FixArg abbr, FixArg name]) -> (abbr, name, InformativeAnnexSection)
-			("rSec", [OptArg (TeXRaw level), OptArg abbr, FixArg name]) ->
-				(abbr, name, NormalSection $ read $ Text.unpack level)
-			("definition", [FixArg name, FixArg abbr]) -> (abbr, name, DefinitionSection)
-			_ -> error "not a section command"
-		= LinearSection{..} : moreSections
+	: ( parseParas ->
+		( lsectionParagraphs
+		, parseSections -> moreSections
+	)))
+	| (lsectionAbbreviation, lsectionName, lsectionKind) <- case (c, args) of
+		("normannex", [FixArg abbr, FixArg name]) ->
+			(abbr, name, NormativeAnnexSection)
+		("infannex", [FixArg abbr, FixArg name]) ->
+			(abbr, name, InformativeAnnexSection)
+		("rSec", [OptArg (TeXRaw level), OptArg abbr, FixArg name]) ->
+			(abbr, name, NormalSection $ read $ Text.unpack level)
+		("definition", [FixArg name, FixArg abbr]) ->
+			(abbr, name, DefinitionSection)
+		_ -> error $ "not a section command: " ++ show c
+	= LinearSection{..} : moreSections
 parseSections [] = []
-parseSections _ = error "parseSections"
+parseSections (x:_) = error $ "parseSections: " ++ show x
 
 translateVerb :: String -> String
 translateVerb ('\\':'v':'e':'r':'b':delim:rest) =
@@ -754,7 +758,6 @@ instance AssignNumbers RawElement Element where
 		return Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 	assignNumbers s (RawEnumerated x p) = Enumerated x . assignNumbers s p
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
-	assignNumbers s (RawItemdescr x) = Itemdescr . assignNumbers s x
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers _ (RawCodeblock x) = return $ Codeblock x
@@ -764,13 +767,23 @@ lsectionLevel (lsectionKind -> NormalSection l) = l
 lsectionLevel (lsectionKind -> DefinitionSection) = 2
 lsectionLevel _ = 0
 
+paraNumbers :: [Bool] -> [Maybe Int]
+paraNumbers = f 1
+	where
+		f _ [] = []
+		f i (True : x) = Just i : f (i + 1) x
+		f i (False : x) = Nothing : f i x
+
 treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> [LinearSection] -> m [Section]
 treeizeChapters _ [] = return []
 treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 		newSec <- return Section{..}
-		preamble <- assignNumbers newSec lsectionPreamble
-		paragraphs <- assignNumbers newSec lsectionParagraphs
+		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
+		paragraphs <- forM (zip pn lsectionParagraphs) $
+			\(paraNumber, RawParagraph{..}) -> do
+				paraElems <- assignNumbers newSec rawParaElems
+				return Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
 		more'' <- treeizeChapters (sectionNumber + 1) more'
 		return $ newSec : more''
@@ -789,8 +802,11 @@ treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
 		newSec <- return Section{..}
-		preamble <- assignNumbers newSec lsectionPreamble
-		paragraphs <- assignNumbers newSec lsectionParagraphs
+		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
+		paragraphs <- forM (zip pn lsectionParagraphs) $
+			\(paraNumber, RawParagraph{..}) -> do
+				paraElems <- assignNumbers newSec rawParaElems
+				return Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
 		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
 		return $ newSec : more''
@@ -806,16 +822,16 @@ instance AssignNumbers a b => AssignNumbers [a] [b] where
 
 tablesInSection :: Section -> [Table]
 tablesInSection Section{..} =
-	concatMap tablesInElement (preamble ++ concat paragraphs)
-	++ concatMap tablesInSection subsections
+	(paragraphs >>= paraElems >>= tablesInElement) ++
+	(subsections >>= tablesInSection)
 tablesInElement :: Element -> [Table]
 tablesInElement (TableElement t) = [t]
 tablesInElement _ = []
 
 figuresInSection :: Section -> [Figure]
 figuresInSection Section{..} =
-	concatMap figuresInElement (preamble ++ concat paragraphs)
-	++ concatMap figuresInSection subsections
+	(paragraphs >>= paraElems >>= figuresInElement)
+	++ (subsections >>= figuresInSection)
 
 figuresInElement :: Element -> [Figure]
 figuresInElement (FigureElement f) = [f]
@@ -826,7 +842,7 @@ type GrammarLinks = Map Text Section
 nontermdefsInSection :: Section -> GrammarLinks
 nontermdefsInSection s@Section{..} =
 	Map.unions $
-	((Map.fromList $ map (, s) (concatMap nontermdefsInElement (preamble ++ concat paragraphs)))
+	((Map.fromList $ map (, s) (paragraphs >>= paraElems >>= nontermdefsInElement))
 	: map nontermdefsInSection subsections)
 
 nontermdefsInElement :: Element -> [Text]
@@ -844,14 +860,12 @@ nontermdefs _ = []
 resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
 	Section{
-		paragraphs=map (map (resolve links)) paragraphs,
-		preamble=map (resolve links) preamble,
-		subsections=map (resolveGrammarterms links) subsections,
+		paragraphs  = map (\p -> p{paraElems = map (resolve links) (paraElems p)}) paragraphs,
+		subsections = map (resolveGrammarterms links) subsections,
 		..}
 	where
 		resolve :: GrammarLinks -> Element -> Element
 		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
-		resolve g (Itemdescr e) = Itemdescr $ map (resolve g) e
 		resolve g (Enumerated s ps) = Enumerated s $ map (map (resolve g)) ps
 		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
 		resolve _ other = other

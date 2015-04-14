@@ -11,21 +11,27 @@ import Render
 import Load14882
 import Util
 
-renderParagraph :: Text -> (Int, Paragraph) -> Text
-renderParagraph idPrefix (render -> i, x) =
-	xml "div" [("class", "para"), ("id", idPrefix ++ i)] $
-	xml "div" [("class", "marginalizedparent")]
-		(render (anchor{aClass="marginalized", aHref="#" ++ idPrefix ++ i,aText=i})) ++
-	render x
+renderParagraph :: Text -> Paragraph -> Text
+renderParagraph idPrefix Paragraph{..} =
+	(case paraNumber of
+		Just (render -> i) ->
+			xml "div" [("class", "para"), ("id", idPrefix ++ i)] .
+			(xml "div" [("class", "marginalizedparent")]
+				(render (anchor{
+					aClass = "marginalized",
+					aHref  = "#" ++ idPrefix ++ i,
+					aText  = i
+				})) ++)
+		_ -> id)
+	$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id) (render paraElems)
 
 renderSection :: Maybe LaTeX -> Bool -> Section -> (Text, Bool)
 renderSection specific parasEmitted s@Section{..}
 	| full = (, True) $
 		xml "div" [("id", render abbreviation)] $ header ++
-		xml "div" [("class", "para")] (render preamble) ++
 		mconcat (map
 			(renderParagraph (if parasEmitted then url abbreviation ++ "-" else ""))
-			(zip [1..] paragraphs)) ++
+			paragraphs) ++
 		mconcat (fst . renderSection Nothing True . subsections)
 	| not anysubcontent = ("", False)
 	| otherwise =
