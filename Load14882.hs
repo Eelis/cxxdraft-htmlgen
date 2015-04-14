@@ -393,40 +393,19 @@ parseParas stuff = (goFootnotes paras [], rest)
 			where (p, more') = span (not . isParaEnd) more
 		collectParas x = ([], x)
 
+sectionKind :: String -> [TeXArg] -> Maybe (LaTeX, LaTeX, SectionKind)
+sectionKind "normannex" [FixArg abbr, FixArg name] = Just (abbr, name, NormativeAnnexSection)
+sectionKind "infannex"  [FixArg abbr, FixArg name] = Just (abbr, name, InformativeAnnexSection)
+sectionKind "rSec" [OptArg (TeXRaw level), OptArg abbr, FixArg name]
+	= Just (abbr, name, NormalSection $ read $ Text.unpack level)
+sectionKind "definition" [FixArg name, FixArg abbr] = Just (abbr, name, DefinitionSection)
+sectionKind _ _ = Nothing
+
 parseSections :: [LaTeX] -> ([LinearSection], [LaTeX])
-parseSections (TeXComm "normannex" [
-                               FixArg lsectionAbbreviation,
-                               FixArg lsectionName]
-              : more)
+parseSections (TeXComm c args : more)
+        | Just (lsectionAbbreviation, lsectionName, lsectionKind) <- sectionKind c args
 		= first (LinearSection{..} :) (parseSections more'')
 	where
-		lsectionKind = NormativeAnnexSection
-		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
-		(lsectionParagraphs, more'') = parseParas more'
-parseSections (TeXComm "infannex" [
-                               FixArg lsectionAbbreviation,
-                               FixArg lsectionName]
-              : more)
-		= first (LinearSection{..} :) (parseSections more'')
-	where
-		lsectionKind = InformativeAnnexSection
-		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
-		(lsectionParagraphs, more'') = parseParas more'
-parseSections (TeXComm "rSec" [OptArg (TeXRaw level),
-                               OptArg lsectionAbbreviation,
-                               FixArg lsectionName]
-              : more)
-		= first (LinearSection{..} :) (parseSections more'')
-	where
-		lsectionKind = NormalSection $ read $ Text.unpack level
-		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
-		(lsectionParagraphs, more'') = parseParas more'
-parseSections (TeXComm "definition" [FixArg lsectionName,
-                                     FixArg lsectionAbbreviation]
-              : more)
-		= first (LinearSection{..} :) (parseSections more'')
-	where
-		lsectionKind = DefinitionSection
 		(parsePara -> lsectionPreamble, more') = span (not . isParaEnd) more
 		(lsectionParagraphs, more'') = parseParas more'
 parseSections x = ([], x)
