@@ -147,7 +147,6 @@ rmseqs (TeXEnv "itemdescr" [] x) = makeItemdescrs $ dropWhile isJunk $ rmseqs x
 			where
 				(para, rest') = span (not . isParaEnd) rest
 		makeItemdescrs other = other
-rmseqs (TeXEnv "paras" [] x) = rmseqs x
 rmseqs x = [x]
 
 isEnumerate :: LaTeX -> Maybe String
@@ -491,6 +490,7 @@ initialMacros :: Macros
 initialMacros = mempty
 	{environments = Map.fromList
 		[ ("ttfamily", Environment mempty mempty)
+		, ("paras",    Environment mempty mempty)
 		, ("minipage", Environment mempty mempty) ]}
 
 instance Monoid Macros where
