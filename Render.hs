@@ -163,7 +163,7 @@ instance Render LaTeX where
 	render (TeXComm "ref" [FixArg abbr])
 		| "fig:" `isPrefixOf` render abbr || "tab:" `isPrefixOf` render abbr =
 			render anchor{
-				aHref = "#" ++ replace ":" "-" (render abbr),
+				aHref = "#" ++ render abbr,
 				aText = "[" ++ render abbr ++ "]"}
 		| otherwise = render $ linkToSection SectionToSection abbr
 	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
@@ -222,7 +222,7 @@ renderTab stripTab Table{..} =
 		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
 		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
 	where
-		id_ = replace "tab:" (if stripTab then "" else "tab-") $ render $ head tableAbbrs
+		id_ = (if stripTab then replace "tab:" "" else id) $ render $ head tableAbbrs
 
 renderFig :: Bool -> Figure -> Text
 renderFig stripFig Figure{..} =
@@ -230,7 +230,7 @@ renderFig stripFig Figure{..} =
 		figureSvg ++ "<br>" ++
 		"Figure " ++ render anchor{aText=render figureNumber, aHref="#" ++ id_} ++ " — " ++
 		render figureName
-	where id_ = replace "fig:" (if stripFig then "" else "fig-") $ render figureAbbr
+	where id_ = (if stripFig then replace "fig:" "" else id) $ render figureAbbr
 
 instance Render Element where
 	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
