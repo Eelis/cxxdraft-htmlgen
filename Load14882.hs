@@ -615,43 +615,52 @@ eval macros@Macros{..} l = case l of
 mapTeX :: (LaTeX -> Maybe LaTeX) -> (LaTeX -> LaTeX)
 mapTeX f = texmap (isJust . f) (fromJust . f)
 
-flatten :: LaTeX -> LaTeX
-flatten (TeXSeq (TeXSeq a b) c) = (flatten a) <> (flatten b) <> (flatten c)
-flatten other = other
+parseStr :: String -> LaTeX
+parseStr = doParse . Text.pack
 
-normalizeAtSigns :: LaTeX -> LaTeX
-normalizeAtSigns = flatten . (mapTeX go)
+reparseTabs :: LaTeX -> LaTeX
+reparseTabs = doParse . Text.replace "\\>" "\t" . TeXRender.render
+
+reparseCode :: LaTeX -> LaTeX
+reparseCode (TeXEnv "reparsed" [] t) = t
+reparseCode t = parse . Text.unpack $ TeXRender.render t
 	where
-		go (TeXRaw stuff)
-			| (before, after) <- Text.breakOn "@" stuff
-			, after /= "" 
-			, after' <- TeXRaw (Text.tail after) =
-				Just $ (TeXRaw before) <> (TeXRaw "@") <> (maybe after' id $ go after')
-			| otherwise = Nothing
-		go _ = Nothing
+		parse "" = TeXEmpty
+		parse ('@' : rest) = (TeXComm "codecmd" [FixArg (parseStr cmd)]) <> parse rest'
+			where (cmd, '@' : rest') = break (== '@') rest
+		parse ('/' : '/' : rest) = (TeXComm "codecomment" [FixArg (parseStr $ "//" ++ comment)]) <> parse rest'
+			where (comment, rest') = breakLineComment rest
+		parse ('/' : '*' : rest) = (TeXComm "codecomment" [FixArg (parseStr $ "/*" ++ comment)]) <> parse rest'
+			where (comment, rest') = breakComment rest
 
-mapOutsideAts :: (LaTeX -> Maybe LaTeX) -> LaTeX -> LaTeX
-mapOutsideAts f = go . normalizeAtSigns
-	where
-		go (TeXSeq (TeXRaw "@") rest) = TeXSeq (TeXRaw "@") (dontGo rest)
-		go (TeXSeq a b) = TeXSeq (go a) (go b)
-		go other = maybe other id $ f other
+		-- We really don't want to interpret code in any way shape or form; we want to deliver it the renderer
+		-- verbatim. Unfortunately, the LaTeX is parsed, rendered, then re-parsed again which can really make
+		-- this painful. Shoving raw code inside TeXComment's makes HaTeX not attempt to parse it in any way.
+		-- The call to show makes sure we don't get multi-line LaTeX comments which could also cause confusion.
 
-		dontGo (TeXSeq (TeXRaw "@") rest) = TeXSeq (TeXRaw "@") (go rest)
-		dontGo (TeXSeq a b) = TeXSeq a (dontGo b)
-		dontGo other = other
+		parse ('/' : rest) =
+			(TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show ("/" :: String))])
+			<> parse rest
+		parse s = (TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)]) <> parse rest
+			where (code, rest) = break (`elem` ['@', '/']) s
 
-reparseCodeblocks :: LaTeX -> LaTeX
-reparseCodeblocks = mapTeX $
+		breakLineComment s = case break (== '\n') s of
+			(comment, '\n' : rest) -> (comment ++ "\n", rest)
+			(x, y) -> (x, y)
+
+		breakComment s = go s ""
+			where
+				go "" a = (reverse a, "")
+				go ('*' : '/' : rest) a = (reverse $ '/' : '*' : a, rest)
+				go (x : rest) a = go rest (x : a)
+
+reparseEnvs :: LaTeX -> LaTeX
+reparseEnvs = mapTeX $
 	\case
-		TeXEnv "codeblock" [] body -> Just $ TeXEnv "codeblock" [] $ mapOutsideAts f body
+		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl"] ->
+			Just $ TeXEnv c [] $ TeXEnv "reparsed" [] $ reparseCode body
+		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "tabbing"] -> Just $ TeXEnv t [] $ reparseTabs body
 		_ -> Nothing
-	where
-		f :: LaTeX -> Maybe LaTeX
-		f (TeXComment t) = Just $ (TeXRaw "%") <> (mapOutsideAts f $ doParseLaTeX (t ++ "\n"))
-		f (TeXCommS c) = Just $ TeXRaw $ ("\\" ++ Text.pack c)
-		f (TeXLineBreak _ _) = Just $ TeXRaw "\\\\"
-		f _ = Nothing
 
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
@@ -663,12 +672,16 @@ moreArgs (TeXEnv e a x)
 moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
 moreArgs x = x
 
+doParse :: Text -> LaTeX
+doParse t = case parseLaTeX t of
+	Left e -> error (show e ++ "\nFor given input: " ++ Text.unpack t)
+	Right l -> l
+
 doParseLaTeX :: Text -> LaTeX
 doParseLaTeX =
-	reparseCodeblocks
+	reparseEnvs
 	. moreArgs
-	. either (error "latex parse error") id
-	. parseLaTeX
+	. doParse
 
 newlineCurlies :: Text -> Text
 newlineCurlies =

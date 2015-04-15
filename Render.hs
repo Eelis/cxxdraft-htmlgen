@@ -16,7 +16,7 @@ import Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements,
 	Section(..), Chapter(..), Table(..), Figure(..))
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, (<>))
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
@@ -240,7 +240,7 @@ instance Render Element where
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
-		xml "pre" [] $ htmlTabs $ render $ preprocessTabbing $ preprocessPre t
+		xml "pre" [] $ htmlTabs $ render $ preprocessPre t
 	render (FigureElement f) = renderFig False f
 	render Codeblock{..} = xml "pre" [("class", "codeblock")] $ renderCode code
 	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
@@ -266,42 +266,16 @@ renderVerb (TeXBraces _) = ""
 renderVerb other = render other
 
 renderCode :: LaTeX -> Text
-renderCode = comments . renderOutsideAt
-	where
-		doRender (TeXRaw s) =
-			replace "<" "&lt;"
-			$ replace ">" "&gt;"
-			$ replace "&" "&amp;"
-			$ s
-		doRender other = render other
-
-		renderOutsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderInsideAt b
-		renderOutsideAt (TeXSeq a b) = renderOutsideAt a ++ renderOutsideAt b
-		renderOutsideAt (TeXBraces x) = "{" ++ renderOutsideAt x ++ "}"
-		renderOutsideAt other = doRender other 
-
-		renderInsideAt (TeXSeq (TeXRaw "@") b) = "@" ++ renderOutsideAt b
-		renderInsideAt (TeXSeq a b) = renderInsideAt a ++ renderInsideAt b
-		renderInsideAt (TeXBraces x) = renderInsideAt x
-		renderInsideAt other = doRender other
-
-		mapOdd _ [] = []
-		mapOdd f [only] = [f only]
-		mapOdd f (first : second : rest) = (f first) : second : (mapOdd f rest)
-
-		comments = 	
-			Text.intercalate ""
-		 	. mapOdd (blockComments . Text.intercalate "\n" . map commentLine . Text.lines)  -- Because unlines would emit one unfortunate extra newline
-			. Text.splitOn "@"
-		commentLine l =
-			case Text.breakOn "//" l of
-				(stuff, "") -> stuff
-				(stuff, comment) -> stuff ++ (spanTag "comment" $ commentText comment)
-		blockComments =
-			replace "/*" "<span class='comment'>/*"
-			. replace "*/" "*/</span>"
-
-		commentText = replace "~" "&nbsp;"
+renderCode (TeXSeq a b) = renderCode a ++ renderCode b
+renderCode (TeXEnv "reparsed" _ x) = renderCode x
+renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) =
+	Text.replace "<" "&lt;" $
+	Text.replace ">" "&gt;" $
+	Text.replace "&" "&amp;" $
+	(Text.pack $ read $ Text.unpack $ code)
+renderCode (TeXComm "codecmd" [FixArg cmd]) = render cmd
+renderCode (TeXComm "codecomment" [FixArg comment]) = spanTag "comment" $ render comment
+renderCode other = render other
 
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 
@@ -494,31 +468,11 @@ preprocessPre rest = rest
 bnfPre :: Text -> Text
 bnfPre = xml "pre" [("class", "bnf")] . Text.strip
 
-preprocessTabbing :: LaTeX -> LaTeX
-preprocessTabbing = go
-	where
-		initialTab (Text.stripPrefix ">" -> Just rest) =
-			"\t" ++ rest
-		initialTab other = other
-
-		go (TeXBraces t) = t
-		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") (TeXSeq s a)) b)) =
-			(TeXRaw $ "\t") <> (go s) <> (go a) <> (go b)
-		go (TeXSeq (TeXCommS "") (TeXSeq (TeXSeq (TeXRaw ">") s) a)) =
-			(TeXRaw $ "\t") <> (go s) <> (go a)
-		go (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw s) rest)) =
-			TeXSeq (TeXCommS "") (TeXSeq (TeXRaw $ initialTab s) $ go rest)
-		go (TeXSeq (TeXCommS "") (TeXRaw s)) =
-			TeXSeq (TeXCommS "") (TeXRaw $ initialTab s)
-		go (TeXSeq a b) = TeXSeq (go a) (go b)
-		go (TeXEnv e a c) = TeXEnv e a (go c)
-		go other = other
-
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;"
 
 renderBnfTable :: LaTeX -> Text
-renderBnfTable = bnfPre . htmlTabs . render . preprocessTabbing . preprocessPre
+renderBnfTable = bnfPre . htmlTabs . render . preprocessPre
 
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#" ++ (Text.toLower n)
