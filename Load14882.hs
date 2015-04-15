@@ -529,7 +529,7 @@ replaceArgsInString args = concatRaws . go
 		go ('#':'#':more) = TeXRaw "#" ++ go more
 		go ('#':c:more)
 			| Just i <- getDigit c =
-			((args ++ repeat "wtf") !! (i-1)) ++
+			(args !! (i-1)) ++
 			go more
 		go (c : more) = TeXRaw (Text.pack [c]) ++ go more
 		go [] = TeXEmpty
@@ -676,6 +676,7 @@ newlineCurlies =
 	. replace "\n\t{" "{"
 	. replace "\n {" "{"
 	. replace "}\n  {" "}{"
+	. replace "} \n  {" "}{"
 		-- Todo: These are sometimes inappropriate...
 
 parseFile :: Macros -> Text -> [LinearSection]

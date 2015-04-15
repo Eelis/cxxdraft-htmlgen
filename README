@@ -80,3 +80,4 @@ Todo
   - list required hackage packages in prereqs
   - different kinds of enumeration
   - fix links to tables on other pages
+  - very long section names screw up layout
