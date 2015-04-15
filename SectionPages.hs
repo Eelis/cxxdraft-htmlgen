@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns #-}
 
-module SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile) where
+module SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile, writeIndexFiles) where
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
+import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render
 import Load14882
@@ -104,9 +105,15 @@ writeFullFile sfs chapters = writeSectionFile "full" sfs "14882" $
 
 writeSectionFiles :: SectionFileStyle -> [Section] -> IO ()
 writeSectionFiles sfs chapters = do
+	putStr "  sections..";
 	let allAbbrs = concatMap abbreviations chapters
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs ("[" ++ render abbreviation ++ "]") $
 			(mconcat $ fst . renderSection (Just abbreviation) False . chapters)
-	putStrLn $ " " ++ show (length allAbbrs) ++ " sections"
+	putStrLn $ " " ++ show (length allAbbrs)
+
+writeIndexFiles :: SectionFileStyle -> Index -> IO ()
+writeIndexFiles sfs index = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
+	putStrLn $ "  " ++ cat
+	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ render i

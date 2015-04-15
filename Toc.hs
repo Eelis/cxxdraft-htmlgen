@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, ViewPatterns #-}
 
 module Toc (writeTocFile) where
 
@@ -11,7 +11,7 @@ import Render (
 	render, secnum, Link(..), linkToSection,
 	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
 import Util
-import Load14882 (Figure(..), Table(..), Section(..), Draft(..))
+import Load14882 (Figure(..), Table(..), Section(..), Draft(..), indexCatName)
 
 tocSection :: Section -> Text
 tocSection s@Section{..} =
@@ -75,6 +75,7 @@ listOfFigures figures =
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
 writeTocFile sfs Draft{..} = do
+	putStrLn "  toc"
 	date <- Text.pack . formatTime defaultTimeLocale "%F" . getCurrentTime
 	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $
 		fileContent "" "14882: Contents" $
@@ -86,4 +87,7 @@ writeTocFile sfs Draft{..} = do
 			"<h1>Contents</h1>" ++
 			listOfTables tables ++
 			listOfFigures figures ++
-			mconcat (tocChapter . chapters)
+			mconcat (tocChapter . chapters) ++
+			mconcat (h 2
+				. (\cat -> render anchor{aHref="TocToSection/" ++ cat, aText=indexCatName cat})
+				. ["generalindex", "libraryindex", "impldefindex"])

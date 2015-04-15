@@ -3,13 +3,12 @@
 import Render (imgDir, outputDir, SectionFileStyle(..))
 import Load14882 (Draft(..), load14882)
 import Prelude hiding ((++), (.), writeFile)
-import System.IO (hFlush, stdout)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Environment (getArgs)
 import Util
 
 import Toc (writeTocFile)
-import SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile)
+import SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile, writeIndexFiles)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
@@ -30,11 +29,12 @@ main = do
 	draft@Draft{..} <- load14882
 
 	setCurrentDirectory cwd
-	putStr $ "Writing to " ++ outputDir; hFlush stdout
+	putStrLn $ "Writing to " ++ outputDir
 	createDirectoryIfMissing True outputDir
 	createDirectoryIfMissing True (outputDir ++ imgDir)
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 	writeTocFile sectionFileStyle draft
+	writeIndexFiles sectionFileStyle index
 	writeFiguresFile sectionFileStyle figures
 	writeTablesFile sectionFileStyle tables
 	writeFullFile sectionFileStyle chapters

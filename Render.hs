@@ -3,7 +3,9 @@
 	RecordWildCards,
 	TupleSections,
 	ViewPatterns,
-	LambdaCase #-}
+	LambdaCase,
+	TypeSynonymInstances,
+	FlexibleInstances #-}
 
 module Render (
 	Render(render), url, renderTab, renderFig,
@@ -14,7 +16,9 @@ module Render (
 
 import Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements,
-	Section(..), Chapter(..), Table(..), Figure(..))
+	Section(..), Chapter(..), Table(..), Figure(..),
+	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), parseIndex,
+	IndexPath, indexKeyContent)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -30,11 +34,12 @@ import System.Process (readProcess)
 import System.Directory (doesFileExist)
 import Data.Hashable (hash)
 import Data.List (find)
+import qualified Data.Map as Map
 import Data.Maybe (isJust)
 import Util
 
 kill, literal :: [String]
-kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "index", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline"]
+kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -115,6 +120,9 @@ makeDiv = words "defn definition cvqual tcode textit textnormal term emph exitno
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
 
+indexPathId :: IndexPath -> Text
+indexPathId = Text.intercalate "!" . map (indexKeyContent . indexKey)
+
 instance Render Anchor where
 	render Anchor{..} = xml "a" ([("class", aClass) | aClass /= "" ] ++
 	                             [("href" , aHref ) | aHref  /= "" ] ++
@@ -131,9 +139,7 @@ instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
 
 instance Render TeXArg where
-	render (FixArg l) = render l
-	render (OptArg l) = render l
-	render _ = error "Oxyd is too lazy to type out all the arg types"
+	render = render . texFromArg
 
 instance Render LaTeX where
 	render (TeXSeq (TeXCommS "textbackslash") y)
@@ -178,6 +184,8 @@ instance Render LaTeX where
 	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
 	render (TeXComm "textit" [FixArg x, OptArg y]) = "<i>" ++ render x ++ "</i>[" ++ render y ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = "<b>" ++ render x ++ "</b>"
+	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
+		= spanTag "indexparent" $ render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
 	render (TeXComm "label" [FixArg (TeXRaw x)]) = render anchor{aId=x}
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm "leftshift" [FixArg content]) =
@@ -216,6 +224,28 @@ instance Render LaTeX where
 
 instance Render Int where render = Text.pack . show
 
+instance Render IndexComponent where
+	render IndexComponent{..} =
+		render (if indexFormatting == TeXEmpty then indexKey else indexFormatting)
+
+instance Render IndexEntry where
+	render IndexEntry{indexEntryKind=Just (See x), ..} = "<i>see</i> " ++ render x
+	render IndexEntry{indexEntryKind=Just (SeeAlso x), ..} = "<i>see also</i> " ++ render x
+	render IndexEntry{indexEntryKind=Just IndexClose} = ""
+	render IndexEntry{..} = render anchor
+		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathId indexPath
+		, aText = "[" ++ render abbr ++ "]" }
+		where abbr = abbreviation indexEntrySection
+
+instance Render IndexTree where
+	render x = mconcat $ f . Map.toList x
+		where
+			f :: (IndexComponent, IndexNode) -> Text
+			f (comp, IndexNode{..}) =
+				xml "div" [("class", "indexitems")] $
+				Text.intercalate ", " (filter (/= "") $ render comp : render . indexEntries) ++
+				render indexSubnodes
+
 renderTab :: Bool -> Table -> Text
 renderTab stripTab Table{..} =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
@@ -233,7 +263,8 @@ renderFig stripFig Figure{..} =
 	where id_ = (if stripFig then replace "fig:" "" else id) $ render figureAbbr
 
 instance Render Element where
-	render (LatexElements t) = case render t of "" -> ""; x -> xml "p" [] x
+	render (LatexElements t) =
+		case Text.stripStart (render t) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t

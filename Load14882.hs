@@ -18,6 +18,8 @@
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
+	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
+	parseIndex, indexKeyContent, indexCatName,
 	LaTeX,
 	load14882) where
 
@@ -28,6 +30,7 @@ import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, 
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import Data.Monoid (Monoid(..), mconcat)
+import Data.Function (on)
 import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
@@ -37,7 +40,7 @@ import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import Data.List (sort, unfoldr)
+import Data.List (sort, unfoldr, stripPrefix)
 import Data.Maybe (isJust, fromJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -213,12 +216,18 @@ isItem (TeXComm "item" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
-parseItems :: [LaTeX] -> [RawElements]
+type Item = RawElements
+
+mapHead :: (a -> a) -> [a] -> [a]
+mapHead f (x:y) = f x : y
+mapHead _ [] = []
+
+parseItems :: [LaTeX] -> [Item]
 parseItems [] = []
-parseItems (x : more)
-	| isItem x = parsePara a : parseItems b
-	where
-		(a, b) = span (not . isItem) more
+parseItems (x : (span isJunk -> (junk, rest)))
+	| isJunk x = mapHead (RawLatexElements (x : junk) :) (parseItems rest)
+parseItems (x : (break isItem -> (item, rest)))
+	| isItem x = parsePara item : parseItems rest
 parseItems _ = error "need items or nothing"
 
 isElementsEnd :: LaTeX -> Bool
@@ -364,16 +373,14 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isTabbing e = RawTabbing stuff
 			| isCodeblock e = RawCodeblock stuff
 			| isBnf e = RawBnf k stuff
-			| isMinipage e = RawMinipage $ parsePara $ dropWhile isJunk $ rmseqs stuff
-			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ dropWhile isJunk $ rmseqs stuff)
+			| isMinipage e = RawMinipage $ parsePara $ rmseqs stuff
+			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
 		go other = error $ "Unexpected " ++ show other
 
 		(e', footnotes) = extractFootnotes env
 
-parsePara x = RawLatexElements v' : parsePara more ++ (RawFootnote . footnotes)
-	where
-		(v, more) = elems (dropWhile isJunk x)
-		(v', footnotes) = extractFootnotes v
+parsePara (elems -> (extractFootnotes -> (e, footnotes), more))
+	= RawLatexElements e : parsePara more ++ (RawFootnote . footnotes)
 
 elems :: [LaTeX] -> ([LaTeX], [LaTeX])
 elems [] = ([], [])
@@ -400,7 +407,6 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 				(p, more) = break isParaEnd x
 
 parseSections :: [LaTeX] -> [LinearSection]
-parseSections ((isJunk -> True) : x) = parseSections x
 parseSections
 	(TeXComm c args
 	: ( parseParas ->
@@ -519,7 +525,7 @@ concatRaws l =
 				(x', s) = go pre x
 				(y', s') = go s y
 			in
-				(TeXSeq x' y', s')
+				((if x' /= TeXEmpty then TeXSeq x' else id) y', s')
 		(a, b) =  go "" l
 
 replaceArgsInString :: [LaTeX] -> String -> LaTeX
@@ -918,11 +924,140 @@ bnfGrammarterms links = go links . mapTeX wordify
 		go g (TeXSeq a b) = TeXSeq (go g a) (go g b)
 		go _ other = other
 
+stripInfix :: Eq a => [a] -> [a] -> Maybe ([a], [a])
+stripInfix p s | Just r <- stripPrefix p s = Just ([], r)
+stripInfix p (h:t) = first (h:) . stripInfix p t
+stripInfix _ _  = Nothing
+
+texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
+texStripInfix t = go
+	where
+		go (TeXRaw (Text.unpack -> stripInfix (Text.unpack t) -> Just ((Text.pack -> x), (Text.pack -> y))))
+			= Just (TeXRaw x, TeXRaw y)
+		go (TeXSeq x y)
+			| Just (x', x'') <- go x = Just (x', TeXSeq x'' y)
+			| Just (y', y'') <- go y = Just (TeXSeq x y', y'')
+		go _ = Nothing
+
+
+parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
+parseIndex = go . concatRaws
+	where
+		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See y)
+		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ SeeAlso y)
+		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
+		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
+		go t = (parseIndexPath t, Nothing)
+
+parseIndexPath :: LaTeX -> IndexPath
+parseIndexPath (texStripInfix "!" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
+parseIndexPath (texStripInfix "@" -> Just (x, y)) = [IndexComponent x y]
+parseIndexPath t = [IndexComponent t TeXEmpty]
+
+data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
+	deriving (Eq, Show)
+
+instance Ord IndexComponent where
+	compare = compare `on` (indexKeyContent . indexKey)
+
+indexKeyContent :: LaTeX -> Text
+indexKeyContent = ikc
+	where
+		ikc (TeXRaw t) = replace "\n" "_" $ replace " " "_" $ replace "~" "_" t
+		ikc (TeXSeq x y) = ikc x ++ ikc y
+		ikc TeXEmpty = ""
+		ikc (TeXComm "texttt" [FixArg x]) = ikc x
+		ikc (TeXCommS "xspace") = "_"
+		ikc (TeXCommS "Cpp") = "C++"
+		ikc (TeXCommS "&") = "&"
+		ikc (TeXCommS "%") = "%"
+		ikc (TeXCommS "~") = "~"
+		ikc (TeXCommS "#") = "#"
+		ikc (TeXCommS "{") = "{"
+		ikc (TeXCommS "}") = "}"
+		ikc (TeXCommS "^") = "^"
+		ikc (TeXCommS "\"") = "\""
+		ikc (TeXCommS "") = ""
+		ikc (TeXCommS "textbackslash") = "\\";
+		ikc (TeXComm "discretionary" _) = "TODO" -- wtf
+		ikc (TeXBraces x) = ikc x
+		ikc x = error $ "unexpected: " ++ show x
+
+type IndexPath = [IndexComponent]
+
+data IndexKind = See LaTeX | SeeAlso LaTeX | IndexOpen | IndexClose
+	deriving Show
+
+data RawIndexEntry = RawIndexEntry
+	{ indexSection :: Section
+	, indexCategory :: Text
+	, rawIndexPath :: IndexPath
+	, rawIndexKind :: Maybe IndexKind }
+
+instance Show RawIndexEntry where
+	show RawIndexEntry{..} =
+		show (sectionName indexSection) ++ " " ++ show indexCategory ++ " " ++ show rawIndexPath
+
+withSubsections :: Section -> [Section]
+withSubsections s = s : concatMap withSubsections (subsections s)
+
+elemTex :: Element -> [LaTeX]
+elemTex (LatexElements l) = l
+elemTex (Enumerated _ e) = e >>= (>>= elemTex)
+elemTex (Bnf _ l) = [l]
+elemTex (Codeblock c) = [c]
+elemTex (Minipage l) = l >>= elemTex
+elemTex (Footnote _ c) = c >>= elemTex
+elemTex (Tabbing t) = [t]
+elemTex _ = [] -- todo: rest
+
+sectionIndexEntries :: Section -> [RawIndexEntry]
+sectionIndexEntries s =
+	[ RawIndexEntry{..}
+	| indexSection <- withSubsections s
+	, [OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
+		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ]
+
+type IndexCategory = Text
+
+type Index = Map IndexCategory IndexTree
+
+indexCatName "impldefindex" = "Index of implementation-defined behavior"
+indexCatName "libraryindex" = "Index of library names"
+indexCatName "generalindex" = "Index"
+
+data IndexEntry = IndexEntry
+	{ indexEntrySection :: Section
+	, indexEntryKind :: Maybe IndexKind
+	, indexPath :: IndexPath }
+
+type IndexTree = Map IndexComponent IndexNode
+
+data IndexNode = IndexNode
+	{ indexEntries :: [IndexEntry]
+	, indexSubnodes :: IndexTree }
+
 data Draft = Draft
 	{ commitUrl :: Text
-	, chapters :: [Section]
-	, tables :: [Table]
-	, figures :: [Figure] }
+	, chapters  :: [Section]
+	, tables    :: [Table]
+	, figures   :: [Figure]
+	, index     :: Index }
+
+toIndex :: RawIndexEntry -> Index
+toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
+	where
+		go :: [IndexComponent] -> IndexTree
+		go [c] = Map.singleton c (IndexNode [IndexEntry indexSection rawIndexKind rawIndexPath] Map.empty)
+		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
+
+mergeIndices :: [Index] -> Index
+mergeIndices = Map.unionsWith (Map.unionWith mergeIndexNodes)
+
+mergeIndexNodes :: IndexNode -> IndexNode -> IndexNode
+mergeIndexNodes x y = IndexNode
+	{ indexEntries = indexEntries x ++ indexEntries y
+	, indexSubnodes = Map.unionWith mergeIndexNodes (indexSubnodes x) (indexSubnodes y) }
 
 load14882 :: IO Draft
 load14882 = do
@@ -969,5 +1104,6 @@ load14882 = do
 
 	let ntdefs = Map.unions $ map nontermdefsInSection chapters
 	let chapters' = map (resolveGrammarterms ntdefs) chapters
+	let index = mergeIndices $ map toIndex (chapters' >>= sectionIndexEntries)
 
 	return Draft{chapters=chapters', ..}

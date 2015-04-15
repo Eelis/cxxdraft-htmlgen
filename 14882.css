@@ -46,6 +46,27 @@ a.marginalized {
 
 div.para { text-align: justify; }
 
+span.indexparent {
+	display: inline;
+	position: relative;
+	float: right;
+	right: -1em;
+}
+
+a.index {
+	position: absolute;
+	display: none;
+}
+
+a.index:target {
+	display: inline;
+}
+
+.indexitems {
+	margin-left: 2em;
+	text-indent: -2em;
+}
+
 div.itemdescr {
 	margin-left: 3em;
 }
