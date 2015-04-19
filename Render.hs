@@ -116,7 +116,7 @@ simpleMacros =
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented center"
-makeDiv = words "defn definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
+makeDiv = words "definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab"
 makeBnfPre = words "bnf simplebnf"
 
@@ -179,7 +179,6 @@ instance Render LaTeX where
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs}
 	render (TeXComm "bigoh" [FixArg content]) =
 		spanTag "math" $ "𝓞(" ++ renderMath content ++ ")"
-	render (TeXComm "defnx" [FixArg a, FixArg _description_for_index]) = render a
 	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
 	render (TeXComm "textit" [FixArg x, OptArg y]) = "<i>" ++ render x ++ "</i>[" ++ render y ++ "]"
