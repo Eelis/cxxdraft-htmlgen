@@ -933,6 +933,7 @@ texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
 texStripInfix t = go
 	where
 		go (TeXRaw (Text.unpack -> stripInfix (Text.unpack t) -> Just ((Text.pack -> x), (Text.pack -> y))))
+			| not ("\"" `Text.isSuffixOf` x)
 			= Just (TeXRaw x, TeXRaw y)
 		go (TeXSeq x y)
 			| Just (x', x'') <- go x = Just (x', TeXSeq x'' y)
@@ -963,7 +964,11 @@ instance Ord IndexComponent where
 indexKeyContent :: LaTeX -> Text
 indexKeyContent = ikc
 	where
-		ikc (TeXRaw t) = replace "\n" "_" $ replace " " "_" $ replace "~" "_" t
+		ikc (TeXRaw t) =
+			replace "\n" "_" $
+			replace " " "_" $
+			replace "\"!" "!" $
+			replace "~" "_" t
 		ikc (TeXSeq x y) = ikc x ++ ikc y
 		ikc TeXEmpty = ""
 		ikc (TeXComm "texttt" [FixArg x]) = ikc x
