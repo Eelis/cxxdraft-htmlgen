@@ -185,6 +185,8 @@ instance Render LaTeX where
 	render (TeXComm "textbf" [FixArg x]) = "<b>" ++ render x ++ "</b>"
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
 		= spanTag "indexparent" $ render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
+	render (TeXComm "defnx" [FixArg x, FixArg (parseIndex -> (p, _))])
+		= render anchor{aText="<i>" ++ render x ++ "</i>", aId=indexPathId p}
 	render (TeXComm "label" [FixArg (TeXRaw x)]) = render anchor{aId=x}
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm "leftshift" [FixArg content]) =

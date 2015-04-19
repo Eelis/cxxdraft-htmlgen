@@ -541,7 +541,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -1021,7 +1021,11 @@ sectionIndexEntries s =
 	[ RawIndexEntry{..}
 	| indexSection <- withSubsections s
 	, [OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
-		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ]
+		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
+	[ RawIndexEntry{indexCategory="generalindex", ..}
+	| indexSection <- withSubsections s
+	, [FixArg _, FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
+		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
 
 type IndexCategory = Text
 
