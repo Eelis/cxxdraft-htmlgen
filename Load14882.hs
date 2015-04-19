@@ -943,8 +943,8 @@ texStripInfix t = go
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
 parseIndex = go . concatRaws
 	where
-		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See y)
 		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ SeeAlso y)
+		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
 		go t = (parseIndexPath t, Nothing)
