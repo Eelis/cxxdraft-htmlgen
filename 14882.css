@@ -16,7 +16,7 @@ ul > li:before {
 	margin-left: -1.5em; 
 }
 
-:target { background-color: #E9FBE9; }
+:target { background-color: #C9FBC9; }
 
 .tocHeader { text-align: center; }
 
