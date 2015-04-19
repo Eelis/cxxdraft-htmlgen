@@ -33,7 +33,7 @@ import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcess)
 import System.Directory (doesFileExist)
 import Data.Hashable (hash)
-import Data.List (find)
+import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust)
 import Util
@@ -243,7 +243,7 @@ instance Render IndexTree where
 			f :: (IndexComponent, IndexNode) -> Text
 			f (comp, IndexNode{..}) =
 				xml "div" [("class", "indexitems")] $
-				Text.intercalate ", " (filter (/= "") $ render comp : render . indexEntries) ++
+				Text.intercalate ", " (nub $ filter (/= "") $ render comp : render . indexEntries) ++
 				render indexSubnodes
 
 renderTab :: Bool -> Table -> Text
