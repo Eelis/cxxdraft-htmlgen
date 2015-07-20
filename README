@@ -9,6 +9,7 @@ Prerequisites
   - various Hackage packages
   - graphviz
   - dvipng
+  - git
   - latex
 
 Usage
