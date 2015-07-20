@@ -1130,14 +1130,14 @@ load14882 = do
 		putStrLn $ show (length r) ++ " sections"
 		return r
 
-	if length (show sections) == 0 then undefined else do -- force eval before we leave the dir
+	if length (show sections) == 0 then undefined else do
+		-- force eval before we leave the dir
+		let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1 1)
+		let tables = concatMap tablesInSection chapters
+		let figures = concatMap figuresInSection chapters
 
-	let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1 1)
-	let tables = concatMap tablesInSection chapters
-	let figures = concatMap figuresInSection chapters
+		let ntdefs = Map.unions $ map nontermdefsInSection chapters
+		let chapters' = map (resolveGrammarterms ntdefs) chapters
+		let index = mergeIndices $ map toIndex (chapters' >>= sectionIndexEntries)
 
-	let ntdefs = Map.unions $ map nontermdefsInSection chapters
-	let chapters' = map (resolveGrammarterms ntdefs) chapters
-	let index = mergeIndices $ map toIndex (chapters' >>= sectionIndexEntries)
-
-	return Draft{chapters=chapters', ..}
+		return Draft{chapters=chapters', ..}
