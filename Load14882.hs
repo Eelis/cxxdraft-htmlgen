@@ -748,12 +748,23 @@ parseFile macros =
 
 getCommitUrl :: IO Text
 getCommitUrl = do
-	url <- Text.strip . Text.pack . readProcess "git" ["config", "--get", "remote.origin.url"] ""
-	commit <- Text.strip . Text.pack . readProcess "git" ["rev-parse", "HEAD"] ""
+	url <- gitGetRemoteUrl
+	commit <- gitGetCommitRef
 	return $
 		( Text.replace "git@github.com:" "http://github.com/"
 		$ Text.replace ".git" "/commit/" url)
 		++ commit
+
+gitGetRemoteUrl :: IO Text
+gitGetRemoteUrl = do
+	x <- readProcess "git" ["ls-remote", "--get-url"] ""
+	return $ Text.strip $ Text.pack x
+
+gitGetCommitRef :: IO Text
+gitGetCommitRef = do
+	x <- readProcess "git" ["rev-parse", "HEAD"] ""
+	return $ Text.strip $ Text.pack $ x
+
 
 -- Numbering
 
