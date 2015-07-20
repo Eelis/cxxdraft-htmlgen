@@ -668,6 +668,30 @@ reparseEnvs = mapTeX $
 		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "tabbing"] -> Just $ TeXEnv t [] $ reparseTabs body
 		_ -> Nothing
 
+-- \@. becomes \atDot
+-- .\@ becomes \dotAt
+reparseAtCommand :: LaTeX -> LaTeX
+reparseAtCommand (TeXSeq (TeXRaw b) (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw a) tail))) =
+	if Text.head a /= '@' then
+		TeXSeq (TeXRaw b) (
+			TeXSeq (TeXCommS "") (
+				TeXSeq (TeXRaw a) (reparseAtCommand tail)))
+	else
+		if Text.last b == '.' then
+			TeXSeq (TeXRaw $ Text.dropEnd 1 b) (
+				TeXSeq (TeXCommS "dotAt") (
+					TeXSeq (TeXRaw $ Text.drop 1 a) (reparseAtCommand tail)))
+		else
+			if Text.index a 1 /= '.' then error("\\@ without dot detected") else
+			TeXSeq (TeXRaw b) (
+				TeXSeq (TeXCommS "atDot") (
+					TeXSeq (TeXRaw $ Text.drop 2 a) (reparseAtCommand tail)))
+reparseAtCommand (TeXSeq l r) = TeXSeq (reparseAtCommand l) (reparseAtCommand r)
+reparseAtCommand (TeXComm n args) = TeXComm n $ map (mapTeXArg reparseAtCommand) args
+reparseAtCommand (TeXEnv n args body) = TeXEnv n (map (mapTeXArg reparseAtCommand) args) (reparseAtCommand body)
+reparseAtCommand id = id
+
+
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
 	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
@@ -685,7 +709,8 @@ doParse t = case parseLaTeX t of
 
 doParseLaTeX :: Text -> LaTeX
 doParseLaTeX =
-	reparseEnvs
+	reparseAtCommand
+	. reparseEnvs
 	. moreArgs
 	. doParse
 
