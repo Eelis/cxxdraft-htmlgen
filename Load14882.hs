@@ -160,7 +160,7 @@ isEnumerate (TeXEnv s _ _)
 isEnumerate _ = Nothing
 
 bnfEnvs :: [String]
-bnfEnvs = ["bnf", "bnfkeywordtab", "bnftab", "simplebnf"]
+bnfEnvs = ["bnf", "bnfkeywordtab", "bnftab", "ncbnftab", "simplebnf"]
 
 isBnf :: LaTeX -> Bool
 isBnf (TeXEnv s _ _)
