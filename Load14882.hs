@@ -1023,7 +1023,8 @@ indexKeyContent = ikc
 		ikc (TeXCommS "textbackslash") = "\\";
 		ikc (TeXComm "discretionary" _) = "TODO" -- wtf
 		ikc (TeXBraces x) = ikc x
-		ikc x = error $ "unexpected: " ++ show x
+		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x
+		ikc x = error $ "unexpected for indexKeyContent: " ++ show x
 
 type IndexPath = [IndexComponent]
 
