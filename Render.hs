@@ -119,7 +119,7 @@ simpleMacros =
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented center"
 makeDiv = words "definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit enternote exitnote enterexample exitexample indented paras ttfamily TableBase table tabular longtable"
-makeBnfTable = words "bnfkeywordtab bnftab"
+makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf simplebnf"
 
 indexPathId :: IndexPath -> Text
