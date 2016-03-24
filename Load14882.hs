@@ -20,6 +20,7 @@ module Load14882 (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
 	parseIndex, indexKeyContent, indexCatName,
+	coreChapters, libChapters,
 	LaTeX,
 	load14882) where
 
@@ -1088,6 +1089,13 @@ data Draft = Draft
 	, tables    :: [Table]
 	, figures   :: [Figure]
 	, index     :: Index }
+
+splitChapters :: Draft -> ([Section], [Section])
+splitChapters = span ((/= "library") . abbreviation) . chapters
+
+coreChapters, libChapters :: Draft -> [Section]
+coreChapters = fst . splitChapters
+libChapters = snd . splitChapters
 
 toIndex :: RawIndexEntry -> Index
 toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
