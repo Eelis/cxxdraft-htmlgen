@@ -729,8 +729,6 @@ parseFile macros =
 	parseSections
 	. filter (not . isComment)
 	. rmseqs
-	. doParseLaTeX
-	. TeXRender.render
 	. fst . eval macros
 	. doParseLaTeX
 	. replace "$$" "$"
