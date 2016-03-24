@@ -114,6 +114,8 @@ simpleMacros =
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	, ("dotAt"          , ".")
 	, ("atDot"          , ".")
+	, ("textlangle"     , "&langle;")
+	, ("textrangle"     , "&rangle;")
 	]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
