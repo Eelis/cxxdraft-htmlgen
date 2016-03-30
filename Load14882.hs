@@ -116,7 +116,7 @@ data RawParagraph = RawParagraph
 
 data SectionKind
 	= NormalSection { _level :: Int }
-	| DefinitionSection
+	| DefinitionSection { _level :: Int }
 	| InformativeAnnexSection
 	| NormativeAnnexSection
 	deriving (Eq, Show)
@@ -200,6 +200,7 @@ isParaEnd x = isParasEnd x
 
 isParasEnd :: LaTeX -> Bool
 isParasEnd (TeXComm "definition" _) = True
+isParasEnd (TeXComm "definitionx" _) = True
 isParasEnd (TeXComm "rSec" _) = True
 isParasEnd (TeXComm "infannex" _) = True
 isParasEnd (TeXComm "normannex" _) = True
@@ -422,7 +423,9 @@ parseSections
 		("rSec", [OptArg (TeXRaw level), OptArg abbr, FixArg name]) ->
 			(abbr, name, NormalSection $ read $ Text.unpack level)
 		("definition", [FixArg name, FixArg abbr]) ->
-			(abbr, name, DefinitionSection)
+			(abbr, name, DefinitionSection 2)
+		("definitionx", [FixArg name, FixArg abbr]) ->
+			(abbr, name, DefinitionSection 3)
 		_ -> error $ "not a section command: " ++ show c
 	= LinearSection{..} : moreSections
 parseSections [] = []
@@ -542,7 +545,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -826,7 +829,7 @@ instance AssignNumbers RawElement Element where
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
-lsectionLevel (lsectionKind -> DefinitionSection) = 2
+lsectionLevel (lsectionKind -> DefinitionSection l) = l
 lsectionLevel _ = 0
 
 paraNumbers :: [Bool] -> [Maybe Int]
