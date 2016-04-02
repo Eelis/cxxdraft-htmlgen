@@ -182,7 +182,7 @@ instance Render LaTeX where
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs}
 	render (TeXComm "bigoh" [FixArg content]) =
-		spanTag "math" $ "𝓞(" ++ renderMath content ++ ")"
+		spanTag "math" $ "Ο(" ++ renderMath content ++ ")"
 	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
 	render (TeXComm "textit" [FixArg x, OptArg y]) = "<i>" ++ render x ++ "</i>[" ++ render y ++ "]"
