@@ -349,6 +349,8 @@ instance ExtractFootnotes LaTeX where
 		(TeXCommS "footnoteref", [])
 	extractFootnotes (TeXComm "footnotetext" [FixArg content]) =
 		(TeXEmpty, [parsePara $ rmseqs content])
+	extractFootnotes (TeXComm a [FixArg content]) =
+		first (\c -> TeXComm a [FixArg c]) (extractFootnotes content)
 	extractFootnotes (TeXSeq a b) = extractFootnotes a ++ extractFootnotes b
 	extractFootnotes (TeXEnv env args content) = first (TeXEnv env args) (extractFootnotes content)
 	extractFootnotes other = (other, [])
@@ -778,6 +780,7 @@ class AssignNumbers a b | a -> b where
 instance AssignNumbers LaTeX LaTeX where
 	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
 	assignNumbers s (TeXEnv x y z) = TeXEnv x y . assignNumbers s z
+	assignNumbers s (TeXComm x [FixArg y]) = TeXComm x . (:[]) . FixArg . assignNumbers s y
 	assignNumbers _ (TeXCommS "footnoteref") = do
 		Numbers{..} <- get
 		put Numbers{footnoteRefNr = footnoteRefNr+1, ..}
@@ -824,7 +827,7 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
-	assignNumbers _ (RawCodeblock x) = return $ Codeblock x
+	assignNumbers s (RawCodeblock x) = Codeblock . assignNumbers s x
 	assignNumbers s (RawMinipage x) = Minipage . assignNumbers s x
 
 lsectionLevel :: LinearSection -> Int
