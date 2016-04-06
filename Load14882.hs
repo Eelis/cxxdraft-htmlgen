@@ -974,7 +974,6 @@ texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
 texStripInfix t = go
 	where
 		go (TeXRaw (Text.unpack -> stripInfix (Text.unpack t) -> Just ((Text.pack -> x), (Text.pack -> y))))
-			| not ("\"" `Text.isSuffixOf` x)
 			= Just (TeXRaw x, TeXRaw y)
 		go (TeXSeq x y)
 			| Just (x', x'') <- go x = Just (x', TeXSeq x'' y)
@@ -983,7 +982,8 @@ texStripInfix t = go
 
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
-parseIndex = go . concatRaws
+parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
+
 	where
 		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ SeeAlso y)
 		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See y)
@@ -991,10 +991,18 @@ parseIndex = go . concatRaws
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
 		go t = (parseIndexPath t, Nothing)
 
-parseIndexPath :: LaTeX -> IndexPath
-parseIndexPath (texStripInfix "!" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
-parseIndexPath (texStripInfix "@" -> Just (x, y)) = [IndexComponent x y]
-parseIndexPath t = [IndexComponent t TeXEmpty]
+		unescapeIndexPath :: Text -> LaTeX
+		unescapeIndexPath = TeXRaw
+			. replace "\2" "!"
+			. replace "!" "\1"
+			. replace "\"!" "\2"
+			. replace "\"|" "|"
+			. replace "\"\"" "\""
+
+		parseIndexPath :: LaTeX -> IndexPath
+		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
+		parseIndexPath (texStripInfix "@" -> Just (x, y)) = [IndexComponent x y]
+		parseIndexPath t = [IndexComponent t TeXEmpty]
 
 data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
 	deriving (Eq, Show)

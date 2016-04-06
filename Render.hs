@@ -52,6 +52,7 @@ simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
 	, (","              , "&nbsp;")
+	, ("\""             , "\"")
 	, ("prime"          , "'")
 	, ("atsign"         , "@")
 	, ("copyright"      , "&copy;")
