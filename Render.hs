@@ -59,19 +59,6 @@ simpleMacros =
 	, ("textregistered" , "&reg;")
 	, ("Cpp"            , "C++")
 	, ("cppver"         , "201402L")
-	, ("alpha"          , "α")
-	, ("beta"           , "β")
-	, ("delta"          , "δ")
-	, ("lambda"         , "λ")
-	, ("mu"             , "μ")
-	, ("pi"             , "π")
-	, ("phi"            , "φ")
-	, ("rho"            , "ρ")
-	, ("sigma"          , "σ")
-	, ("theta"          , "θ")
-	, ("zeta"           , "ζ")
-	, ("nu"             , "ν")
-	, ("Gamma"          , "Γ")
 	, ("sum"            , "∑")
 	, ("ell"            , "ℓ")
 	, ("shr"            , ">>")
@@ -122,6 +109,7 @@ simpleMacros =
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
 	]
+	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented center"

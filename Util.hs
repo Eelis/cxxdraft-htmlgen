@@ -2,7 +2,7 @@
 
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h,
-	anchor, Anchor(..), writeFile
+	anchor, Anchor(..), writeFile, greekAlphabet
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -32,3 +32,21 @@ data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
 
 anchor :: Anchor
 anchor = Anchor{aClass="", aId="", aHref="", aText=""}
+
+greekAlphabet :: [(String, Char)]
+greekAlphabet =
+	[ ("alpha"          , 'α')
+	, ("beta"           , 'β')
+	, ("delta"          , 'δ')
+	, ("mu"             , 'μ')
+	, ("nu"             , 'ν')
+	, ("lambda"         , 'λ')
+	, ("pi"             , 'π')
+	, ("phi"            , 'φ')
+	, ("rho"            , 'ρ')
+	, ("sigma"          , 'σ')
+	, ("theta"          , 'θ')
+	, ("zeta"           , 'ζ')
+
+	, ("Gamma"          , 'Γ')
+	, ("Pi"             , 'Π') ]

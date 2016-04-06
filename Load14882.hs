@@ -27,9 +27,10 @@ module Load14882 (
 import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Text.LaTeX.Base (protectString)
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>), texmap)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>), texmap, MathType(Dollar))
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
+import qualified Data.List as List
 import Data.Monoid (Monoid(..), mconcat)
 import Data.Function (on)
 import Control.Monad (forM)
@@ -48,6 +49,7 @@ import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
+import Util (greekAlphabet)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -1024,14 +1026,18 @@ indexKeyContent = ikc
 		ikc TeXEmpty = ""
 		ikc (TeXComm "texttt" [FixArg x]) = ikc x
 		ikc (TeXComm "textit" [FixArg x]) = ikc x
+		ikc (TeXComm "mathsf" [FixArg x]) = ikc x
 		ikc (TeXCommS "xspace") = "_"
 		ikc (TeXCommS "Cpp") = "C++"
 		ikc (TeXCommS "&") = "&"
 		ikc (TeXCommS "%") = "%"
+		ikc (TeXCommS "ell") = "ℓ"
 		ikc (TeXCommS "~") = "~"
 		ikc (TeXCommS "#") = "#"
 		ikc (TeXCommS "{") = "{"
 		ikc (TeXCommS "}") = "}"
+		ikc (TeXCommS s)
+			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
 		ikc (TeXCommS "tilde") = "~"
 		ikc (TeXCommS "^") = "^"
 		ikc (TeXCommS "\"") = "\""
@@ -1039,7 +1045,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "textbackslash") = "\\";
 		ikc (TeXComm "discretionary" _) = "TODO" -- wtf
 		ikc (TeXBraces x) = ikc x
-		ikc (TeXMath _ _) = ""
+		ikc (TeXMath Dollar x) = ikc x
 		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x
 		ikc x = error $ "unexpected for indexKeyContent: " ++ show x
 
