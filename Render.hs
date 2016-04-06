@@ -308,7 +308,7 @@ renderCode other = render other
 
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 
-	(not . null $ matchCommand (`elem` ["frac", "sum", "binom"]) t)
+	(not . null $ matchCommand (`elem` ["frac", "sum", "binom", "int"]) t)
 	||
 	(not . null $ matchEnv (`elem` ["array"]) t)
 isComplexMath (TeXEnv e _ _) = e `elem` ["eqnarray*"]
