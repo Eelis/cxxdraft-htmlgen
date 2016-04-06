@@ -67,6 +67,8 @@ simpleMacros =
 	, ("pi"             , "π")
 	, ("rho"            , "ρ")
 	, ("sigma"          , "σ")
+	, ("zeta"           , "ζ")
+	, ("nu"             , "ν")
 	, ("Gamma"          , "Γ")
 	, ("sum"            , "∑")
 	, ("ell"            , "ℓ")
