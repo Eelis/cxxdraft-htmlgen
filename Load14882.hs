@@ -1008,19 +1008,16 @@ data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
 	deriving (Eq, Show)
 
 instance Ord IndexComponent where
-	compare = compare `on` (indexKeyContent . indexKey)
+	compare = compare `on` (\c -> (indexKeyContent (indexKey c), indexKeyContent (indexFormatting c)))
 
 indexKeyContent :: LaTeX -> Text
 indexKeyContent = ikc
 	where
-		ikc (TeXRaw t) =
-			replace "\n" "_" $
-			replace " " "_" $
-			replace "\"!" "!" $
-			replace "~" "_" t
+		ikc (TeXRaw t) = replace "\n" " " t
 		ikc (TeXSeq x y) = ikc x ++ ikc y
 		ikc TeXEmpty = ""
 		ikc (TeXComm "texttt" [FixArg x]) = ikc x
+		ikc (TeXComm "textit" [FixArg x]) = ikc x
 		ikc (TeXCommS "xspace") = "_"
 		ikc (TeXCommS "Cpp") = "C++"
 		ikc (TeXCommS "&") = "&"
@@ -1029,6 +1026,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "#") = "#"
 		ikc (TeXCommS "{") = "{"
 		ikc (TeXCommS "}") = "}"
+		ikc (TeXCommS "tilde") = "~"
 		ikc (TeXCommS "^") = "^"
 		ikc (TeXCommS "\"") = "\""
 		ikc (TeXCommS "") = ""
@@ -1052,7 +1050,11 @@ data RawIndexEntry = RawIndexEntry
 
 instance Show RawIndexEntry where
 	show RawIndexEntry{..} =
-		show (sectionName indexSection) ++ " " ++ show indexCategory ++ " " ++ show rawIndexPath
+		"RawIndexEntry"
+		++ "{indexSection=" ++ show (sectionName indexSection)
+		++ ",indexCategory=" ++ show indexCategory
+		++ ",rawIndexPath=" ++ show rawIndexPath
+		++ "}"
 
 withSubsections :: Section -> [Section]
 withSubsections s = s : concatMap withSubsections (subsections s)
