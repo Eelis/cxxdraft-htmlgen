@@ -77,7 +77,6 @@ Output
 
 Todo
 
-  - fix escaped @ and ! in indexes
   - list required hackage packages in prereqs
   - different kinds of enumeration
   - fix links to tables on other pages
