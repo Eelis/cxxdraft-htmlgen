@@ -36,7 +36,7 @@ import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
 import Prelude hiding (take, (.), takeWhile, (++), lookup)
-import Data.Char (isSpace, ord, isDigit, isAlpha)
+import Data.Char (isSpace, ord, isDigit, isAlpha, toLower)
 import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
@@ -1008,7 +1008,13 @@ data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
 	deriving (Eq, Show)
 
 instance Ord IndexComponent where
-	compare = compare `on` (\c -> (indexKeyContent (indexKey c), indexKeyContent (indexFormatting c)))
+	compare = compare `on` (\c -> (f (indexKey c), f (indexFormatting c)))
+		where
+			g :: Char -> Int
+			g c
+				| isAlpha c = ord (toLower c) + 1000
+				| otherwise = ord c
+			f = map g . Text.unpack . indexKeyContent
 
 indexKeyContent :: LaTeX -> Text
 indexKeyContent = ikc
