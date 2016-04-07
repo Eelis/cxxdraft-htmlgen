@@ -37,7 +37,7 @@ import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
 import Prelude hiding (take, (.), takeWhile, (++), lookup)
-import Data.Char (isSpace, ord, isDigit, isAlpha, toLower)
+import Data.Char (isSpace, ord, isDigit, isAlpha, isAlphaNum, toLower)
 import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
@@ -1021,7 +1021,7 @@ instance Ord IndexComponent where
 		where
 			g :: Char -> Int
 			g c
-				| isAlpha c = ord (toLower c) + 1000
+				| isAlphaNum c = ord (toLower c) + 1000
 				| otherwise = ord c
 			f = map g . Text.unpack . indexKeyContent
 
