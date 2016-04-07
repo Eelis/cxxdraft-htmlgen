@@ -998,12 +998,17 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 			. replace "\2" "!"
 			. replace "!" "\1"
 			. replace "\"!" "\2"
+
+			. replace "\4" "@"
+			. replace "@" "\3"
+			. replace "\"@" "\4"
+
 			. replace "\"|" "|"
 			. replace "\"\"" "\""
 
 		parseIndexPath :: LaTeX -> IndexPath
 		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
-		parseIndexPath (texStripInfix "@" -> Just (x, y)) = [IndexComponent x y]
+		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
 		parseIndexPath t = [IndexComponent t TeXEmpty]
 
 data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
