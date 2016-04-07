@@ -524,7 +524,7 @@ secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
 	render $ anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style}
 	where
-		style = "width:" ++ show (73 + length parents * 15) ++ "pt"
+		style = "min-width:" ++ show (73 + length parents * 15) ++ "pt"
 		text
 			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
 			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
