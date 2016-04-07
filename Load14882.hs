@@ -995,6 +995,8 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 
 		unescapeIndexPath :: Text -> LaTeX
 		unescapeIndexPath = TeXRaw
+			. replace "\5" "\""
+
 			. replace "\2" "!"
 			. replace "!" "\1"
 			. replace "\"!" "\2"
@@ -1004,7 +1006,7 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 			. replace "\"@" "\4"
 
 			. replace "\"|" "|"
-			. replace "\"\"" "\""
+			. replace "\"\"" "\5"
 
 		parseIndexPath :: LaTeX -> IndexPath
 		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
