@@ -123,7 +123,8 @@ indexPathId = Text.intercalate "!" . map (indexKeyContent . indexKey)
 instance Render Anchor where
 	render Anchor{..} = xml "a" ([("class", aClass) | aClass /= "" ] ++
 	                             [("href" , aHref ) | aHref  /= "" ] ++
-	                             [("id"   , aId   ) | aId    /= "" ])
+	                             [("id"   , aId   ) | aId    /= "" ] ++
+	                             [("style", aStyle) | aStyle /= "" ])
 	                        aText
 
 
@@ -521,8 +522,9 @@ url = replace "&lt;" "%3c"
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
-	render $ anchor{aClass=c, aHref=href, aText=text}
+	render $ anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style}
 	where
+		style = "width:" ++ show (73 + length parents * 15) ++ "pt"
 		text
 			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
 			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"

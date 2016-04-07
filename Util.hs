@@ -28,10 +28,10 @@ spanTag = xml "span" . (:[]) . ("class",)
 h :: Int -> Text -> Text
 h = flip xml [] . ("h" ++) . Text.pack . show
 
-data Anchor = Anchor { aClass, aId, aHref, aText :: Text }
+data Anchor = Anchor { aClass, aId, aHref, aText, aStyle :: Text }
 
 anchor :: Anchor
-anchor = Anchor{aClass="", aId="", aHref="", aText=""}
+anchor = Anchor{aClass="", aId="", aHref="", aText="", aStyle=""}
 
 greekAlphabet :: [(String, Char)]
 greekAlphabet =

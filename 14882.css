@@ -31,7 +31,7 @@ div.tocChapter { display: none; }
 :target .unfolded_abbr_ref { float: right; display: inherit; }
 .unfolded_abbr_ref { display: none; }
 
-.secnum { display: inline-block; width: 73pt; }
+.secnum { display: inline-block; }
 .annexnum { display: block; }
 
 div.marginalizedparent {
