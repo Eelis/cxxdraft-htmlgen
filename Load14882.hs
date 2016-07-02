@@ -677,7 +677,8 @@ reparseEnvs = mapTeX $
 	\case
 		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl"] ->
 			Just $ TeXEnv c [] $ TeXEnv "reparsed" [] $ reparseCode body
-		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "tabbing"] -> Just $ TeXEnv t [] $ reparseTabs body
+		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "ncbnftab", "tabbing"] ->
+			Just $ TeXEnv t [] $ reparseTabs body
 		_ -> Nothing
 
 -- \@. becomes \atDot
