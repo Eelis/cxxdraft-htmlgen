@@ -3,8 +3,7 @@
 module Toc (writeTocFile) where
 
 import qualified Data.Text as Text
-import Data.Time.Format (formatTime)
-import System.Locale (defaultTimeLocale)
+import Data.Time.Format (formatTime, defaultTimeLocale)
 import Data.Time.Clock (getCurrentTime)
 import Prelude hiding ((.), (++), writeFile)
 import Render (

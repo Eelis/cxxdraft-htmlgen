@@ -564,7 +564,7 @@ data SectionFileStyle = Bare | WithExtension | InSubdir
 doLink :: SectionFileStyle -> Link -> Text -> Text
 doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
 	where
-		go (x : (Text.break (`elem` "'#") -> (a, b)) : z) = x ++ f a ++ go (b : z)
+		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = x ++ f a ++ go (b : z)
 		go [x] = x
 		go _ = undefined
 		idir = Text.pack imgDir
