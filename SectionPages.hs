@@ -26,23 +26,29 @@ renderParagraph idPrefix Paragraph{..} =
 		_ -> id)
 	$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id) (render paraElems)
 
-renderSection :: Maybe LaTeX -> Bool -> Section -> (Text, Bool)
-renderSection specific parasEmitted s@Section{..}
+type SectionAbbr = LaTeX
+
+renderSection :: Maybe SectionAbbr -> Maybe SectionAbbr -> Bool -> Section -> (Text, Bool)
+renderSection page specific parasEmitted s@Section{..}
 	| full = (, True) $
-		xml "div" [("id", render abbreviation)] $ header ++
+		xml "div" [("id", secOnPage)] $ header ++
 		mconcat (map
-			(renderParagraph (if parasEmitted then url abbreviation ++ "-" else ""))
+			(renderParagraph (if parasEmitted then secOnPage ++ "-" else ""))
 			paragraphs) ++
-		mconcat (fst . renderSection Nothing True . subsections)
+		mconcat (fst . renderSection page Nothing True . subsections)
 	| not anysubcontent = ("", False)
 	| otherwise =
 		( header ++
-		  mconcat (fst . renderSection specific False . subsections)
+		  mconcat (fst . renderSection page specific False . subsections)
 		, anysubcontent )
 	where
+		secOnPage
+			| Just (render -> x) <- page, Just sub <- Text.stripPrefix (x ++ ".") secname = sub
+			| otherwise = secname
+		secname = render abbreviation
 		full = specific == Nothing || specific == Just abbreviation
 		header = sectionHeader (min 4 $ 1 + length parents) s
-			(if specific == Nothing then "#" ++ url abbreviation else "")
+			(if specific == Nothing then "#" ++ secOnPage else "")
 			abbr
 		abbr
 			| specific == Just abbreviation && not (null parents)
@@ -53,7 +59,7 @@ renderSection specific parasEmitted s@Section{..}
 					(if null parents then SectionToToc else SectionToSection)
 					abbreviation
 		anysubcontent =
-			or $ map (snd . renderSection specific True)
+			or $ map (snd . renderSection page specific True)
 			   $ subsections
 
 writeSectionFile :: FilePath -> SectionFileStyle -> Text -> Text -> IO ()
@@ -101,7 +107,7 @@ writeTablesFile sfs tables = writeSectionFile "tab" sfs "14882: Tables" $
 
 writeFullFile :: SectionFileStyle -> [Section] -> IO ()
 writeFullFile sfs chapters = writeSectionFile "full" sfs "14882" $
-	mconcat $ applySectionFileStyle sfs . fst . renderSection Nothing True . chapters
+	mconcat $ applySectionFileStyle sfs . fst . renderSection Nothing Nothing True . chapters
 
 writeSectionFiles :: SectionFileStyle -> [Section] -> IO ()
 writeSectionFiles sfs chapters = do
@@ -110,7 +116,7 @@ writeSectionFiles sfs chapters = do
 	forM_ allAbbrs $ \abbreviation -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs ("[" ++ render abbreviation ++ "]") $
-			(mconcat $ fst . renderSection (Just abbreviation) False . chapters)
+			(mconcat $ fst . renderSection (Just abbreviation) (Just abbreviation) False . chapters)
 	putStrLn $ " " ++ show (length allAbbrs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()
