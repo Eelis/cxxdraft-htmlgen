@@ -307,7 +307,7 @@ makeRowCells latex =
 			(makeCell $ cell <> (TeXRaw cell')) : makeRowCells (TeXSeq (TeXRaw rest'') r)
 		TeXRaw r ->
 			[(makeCell $ cell <> (TeXRaw cell')), makeCell $ TeXRaw (rest'' ++ r)]
-		_ -> error $ "Unexpected " ++ show rest
+		_ -> error $ "makeRowCells: unexpected " ++ show rest
 	where
 		(cell, rest) = texBreak isColEnd latex
 		isColEnd (TeXRaw c) = isJust $ Text.find (== '&') c
@@ -381,7 +381,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isBnf e = RawBnf k stuff
 			| isMinipage e = RawMinipage $ parsePara $ rmseqs stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
-		go other = error $ "Unexpected " ++ show other
+		go other = error $ "parsePara: unexpected " ++ show other
 
 		(e', footnotes) = extractFootnotes env
 
@@ -449,7 +449,8 @@ data Command = Command
 	deriving Show
 
 data Environment = Environment
-	{ begin, end :: !LaTeX }
+	{ begin, end :: !LaTeX
+	, defaultArgs :: ![LaTeX] }
 	deriving Show
 
 mapTeXArg :: (LaTeX -> LaTeX) -> (TeXArg -> TeXArg)
@@ -493,8 +494,8 @@ data Macros = Macros
 initialMacros :: Macros
 initialMacros = mempty
 	{environments = Map.fromList
-		[ ("ttfamily", Environment mempty mempty)
-		, ("paras",    Environment mempty mempty) ]}
+		[ ("ttfamily", Environment mempty mempty [])
+		, ("paras",    Environment mempty mempty []) ]}
 
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty
@@ -560,7 +561,9 @@ eval macros@Macros{..} l = case l of
 			(if e == "TableBase" then TeXEnv e [] else id) $
 			fst $ eval macros $
 			doParseLaTeX $ TeXRender.render $
-				replArgs (fst . eval macros . texFromArg . a) begin
+				replArgs ((fst . eval macros . texFromArg . a) ++ defaultArgs) begin
+					-- Note: Just appending defaultArgs is wrong in general but
+					--       correct for the couple of uses we're dealing with.
 				++ stuff
 				++ end
 		| otherwise -> (, mempty) $ TeXEnv e (mapTeXArg (fst . eval macros) . a) (fst $ eval macros stuff)
@@ -591,11 +594,12 @@ eval macros@Macros{..} l = case l of
 		| otherwise -> error $ "value: No such counter: " ++ show (concatRaws name')
 
 	TeXComm "newenvironment" [FixArg (TeXRaw name), FixArg b, FixArg e]
-		-> (mempty, Macros mempty (Map.singleton name (Environment b e)) mempty)
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e [])) mempty)
 	TeXComm "newenvironment" [FixArg (TeXRaw name), OptArg _, FixArg b, FixArg e]
-		-> (mempty, Macros mempty (Map.singleton name (Environment b e)) mempty)
-	TeXComm "newenvironment" _ -> error "unrecognized newenv"
-
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e [])) mempty)
+	TeXComm "newenvironment" [FixArg (TeXRaw name), OptArg _, OptArg x, FixArg b, FixArg e]
+		-> (mempty, Macros mempty (Map.singleton name (Environment b e [x])) mempty)
+	TeXComm "newenvironment" x -> error $ "unrecognized newenv: " ++ show x
 	TeXComm "newcommand" (FixArg (TeXCommS s) : _)
 		| Text.pack s `elem` dontEval -> mempty
 	TeXComm "newcommand" [FixArg (TeXCommS name), OptArg (TeXRaw argcount), FixArg body]
@@ -1054,7 +1058,7 @@ indexKeyContent = ikc
 		ikc (TeXBraces x) = ikc x
 		ikc (TeXMath Dollar x) = ikc x
 		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x
-		ikc x = error $ "unexpected for indexKeyContent: " ++ show x
+		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
 type IndexPath = [IndexComponent]
 
