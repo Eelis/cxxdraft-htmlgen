@@ -1055,6 +1055,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "\"") = "\""
 		ikc (TeXCommS "") = ""
 		ikc (TeXCommS "textbackslash") = "\\";
+		ikc (TeXCommS "textunderscore") = "_";
 		ikc (TeXComm "discretionary" _) = "TODO" -- wtf
 		ikc (TeXBraces x) = ikc x
 		ikc (TeXMath Dollar x) = ikc x
