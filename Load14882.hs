@@ -493,9 +493,11 @@ data Macros = Macros
 
 initialMacros :: Macros
 initialMacros = mempty
-	{environments = Map.fromList
+	{ environments = Map.fromList
 		[ ("ttfamily", Environment mempty mempty [])
-		, ("paras",    Environment mempty mempty []) ]}
+		, ("paras",    Environment mempty mempty []) ]
+	, commands = Map.fromList
+		[ ("gramSec", Command 2 "") ]}
 
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty
@@ -550,7 +552,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar"
 
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
@@ -1185,7 +1187,13 @@ load14882 = do
 		let p = c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
-		r <- parseFile m . Data.Text.IO.readFile p
+		stuff <- Data.Text.IO.readFile p
+
+		extra <-
+			if c /= "grammar" then return ""
+			else replace "\\gramSec" "\\rSec[1]" . Data.Text.IO.readFile "std-gram.ext"
+
+		let r = parseFile m (stuff ++ extra)
 
 		putStrLn $ show (length r) ++ " sections"
 		return r

@@ -14,6 +14,9 @@ Prerequisites
 
 Usage
 
+  First, follow the draft package instructions to build the pdf.
+  As a side effect, this generates std-gram.ext, which we need.
+
   runhaskell genhtml.hs path/to/draft [sectionfilestyle]
 
   Where sectionfilestyle is one of:
