@@ -29,6 +29,7 @@ import qualified Text.LaTeX.Base.Render as TeXRender
 import Text.LaTeX.Base (protectString)
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>), texmap, MathType(Dollar))
 import Data.Text (Text, replace)
+import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import qualified Data.List as List
 import Data.Monoid (Monoid(..), mconcat)
@@ -36,7 +37,7 @@ import Data.Function (on)
 import Control.Monad (forM)
 import qualified Prelude
 import qualified Data.Text.IO
-import Prelude hiding (take, (.), takeWhile, (++), lookup)
+import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, ord, isDigit, isAlpha, isAlphaNum, toLower)
 import Control.Arrow (first)
 import Data.Map (Map, keys, lookup)
@@ -1160,13 +1161,13 @@ load14882 = do
 
 	commitUrl <- getCommitUrl
 
-	m@Macros{..} <-
+	macros@Macros{..} <-
 		(initialMacros ++)
 		. snd . eval mempty
 		. doParseLaTeX
 		. newlineCurlies
 		. mconcat
-		. mapM Data.Text.IO.readFile
+		. mapM readFile
 		["config.tex", "macros.tex", "tables.tex"]
 
 	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
@@ -1187,13 +1188,13 @@ load14882 = do
 		let p = c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
-		stuff <- Data.Text.IO.readFile p
+		stuff <- readFile p
 
 		extra <-
 			if c /= "grammar" then return ""
-			else replace "\\gramSec" "\\rSec[1]" . Data.Text.IO.readFile "std-gram.ext"
+			else replace "\\gramSec" "\\rSec[1]" . readFile "std-gram.ext"
 
-		let r = parseFile m (stuff ++ extra)
+		let r = parseFile macros (stuff ++ extra)
 
 		putStrLn $ show (length r) ++ " sections"
 		return r
