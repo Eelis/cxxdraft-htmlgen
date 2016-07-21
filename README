@@ -89,3 +89,4 @@ Todo
   - impldefindex and occurrences of impl.def. behavior are broken
   - the examples in temp.deduct.call#6 are not recognized as paragraphs, and so #11 is accidentally #7
   - table meta.unary.prop#tab:type-traits.properties is horribly wide due to lack of hyphenation
+  - reparseCode mistakenly thinks there is a code comment in the example in path.gen#1
