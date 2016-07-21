@@ -1057,6 +1057,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "^") = "^"
 		ikc (TeXCommS "\"") = "\""
 		ikc (TeXCommS "") = ""
+		ikc (TeXCommS "x") = "TODO"
 		ikc (TeXCommS "textbackslash") = "\\";
 		ikc (TeXCommS "textunderscore") = "_";
 		ikc (TeXComm "discretionary" _) = "TODO" -- wtf
