@@ -77,7 +77,8 @@ div.itemdescr {
 	margin-left: 4em;
 }
 
-span.textnormal { font-style: normal; font-family: serif; }
+span.textnormal { font-style: normal; font-family: serif; white-space: normal;  }
+span.descr { font-style: normal; font-family: serif; }
 span.grammarterm { font-style: italic; }
 span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
