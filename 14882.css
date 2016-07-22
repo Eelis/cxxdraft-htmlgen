@@ -104,6 +104,11 @@ span.mbox { font-family: serif; font-style: normal; }
 span.ungap { display: inline-block; width: 2pt; }
 span.texttt { font-family: monospace; font-style: normal; }
 
+span.phantom { color: white; }
+	// Unfortunately, this way the text is still selectable. Another
+	// option is display:none, but then we lose the nice layout.
+	// Todo: find proper solution.
+
 span.math { }
 
 span.mathblock {
