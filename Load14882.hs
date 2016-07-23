@@ -1046,6 +1046,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "Cpp") = "C++"
 		ikc (TeXCommS "&") = "&"
 		ikc (TeXCommS "%") = "%"
+		ikc (TeXCommS "-") = ""
 		ikc (TeXCommS "ell") = "ℓ"
 		ikc (TeXCommS "~") = "~"
 		ikc (TeXCommS "#") = "#"
