@@ -1167,6 +1167,7 @@ load14882 = do
 		(initialMacros ++)
 		. snd . eval mempty
 		. doParseLaTeX
+		. replace "\\indeximpldef{" "\\index[impldefindex]{"
 		. newlineCurlies
 		. mconcat
 		. mapM readFile
