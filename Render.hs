@@ -39,7 +39,7 @@ import Data.Maybe (isJust)
 import Util
 
 kill, literal :: [String]
-kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline", "itcorr"]
+kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline", "itcorr", "label"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
 
 texFromArg :: TeXArg -> LaTeX
@@ -185,7 +185,6 @@ instance Render LaTeX where
 		= spanTag "indexparent" $ render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
 	render (TeXComm "defnx" [FixArg x, FixArg (parseIndex -> (p, _))])
 		= render anchor{aText="<i>" ++ render x ++ "</i>", aId=indexPathId p}
-	render (TeXComm "label" [FixArg (TeXRaw x)]) = render anchor{aId=x}
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
 	render (TeXComm "leftshift" [FixArg content]) =
 		spanTag "mathsf" "lshift" ++ xml "sub" [("class", "math")] (render content)
