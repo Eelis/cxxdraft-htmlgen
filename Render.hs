@@ -8,24 +8,24 @@
 	FlexibleInstances #-}
 
 module Render (
-	Render(render), url, renderTab, renderFig,
+	Render(render), url, renderTab, renderFig, simpleRender, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
-	fileContent, Link(..), outputDir,
-	abbrAsPath, abbreviations, imgDir
+	fileContent, Link(..), outputDir, linkToRemoteTable,
+	abbrAsPath, abbreviations, imgDir, RenderContext(..),
 	) where
 
 import Load14882 (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements,
-	Section(..), Chapter(..), Table(..), Figure(..),
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Draft,
+	Section(..), Chapter(..), Table(..), Figure(..), figures, tables,
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), parseIndex,
-	IndexPath, indexKeyContent)
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr)
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
 import Data.Char (isAlpha)
-import Control.Monad (when)
+import Control.Monad (when, liftM2)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO.Unsafe (unsafePerformIO)
@@ -121,14 +121,14 @@ indexPathId :: IndexPath -> Text
 indexPathId = Text.intercalate "!" . map (indexKeyContent . indexKey)
 
 instance Render Anchor where
-	render Anchor{..} = xml "a" ([("class", aClass) | aClass /= "" ] ++
+	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
 	                             [("href" , aHref ) | aHref  /= "" ] ++
 	                             [("id"   , aId   ) | aId    /= "" ] ++
 	                             [("style", aStyle) | aStyle /= "" ])
 	                        aText
 
 
-class Render a where render :: a -> Text
+class Render a where render :: a -> RenderContext -> Text
 
 instance Render a => Render [a] where
 	render = mconcat . map render
@@ -141,56 +141,60 @@ instance Render TeXArg where
 
 instance Render LaTeX where
 	render (TeXSeq (TeXCommS "textbackslash") y)
-		| TeXSeq (TeXRaw s) rest <- y  = "\\" ++ render (TeXRaw $ unspace s) ++ render rest
-		| TeXRaw s <- y                = "\\" ++ render (TeXRaw $ unspace s)
+		| TeXSeq (TeXRaw s) rest <- y  = \sec -> "\\" ++ render (TeXRaw $ unspace s) sec ++ render rest sec
+		| TeXRaw s <- y                = ("\\" ++) . render (TeXRaw $ unspace s)
 		where
 			unspace s
 				| Just suffix <- Text.stripPrefix " " s = suffix
 				| otherwise = s
-	render (TeXSeq (TeXCommS "itshape") x) = "<i>" ++ render x ++ "</i>"
-	render (TeXSeq x y               ) = render x ++ render y
-	render (TeXRaw x                 ) = replace "~" " "
+	render (TeXSeq (TeXCommS "itshape") x) = ("<i>" ++) . (++ "</i>") . render x
+	render (TeXSeq x y               ) = liftM2 (++) (render x) (render y)
+	render (TeXRaw x                 ) = return $ replace "~" " "
 	                                   $ replace "--" "–"
 	                                   $ replace "---" "—"
 	                                   $ replace ">" "&gt;"
 	                                   $ replace "<" "&lt;"
 	                                   $ replace "&" "&amp;"
 	                                   $ x
-	render (TeXComment _             ) = ""
-	render (TeXCommS "br"            ) = "<br/>"
-	render (TeXLineBreak _ _         ) = "<br/>"
-	render (TeXCommS "break"         ) = "<br/>"
-	render (TeXEmpty                 ) = ""
+	render (TeXComment _             ) = return ""
+	render (TeXCommS "br"            ) = return "<br/>"
+	render (TeXLineBreak _ _         ) = return "<br/>"
+	render (TeXCommS "break"         ) = return "<br/>"
+	render (TeXEmpty                 ) = return ""
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath m
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
-	render (TeXComm "ref" [FixArg abbr])
-		| "fig:" `isPrefixOf` render abbr || "tab:" `isPrefixOf` render abbr =
-			render anchor{
-				aHref = "#" ++ render abbr,
-				aText = "[" ++ render abbr ++ "]"}
-		| otherwise = render $ linkToSection SectionToSection abbr
-	render (TeXComm "xname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
-	render (TeXComm "mname" [FixArg (TeXRaw s)]) = spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
+	render (TeXComm "ref" [FixArg abbr]) = \RenderContext{..} -> simpleRender (case () of
+		_ | "fig:" `isPrefixOf` simpleRender abbr ->
+			if abbr `elem` (figureAbbr . figures page) then anchor{aHref = "#" ++ url abbr}
+			else linkToRemoteFigure (figureByAbbr draft abbr)
+		_ | "tab:" `isPrefixOf` simpleRender abbr ->
+			case tableByAbbr draft abbr of
+				Just t | not ([abbr] `elem` (tableAbbrs . tables page)) -> linkToRemoteTable t
+				_ -> anchor{aHref = "#" ++ url abbr}
+		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
+	render (TeXComm "xname" [FixArg (TeXRaw s)]) = return $ spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
+	render (TeXComm "mname" [FixArg (TeXRaw s)]) = return $ spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId=s, aText=(s ++ ":")}
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
-		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs}
+		\sec ->
+		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
 	render (TeXComm "bigoh" [FixArg content]) =
-		spanTag "math" $ "Ο(" ++ renderMath content ++ ")"
-	render (TeXComm "texttt" [FixArg x]) = "<code>" ++ render x ++ "</code>"
-	render (TeXComm "textit" [FixArg x]) = "<i>" ++ render x ++ "</i>"
-	render (TeXComm "textit" [FixArg x, OptArg y]) = "<i>" ++ render x ++ "</i>[" ++ render y ++ "]"
-	render (TeXComm "textbf" [FixArg x]) = "<b>" ++ render x ++ "</b>"
+		spanTag "math" . ("Ο(" ++) . (++ ")") . renderMath content
+	render (TeXComm "texttt" [FixArg x]) = ("<code>" ++) . (++ "</code>") . render x
+	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
+	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
+	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
-		= spanTag "indexparent" $ render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
+		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
 	render (TeXComm "defnx" [FixArg x, FixArg (parseIndex -> (p, _))])
-		= render anchor{aText="<i>" ++ render x ++ "</i>", aId=indexPathId p}
-	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] $ render content
+		= \sec -> render anchor{aText="<i>" ++ render x sec ++ "</i>", aId=indexPathId p} sec
+	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
-		spanTag "mathsf" "lshift" ++ xml "sub" [("class", "math")] (render content)
-	render (TeXComm "state" [FixArg a, FixArg b]) =
-		spanTag "tcode" (render a) ++ xml "sub" [("class", "math")] (render b)
-	render (TeXComm "verb" [FixArg a]) = xml "code" [] $ renderVerb a
+		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
+	render (TeXComm "state" [FixArg a, FixArg b]) = \sec ->
+		spanTag "tcode" (render a sec) ++ xml "sub" [("class", "math")] (render b sec)
+	render (TeXComm "verb" [FixArg a]) = xml "code" [] . renderVerb a
 	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) =
 		render anchor{aClass="footnotenum", aText=n, aHref="#footnote-" ++ n}
 	render (TeXComm "raisebox" args)
@@ -199,80 +203,80 @@ instance Render LaTeX where
 			let neg s
 				| Text.head s == '-' = Text.tail s
 				| otherwise = "-" ++ s
-			in xml "span" [("style", "position: relative; top: " ++ neg d)] $ render content
+			in xml "span" [("style", "position: relative; top: " ++ neg d)] . render content
 	render (TeXComm x s)
-	    | x `elem` kill                = ""
+	    | x `elem` kill                = return ""
 	    | null s, Just y <-
-	       lookup x simpleMacros       = y
+	       lookup x simpleMacros       = return y
 	    | [FixArg z] <- s, Just y <-
-	       lookup x simpleMacros       = y ++ render z
-	    | otherwise                    = spanTag (Text.pack x) (render (map texFromArg s))
+	       lookup x simpleMacros       = (y ++) . render z
+	    | otherwise                    = spanTag (Text.pack x) . render (map texFromArg s)
 	render (TeXCommS s)
-	    | s `elem` literal             = Text.pack s
+	    | s `elem` literal             = return $ Text.pack s
 	    | Just x <-
-	       lookup s simpleMacros       = x
-	    | s `elem` kill                = ""
-	    | otherwise                    = spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = xml "code" [("class", "itemdecl")] $ renderCode t
+	       lookup s simpleMacros       = return x
+	    | s `elem` kill                = return ""
+	    | otherwise                    = return $ spanTag (Text.pack s) ""
+	render (TeXEnv "itemdecl" [] t)    = xml "code" [("class", "itemdecl")] . renderCode t
 	render env@(TeXEnv e _ t)
-	    | e `elem` makeSpan            = spanTag (Text.pack e) (render t)
-	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] (render t)
-	    | isComplexMath env            = renderComplexMath env
+	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
+	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
+	    | isComplexMath env            = return $ renderComplexMath env
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
-instance Render Int where render = Text.pack . show
+instance Render Int where render = return . Text.pack . show
 
 instance Render IndexComponent where
 	render IndexComponent{..} =
 		render (if indexFormatting == TeXEmpty then indexKey else indexFormatting)
 
 instance Render IndexEntry where
-	render IndexEntry{indexEntryKind=Just (See x), ..} = "<i>see</i> " ++ render x
-	render IndexEntry{indexEntryKind=Just (SeeAlso x), ..} = "<i>see also</i> " ++ render x
-	render IndexEntry{indexEntryKind=Just IndexClose} = ""
-	render IndexEntry{..} = render anchor
+	render IndexEntry{indexEntryKind=Just (See x), ..} = ("<i>see</i> " ++) . render x
+	render IndexEntry{indexEntryKind=Just (SeeAlso x), ..} = ("<i>see also</i> " ++) . render x
+	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
+	render IndexEntry{..} = return $ simpleRender anchor
 		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathId indexPath
-		, aText = "[" ++ render abbr ++ "]" }
+		, aText = squareAbbr abbr }
 		where abbr = abbreviation indexEntrySection
 
 instance Render IndexTree where
-	render x = mconcat $ f . Map.toList x
+	render x sec = mconcat $ f . Map.toList x
 		where
 			f :: (IndexComponent, IndexNode) -> Text
 			f (comp, IndexNode{..}) =
 				xml "div" [("class", "indexitems")] $
-				Text.intercalate ", " (nub $ filter (/= "") $ render comp : render . indexEntries) ++
-				render indexSubnodes
+				Text.intercalate ", " (nub $ filter (/= "") $ render comp sec : flip render sec . indexEntries) ++
+				render indexSubnodes sec
 
-renderTab :: Bool -> Table -> Text
-renderTab stripTab Table{..} =
+renderTab :: Bool -> Table -> RenderContext -> Text
+renderTab stripTab Table{..} sec =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
-		"Table " ++ render anchor{aText = render tableNumber, aHref = "#" ++ id_} ++ " — " ++
-		render tableCaption ++ "<br>" ++ renderTable columnSpec tableBody
+		"Table " ++ render anchor{aText = render tableNumber sec, aHref = "#" ++ id_} sec ++ " — " ++
+		render tableCaption sec ++ "<br>" ++ renderTable columnSpec tableBody sec
 	where
-		id_ = (if stripTab then replace "tab:" "" else id) $ render $ head tableAbbrs
+		id_ = (if stripTab then replace "tab:" "" else id) $ render (head tableAbbrs) sec
 
 renderFig :: Bool -> Figure -> Text
 renderFig stripFig Figure{..} =
 	xml "div" [("class", "figure"), ("id", id_)] $
 		figureSvg ++ "<br>" ++
-		"Figure " ++ render anchor{aText=render figureNumber, aHref="#" ++ id_} ++ " — " ++
-		render figureName
-	where id_ = (if stripFig then replace "fig:" "" else id) $ render figureAbbr
+		"Figure " ++ simpleRender anchor{aText=simpleRender figureNumber, aHref="#" ++ id_} ++ " — " ++
+		simpleRender figureName
+	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
 instance Render Element where
-	render (LatexElements t) =
-		case Text.stripStart (render t) of "" -> ""; x -> xml "p" [] x
+	render (LatexElements t) = \sec ->
+		case Text.stripStart (render t sec) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
-		| e `elem` makeBnfPre = bnfPre $ render $ preprocessPre t
+		| e `elem` makeBnfPre = bnfPre . render (preprocessPre t)
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
-		xml "pre" [] $ htmlTabs $ render $ preprocessPre t
-	render (FigureElement f) = renderFig False f
-	render Codeblock{..} = xml "pre" [("class", "codeblock")] $ renderCode code
-	render (Enumerated ek ps) = xml t [] $ mconcat $ xml "li" [] . render . ps
+		xml "pre" [] . htmlTabs . render (preprocessPre t)
+	render (FigureElement f) = return $ renderFig False f
+	render Codeblock{..} = xml "pre" [("class", "codeblock")] . renderCode code
+	render (Enumerated ek ps) = \sec -> xml t [] $ mconcat $ xml "li" [] . flip render sec . ps
 		where
 			t = case ek of
 				"enumeraten" -> "ol"
@@ -281,29 +285,31 @@ instance Render Element where
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined
-	render (Footnote (render -> num) content) =
-		xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
-		xml "div" [("class", "marginalizedparent")]
-			(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"}) ++
-		render content
-	render (Minipage content) =
-		xml "div" [("class", "minipage")] $ render content
+	render (Footnote n content) = \sec ->
+		let
+			num = render n sec
+		in
+			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
+			xml "div" [("class", "marginalizedparent")]
+				(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"} sec) ++
+			render content sec
+	render (Minipage content) = xml "div" [("class", "minipage")] . render content
 
-renderVerb :: LaTeX -> Text
+renderVerb :: LaTeX -> RenderContext -> Text
 renderVerb t@(TeXRaw _) = renderCode t
-renderVerb (TeXBraces _) = ""
+renderVerb (TeXBraces _) = return ""
 renderVerb other = render other
 
-renderCode :: LaTeX -> Text
+renderCode :: LaTeX -> RenderContext -> Text
 renderCode (TeXSeq a b) = renderCode a ++ renderCode b
 renderCode (TeXEnv "reparsed" _ x) = renderCode x
-renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) =
+renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) = return $
 	Text.replace "<" "&lt;" $
 	Text.replace ">" "&gt;" $
 	Text.replace "&" "&amp;" $
 	(Text.pack $ read $ Text.unpack $ code)
 renderCode (TeXComm "codecmd" [FixArg cmd]) = render cmd
-renderCode (TeXComm "codecomment" [FixArg comment]) = spanTag "comment" $ render comment
+renderCode (TeXComm "codecomment" [FixArg comment]) = spanTag "comment" . render comment
 renderCode other = render other
 
 isComplexMath :: LaTeX -> Bool
@@ -314,17 +320,31 @@ isComplexMath (TeXMath _ t) =
 isComplexMath (TeXEnv e _ _) = e `elem` ["eqnarray*"]
 isComplexMath _ = False
 
-renderMath :: LaTeX -> Text
-renderMath m
+data RenderContext = RenderContext
+	{ page :: Maybe Section
+	, draft :: Draft }
+
+squareAbbr x = "[" ++ simpleRender x ++ "]"
+
+linkToRemoteTable :: Table -> Anchor
+linkToRemoteTable t@Table{tableSection=s@Section{..}, ..} =
+	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url (head tableAbbrs) }
+
+linkToRemoteFigure :: Figure -> Anchor
+linkToRemoteFigure t@Figure{figureSection=s@Section{..}, ..} =
+	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url figureAbbr }
+
+renderMath :: LaTeX -> RenderContext -> Text
+renderMath m sec
 	| isComplexMath m = renderComplexMath m
-	| otherwise = spanTag s $ renderSimpleMath m
+	| otherwise = spanTag s $ renderSimpleMath m sec
 	where
 		s = mathKind m
 		mathKind (TeXMath Square _) = "mathblock"
 		mathKind _ = "math"
 
-renderSimpleMath :: LaTeX -> Text
-renderSimpleMath (TeXRaw s) =
+renderSimpleMath :: LaTeX -> RenderContext -> Text
+renderSimpleMath (TeXRaw s) sec =
 	case suffix of
 		Just ('^', rest) -> italicise prefix ++ output "sup" rest
 		Just ('_', rest) -> italicise prefix ++ output "sub" rest
@@ -335,7 +355,7 @@ renderSimpleMath (TeXRaw s) =
 
 		output tag rest =
 			case Text.uncons rest of
-				Just (c, rest') -> xml tag [] (italicise $ Text.singleton c) ++ (renderSimpleMath $ TeXRaw rest')
+				Just (c, rest') -> xml tag [] (italicise $ Text.singleton c) ++ (renderSimpleMath (TeXRaw rest') sec)
 				Nothing -> error "Malformed math"
 
 		italicise t =
@@ -351,12 +371,12 @@ renderSimpleMath (TeXRaw s) =
 		entities '<' = "&lt;"
 		entities '>' = "&gt;"
 		entities c = Text.singleton c
-renderSimpleMath (TeXSeq (TeXRaw s) rest)
+renderSimpleMath (TeXSeq (TeXRaw s) rest) sec
 	| last `elem` ["^", "_"] =
-		renderSimpleMath (TeXRaw $ Text.reverse $ Text.drop 1 s')
-		++ xml tag [] (renderSimpleMath content)
-		++ renderSimpleMath rest'
-	| otherwise = renderSimpleMath (TeXRaw s) ++ renderSimpleMath rest
+		renderSimpleMath (TeXRaw $ Text.reverse $ Text.drop 1 s') sec
+		++ xml tag [] (renderSimpleMath content sec)
+		++ renderSimpleMath rest' sec
+	| otherwise = renderSimpleMath (TeXRaw s) sec ++ renderSimpleMath rest sec
 	where
 		s' = Text.reverse s
 		last = Text.take 1 s'
@@ -367,17 +387,17 @@ renderSimpleMath (TeXSeq (TeXRaw s) rest)
 		(content, rest') = case rest of
 			(TeXSeq a b) -> (a, b)
 			other -> (other, TeXEmpty)
-renderSimpleMath (TeXBraces x) = renderSimpleMath x
-renderSimpleMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) =
-	"[" ++ renderSimpleMath num ++ "] / [" ++ renderSimpleMath den ++ "]" ++ renderSimpleMath rest'
+renderSimpleMath (TeXBraces x) sec = renderSimpleMath x sec
+renderSimpleMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) sec =
+	"[" ++ renderSimpleMath num sec ++ "] / [" ++ renderSimpleMath den sec ++ "]" ++ renderSimpleMath rest' sec
 	where
 		(den, rest') = findDenum rest
 		findDenum (TeXSeq (TeXBraces d) r) = (d, r)
 		findDenum (TeXSeq _ r) = findDenum r
 		findDenum r = (r, TeXEmpty)
-renderSimpleMath (TeXSeq a b) = (renderSimpleMath a) ++ (renderSimpleMath b)
-renderSimpleMath (TeXMath _ m) = renderSimpleMath m
-renderSimpleMath other = render other
+renderSimpleMath (TeXSeq a b) sec = (renderSimpleMath a sec) ++ (renderSimpleMath b sec)
+renderSimpleMath (TeXMath _ m) sec = renderSimpleMath m sec
+renderSimpleMath other sec = render other sec
 
 renderComplexMath :: LaTeX -> Text
 renderComplexMath m =
@@ -415,10 +435,9 @@ renderComplexMath m =
 			++
 			"\\end{document}\n"
 
-renderTable :: LaTeX -> [Row Elements] -> Text
-renderTable colspec =
-	xml "table" [] .
-	renderRows (parseColspec $ Text.unpack $ stripColspec colspec)
+renderTable :: LaTeX -> [Row Elements] -> RenderContext -> Text
+renderTable colspec a sec =
+	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
 		stripColspec (TeXRaw s) = s
 		stripColspec (TeXSeq a b) = stripColspec a ++ stripColspec b
@@ -468,10 +487,10 @@ renderTable colspec =
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", render colspan), ("class", c')] $ renderCell content)
+					(xml "td" [("colspan", render colspan sec), ("class", c')] $ renderCell content sec)
 					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderCell content)
+				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderCell content sec)
 				++ renderCols cs (colnum + 1) clines rest
 		renderCols [] _ _ (_ : _) = error "Too many columns"
 
@@ -480,11 +499,11 @@ renderTable colspec =
 				" cline"
 			| otherwise = ""
 
-renderCell :: Elements -> Text
-renderCell = mconcat . map renderCell'
+renderCell :: Elements -> RenderContext -> Text
+renderCell e sec = mconcat (map renderCell' e)
 	where
-		renderCell' (LatexElements t) = render t
-		renderCell' other = render other
+		renderCell' (LatexElements t) = render t sec
+		renderCell' other = render other sec
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
@@ -500,8 +519,8 @@ bnfPre = xml "pre" [("class", "bnf")] . Text.strip
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;"
 
-renderBnfTable :: LaTeX -> Text
-renderBnfTable = bnfPre . htmlTabs . render . preprocessPre
+renderBnfTable :: LaTeX -> RenderContext -> Text
+renderBnfTable l = bnfPre . htmlTabs . render (preprocessPre l)
 
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#" ++ (Text.toLower n)
@@ -512,28 +531,31 @@ data Link = TocToSection | SectionToToc | SectionToSection | ToImage
 linkToSection :: Link -> LaTeX -> Anchor
 linkToSection link abbr = anchor
 	{	aHref = Text.pack (show link) ++ "/" ++ url abbr
-	,	aText = "[" ++ render abbr ++ "]" }
+	,	aText = squareAbbr abbr }
 
 url :: LaTeX -> Text
 url = replace "&lt;" "%3c"
     . replace "&gt;" "%3e"
-    . render
+    . simpleRender
+
+simpleRender :: Render a => a -> Text
+simpleRender = flip render (RenderContext (error "no page") (error "no draft"))
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
-	render $ anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style}
+	simpleRender (anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style})
 	where
 		style = "min-width:" ++ show (73 + length parents * 15) ++ "pt"
 		text
 			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
 			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
-			| otherwise = Text.intercalate "." (chap : render . tail ns)
+			| otherwise = Text.intercalate "." (chap : simpleRender . tail ns)
 		ns = reverse $ n : sectionNumber . parents
 		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
 		chap :: Text
 		chap
-			| chapter == NormalChapter = render (head ns)
+			| chapter == NormalChapter = simpleRender (head ns)
 			| otherwise = Text.pack [['A'..] !! (head ns - 31)] -- todo
 
 abbreviations :: Section -> [LaTeX]
@@ -555,7 +577,7 @@ abbrAsPath :: LaTeX -> Text
 abbrAsPath
 	= replace "&lt;" "<"
 	. replace "&gt;" ">"
-	. render
+	. simpleRender
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)

@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
 import Render (imgDir, outputDir, SectionFileStyle(..))
-import Load14882 (Draft(..), load14882)
+import Load14882 (Draft(..), load14882, figures, tables)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Environment (getArgs)
@@ -35,7 +35,7 @@ main = do
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 	writeTocFile sectionFileStyle draft
 	writeIndexFiles sectionFileStyle index
-	writeFiguresFile sectionFileStyle figures
-	writeTablesFile sectionFileStyle tables
-	writeFullFile sectionFileStyle chapters
-	writeSectionFiles sectionFileStyle chapters
+	writeFiguresFile sectionFileStyle (figures draft)
+	writeTablesFile sectionFileStyle draft
+	writeFullFile sectionFileStyle draft
+	writeSectionFiles sectionFileStyle draft

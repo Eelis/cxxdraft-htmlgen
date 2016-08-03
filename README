@@ -84,7 +84,6 @@ Todo
 
   - list required hackage packages in prereqs
   - different kinds of enumeration
-  - fix links to tables on other pages
   - very long section names screw up layout
   - the examples in temp.deduct.call#6 are not recognized as paragraphs, and so #11 is accidentally #7
   - table meta.unary.prop#tab:type-traits.properties is horribly wide due to lack of hyphenation
@@ -92,3 +91,5 @@ Todo
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)
   - lex.charset#2 has an unwanted space in "the universal-character-name \ UNNNNNNNN is that character"
+  - in [re.err], if you search for "The type error_type is an implementation-defined enumerated type",
+    there is a match but Firefox does not find it because of the hidden "<---" index anchor

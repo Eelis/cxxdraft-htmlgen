@@ -19,8 +19,8 @@ module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
-	parseIndex, indexKeyContent, indexCatName,
-	coreChapters, libChapters,
+	parseIndex, indexKeyContent, indexCatName, sections,
+	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr,
 	LaTeX,
 	load14882) where
 
@@ -44,7 +44,7 @@ import Data.Map (Map, keys, lookup)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
 import Data.List (sort, unfoldr, stripPrefix)
-import Data.Maybe (isJust, fromJust)
+import Data.Maybe (isJust, fromJust, listToMaybe)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
@@ -157,6 +157,10 @@ data Section = Section
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
 rmseqs x = [x]
+
+class Sections a where sections :: a -> [Section]
+
+instance Sections Section where sections s = s : concatMap sections (subsections s)
 
 isEnumerate :: LaTeX -> Maybe String
 isEnumerate (TeXEnv s _ _)
@@ -898,22 +902,29 @@ instance AssignNumbers a b => AssignNumbers [a] [b] where
 	assignNumbers s = mapM (assignNumbers s)
 
 
-tablesInSection :: Section -> [Table]
-tablesInSection Section{..} =
-	(paragraphs >>= paraElems >>= tablesInElement) ++
-	(subsections >>= tablesInSection)
-tablesInElement :: Element -> [Table]
-tablesInElement (TableElement t) = [t]
-tablesInElement _ = []
+class Tables a where tables :: a -> [Table]
 
-figuresInSection :: Section -> [Figure]
-figuresInSection Section{..} =
-	(paragraphs >>= paraElems >>= figuresInElement)
-	++ (subsections >>= figuresInSection)
+instance Tables a => Tables [a] where tables = concatMap tables
+instance Tables a => Tables (Maybe a) where tables = maybe [] tables
 
-figuresInElement :: Element -> [Figure]
-figuresInElement (FigureElement f) = [f]
-figuresInElement _ = []
+instance Tables Section where
+	tables Section{..} = (paragraphs >>= paraElems >>= tables) ++ (subsections >>= tables)
+
+instance Tables Element where
+	tables (TableElement t) = [t]
+	tables _ = []
+
+class Figures a where figures :: a -> [Figure]
+
+instance Figures a => Figures [a] where figures = concatMap figures
+instance Figures a => Figures (Maybe a) where figures = maybe [] figures
+
+instance Figures Section where
+	figures Section{..} = (paragraphs >>= paraElems >>= figures) ++ (subsections >>= figures)
+
+instance Figures Element where
+	figures (FigureElement f) = [f]
+	figures _ = []
 
 type GrammarLinks = Map Text Section
 
@@ -1132,9 +1143,20 @@ data IndexNode = IndexNode
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters  :: [Section]
-	, tables    :: [Table]
-	, figures   :: [Figure]
 	, index     :: Index }
+
+tableByAbbr :: Draft -> LaTeX -> Maybe Table
+	-- only returns Maybe because some of our tables are broken
+tableByAbbr d a = listToMaybe [ t | t <- tables d, a `elem` tableAbbrs t ]
+
+figureByAbbr :: Draft -> LaTeX -> Figure
+figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of
+	[f] -> f
+	_ -> error $ "figureByAbbr: " ++ show a
+
+instance Figures Draft where figures = figures . chapters
+instance Tables Draft where tables = tables . chapters
+instance Sections Draft where sections = concatMap sections . chapters
 
 splitChapters :: Draft -> ([Section], [Section])
 splitChapters = span ((/= "library") . abbreviation) . chapters
@@ -1205,8 +1227,6 @@ load14882 = do
 	if length (show sections) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1 1)
-		let tables = concatMap tablesInSection chapters
-		let figures = concatMap figuresInSection chapters
 
 		let ntdefs = Map.unions $ map nontermdefsInSection chapters
 		let chapters' = map (resolveGrammarterms ntdefs) chapters
