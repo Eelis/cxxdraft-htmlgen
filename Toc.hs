@@ -47,7 +47,7 @@ listOfTables tables =
 			++ render tableCaption
 			++ render anchor{
 				aHref  = "TocToSection/" ++ url (abbreviation tableSection)
-				         ++ "#" ++ replace ":" "-" (render $ head tableAbbrs),
+				         ++ "#" ++ url (head tableAbbrs),
 				aText  = "[" ++ render (head tableAbbrs) ++ "]",
 				aClass = "abbr_ref"}
 			++ "<br>"
@@ -67,7 +67,7 @@ listOfFigures figures =
 			++ render figureName
 			++ render anchor{
 				aHref  = "TocToSection/" ++ url (abbreviation figureSection)
-				         ++ "#" ++ replace ":" "-" (render figureAbbr),
+				         ++ "#" ++ url figureAbbr,
 				aText  = "[" ++ render figureAbbr ++ "]",
 				aClass = "abbr_ref"}
 			++ "<br>"

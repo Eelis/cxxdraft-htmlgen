@@ -89,7 +89,7 @@ writeFiguresFile sfs figures = writeSectionFile "fig" sfs "14882: Figures" $
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
-					++ "#" ++ replace ":" "-" (url figureAbbr) }
+					++ "#" ++ url figureAbbr }
 			++ renderFig True f
 
 writeTablesFile :: SectionFileStyle -> [Table] -> IO ()
@@ -102,7 +102,7 @@ writeTablesFile sfs tables = writeSectionFile "tab" sfs "14882: Tables" $
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
-					++ "#" ++ replace ":" "-" (url $ head tableAbbrs) }
+					++ "#" ++ url (head tableAbbrs) }
 			++ renderTab True t
 
 writeFullFile :: SectionFileStyle -> [Section] -> IO ()
