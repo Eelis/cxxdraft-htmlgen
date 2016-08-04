@@ -186,7 +186,7 @@ instance Render LaTeX where
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
-		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index", aText="⟵"}
+		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
 	render (TeXComm "defnx" [FixArg x, FixArg (parseIndex -> (p, _))])
 		= \sec -> render anchor{aText="<i>" ++ render x sec ++ "</i>", aId=indexPathId p} sec
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
