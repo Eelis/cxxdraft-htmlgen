@@ -24,7 +24,7 @@ import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, isSpace)
 import Control.Monad (when, liftM2)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
@@ -145,7 +145,7 @@ instance Render LaTeX where
 		| TeXRaw s <- y                = ("\\" ++) . render (TeXRaw $ unspace s)
 		where
 			unspace s
-				| Just suffix <- Text.stripPrefix " " s = suffix
+				| Just (c, cc) <- Text.uncons s, isSpace c = cc
 				| otherwise = s
 	render (TeXSeq (TeXCommS "itshape") x) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXSeq x y               ) = liftM2 (++) (render x) (render y)
