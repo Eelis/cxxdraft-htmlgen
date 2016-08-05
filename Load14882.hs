@@ -559,6 +559,22 @@ replaceArgsInString args = concatRaws . go
 dontEval :: [Text]
 dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar"
 
+recognizeEnvs :: LaTeX -> LaTeX
+recognizeEnvs (TeXSeq b@(TeXComm "begin" (FixArg (TeXRaw n) : aa)) rest) =
+		case findEnd n rest of
+			Nothing -> TeXSeq b (recognizeEnvs rest)
+			Just (x, y) -> TeXSeq (TeXEnv (Text.unpack n) aa (recognizeEnvs x)) (recognizeEnvs y)
+	where
+		findEnd :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
+		findEnd n (TeXSeq (TeXComm "end" [FixArg (TeXRaw m)]) rest) | n == m =
+			Just (TeXEmpty, rest)
+		findEnd n (TeXSeq x y) = case findEnd n y of
+			Nothing -> Nothing
+			Just (a, b) -> Just (TeXSeq x a, b)
+		findEnd _ _ = Nothing
+recognizeEnvs (TeXSeq x y) = TeXSeq (recognizeEnvs x) (recognizeEnvs y)
+recognizeEnvs z = z
+
 eval :: Macros -> LaTeX -> (LaTeX, Macros)
 eval macros@Macros{..} l = case l of
 
@@ -567,7 +583,7 @@ eval macros@Macros{..} l = case l of
 		, not (Text.pack e `elem` dontEval) -> (, mempty) $
 			(if e == "TableBase" then TeXEnv e [] else id) $
 			fst $ eval macros $
-			doParseLaTeX $ TeXRender.render $
+			recognizeEnvs $
 				replArgs ((fst . eval macros . texFromArg . a) ++ defaultArgs) begin
 					-- Note: Just appending defaultArgs is wrong in general but
 					--       correct for the couple of uses we're dealing with.
@@ -647,7 +663,6 @@ reparseTabs :: LaTeX -> LaTeX
 reparseTabs = doParse . Text.replace "\\>" "\t" . TeXRender.render
 
 reparseCode :: LaTeX -> LaTeX
-reparseCode (TeXEnv "reparsed" [] t) = t
 reparseCode t = parse . Text.unpack $ TeXRender.render t
 	where
 		parse "" = TeXEmpty
@@ -663,10 +678,8 @@ reparseCode t = parse . Text.unpack $ TeXRender.render t
 		-- this painful. Shoving raw code inside TeXComment's makes HaTeX not attempt to parse it in any way.
 		-- The call to show makes sure we don't get multi-line LaTeX comments which could also cause confusion.
 
-		parse ('/' : rest) =
-			(TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show ("/" :: String))])
-			<> parse rest
-		parse s = (TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)]) <> parse rest
+		parse ('/' : rest) = "/" <> parse rest
+		parse s = TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)] <> parse rest
 			where (code, rest) = break (`elem` ['@', '/']) s
 
 		breakLineComment s = case break (== '\n') s of
@@ -683,7 +696,7 @@ reparseEnvs :: LaTeX -> LaTeX
 reparseEnvs = mapTeX $
 	\case
 		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl"] ->
-			Just $ TeXEnv c [] $ TeXEnv "reparsed" [] $ reparseCode body
+			Just $ TeXEnv c [] $ reparseCode body
 		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "ncbnftab", "tabbing"] ->
 			Just $ TeXEnv t [] $ reparseTabs body
 		_ -> Nothing

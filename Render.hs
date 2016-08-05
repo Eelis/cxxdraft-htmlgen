@@ -302,7 +302,6 @@ renderVerb other = render other
 
 renderCode :: LaTeX -> RenderContext -> Text
 renderCode (TeXSeq a b) = renderCode a ++ renderCode b
-renderCode (TeXEnv "reparsed" _ x) = renderCode x
 renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) = return $
 	Text.replace "<" "&lt;" $
 	Text.replace ">" "&gt;" $
