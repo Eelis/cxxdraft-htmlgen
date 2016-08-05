@@ -666,7 +666,7 @@ reparseCode :: LaTeX -> LaTeX
 reparseCode t = parse . Text.unpack $ TeXRender.render t
 	where
 		parse "" = TeXEmpty
-		parse ('@' : rest) = (TeXComm "codecmd" [FixArg (parseStr cmd)]) <> parse rest'
+		parse ('@' : rest) = parseStr cmd <> parse rest'
 			where (cmd, '@' : rest') = break (== '@') rest
 		parse ('/' : '/' : rest) = (TeXComm "codecomment" [FixArg (parseStr $ "//" ++ comment)]) <> parse rest'
 			where (comment, rest') = breakLineComment rest

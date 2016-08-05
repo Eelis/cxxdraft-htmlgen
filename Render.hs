@@ -307,7 +307,6 @@ renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) = return $
 	Text.replace ">" "&gt;" $
 	Text.replace "&" "&amp;" $
 	(Text.pack $ read $ Text.unpack $ code)
-renderCode (TeXComm "codecmd" [FixArg cmd]) = render cmd
 renderCode (TeXComm "codecomment" [FixArg comment]) = spanTag "comment" . render comment
 renderCode other = render other
 
