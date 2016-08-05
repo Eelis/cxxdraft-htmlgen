@@ -86,6 +86,5 @@ Todo
   - different kinds of enumeration
   - very long section names screw up layout
   - table meta.unary.prop#tab:type-traits.properties is horribly wide due to lack of hyphenation
-  - reparseCode mistakenly thinks there is a code comment in the example in path.gen#1
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)

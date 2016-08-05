@@ -662,15 +662,26 @@ parseStr = doParse . Text.pack
 reparseTabs :: LaTeX -> LaTeX
 reparseTabs = doParse . Text.replace "\\>" "\t" . TeXRender.render
 
+stringLiteral :: String -> (String, String)
+stringLiteral ('\\' : '"' : x) = first ("\\\"" ++) (stringLiteral x)
+stringLiteral ('\\' : '\\' : x) = first ("\\\\" ++) (stringLiteral x)
+stringLiteral ('"' : x) = ("\"", x)
+stringLiteral (c : x) = first (c :) (stringLiteral x)
+stringLiteral "" = ("", "")
+
 reparseCode :: LaTeX -> LaTeX
-reparseCode t = parse . Text.unpack $ TeXRender.render t
+reparseCode t = parse False . Text.unpack $ TeXRender.render t
 	where
-		parse "" = TeXEmpty
-		parse ('@' : rest) = parseStr cmd <> parse rest'
+		parse :: Bool {- in string literal -} -> String -> LaTeX
+		parse _ "" = TeXEmpty
+		parse b ('@' : rest) = parseStr cmd <> parse b rest'
 			where (cmd, '@' : rest') = break (== '@') rest
-		parse ('/' : '/' : rest) = (TeXComm "codecomment" [FixArg (parseStr $ "//" ++ comment)]) <> parse rest'
+		parse True ('"' : rest) = "\"" <> parse False rest
+		parse False ('"' : rest) = "\"" <> parse True lit <> parse False rest'
+			where (lit, rest') = stringLiteral rest
+		parse False ('/' : '/' : rest) = TeXComm "codecomment" [FixArg (parseStr $ "//" ++ comment)] <> parse False rest'
 			where (comment, rest') = breakLineComment rest
-		parse ('/' : '*' : rest) = (TeXComm "codecomment" [FixArg (parseStr $ "/*" ++ comment)]) <> parse rest'
+		parse False ('/' : '*' : rest) = TeXComm "codecomment" [FixArg (parseStr $ "/*" ++ comment)] <> parse False rest'
 			where (comment, rest') = breakComment rest
 
 		-- We really don't want to interpret code in any way shape or form; we want to deliver it the renderer
@@ -678,9 +689,9 @@ reparseCode t = parse . Text.unpack $ TeXRender.render t
 		-- this painful. Shoving raw code inside TeXComment's makes HaTeX not attempt to parse it in any way.
 		-- The call to show makes sure we don't get multi-line LaTeX comments which could also cause confusion.
 
-		parse ('/' : rest) = "/" <> parse rest
-		parse s = TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)] <> parse rest
-			where (code, rest) = break (`elem` ['@', '/']) s
+		parse b ('/' : rest) = "/" <> parse b rest
+		parse b s = TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)] <> parse b rest
+			where (code, rest) = break (`elem` ['@', '/', '"']) s
 
 		breakLineComment s = case break (== '\n') s of
 			(comment, '\n' : rest) -> (comment ++ "\n", rest)
