@@ -113,7 +113,7 @@ simpleMacros =
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented center"
-makeDiv = words "definition cvqual tcode textit textnormal term emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
+makeDiv = words "definition cvqual textit textnormal term emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
@@ -149,9 +149,9 @@ instance Render LaTeX where
 				| otherwise = s
 	render (TeXSeq (TeXCommS "itshape") x) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXSeq x y               ) = liftM2 (++) (render x) (render y)
-	render (TeXRaw x                 ) = return $ replace "~" " "
-	                                   $ replace "--" "–"
-	                                   $ replace "---" "—"
+	render (TeXRaw x                 ) = \ctx ->
+	                                   replace "~" " "
+	                                   $ (if inCode ctx then id else replace "--" "–" . replace "---" "—")
 	                                   $ replace ">" "&gt;"
 	                                   $ replace "<" "&lt;"
 	                                   $ replace "&" "&amp;"
@@ -181,7 +181,7 @@ instance Render LaTeX where
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
 	render (TeXComm "bigoh" [FixArg content]) =
 		spanTag "math" . ("Ο(" ++) . (++ ")") . renderMath content
-	render (TeXComm "texttt" [FixArg x]) = ("<code>" ++) . (++ "</code>") . render x
+	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<code>" ++ render x ctx{inCode=True} ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
@@ -318,7 +318,8 @@ isComplexMath _ = False
 
 data RenderContext = RenderContext
 	{ page :: Maybe Section
-	, draft :: Draft }
+	, draft :: Draft
+	, inCode :: Bool }
 
 squareAbbr x = "[" ++ simpleRender x ++ "]"
 
@@ -535,7 +536,7 @@ url = replace "&lt;" "%3c"
     . simpleRender
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render (RenderContext (error "no page") (error "no draft"))
+simpleRender = flip render (RenderContext (error "no page") (error "no draft") False)
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
