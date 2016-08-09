@@ -192,8 +192,6 @@ instance Render LaTeX where
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
-	render (TeXComm "state" [FixArg a, FixArg b]) = \sec ->
-		spanTag "tcode" (render a sec) ++ xml "sub" [("class", "math")] (render b sec)
 	render (TeXComm "verb" [FixArg a]) = xml "code" [] . renderVerb a
 	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) =
 		render anchor{aClass="footnotenum", aText=n, aHref="#footnote-" ++ n}
