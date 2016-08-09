@@ -103,12 +103,12 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t (RenderContext Nothing draft False)
+			++ renderTab True t (RenderContext Nothing draft False False False)
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $
 	mconcat $ applySectionFileStyle sfs . fst .
-		renderSection (RenderContext Nothing draft False) Nothing True . chapters draft
+		renderSection (RenderContext Nothing draft False False False) Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
@@ -117,7 +117,7 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (RenderContext (Just section) draft False) (Just abbreviation) False . chapters draft)
+			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False) (Just abbreviation) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()

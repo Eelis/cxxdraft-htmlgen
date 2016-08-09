@@ -679,18 +679,12 @@ reparseCode t = parse False . Text.unpack $ TeXRender.render t
 		parse True ('"' : rest) = "\"" <> parse False rest
 		parse False ('"' : rest) = "\"" <> parse True lit <> parse False rest'
 			where (lit, rest') = stringLiteral rest
-		parse False ('/' : '/' : rest) = TeXComm "codecomment" [FixArg (parseStr $ "//" ++ comment)] <> parse False rest'
+		parse False ('/' : '/' : rest) = TeXComm "comment" [FixArg (parseStr $ "//" ++ comment)] <> parse False rest'
 			where (comment, rest') = breakLineComment rest
-		parse False ('/' : '*' : rest) = TeXComm "codecomment" [FixArg (parseStr $ "/*" ++ comment)] <> parse False rest'
+		parse False ('/' : '*' : rest) = TeXComm "comment" [FixArg ("/*" <> parse False comment)] <> parse False rest'
 			where (comment, rest') = breakComment rest
-
-		-- We really don't want to interpret code in any way shape or form; we want to deliver it the renderer
-		-- verbatim. Unfortunately, the LaTeX is parsed, rendered, then re-parsed again which can really make
-		-- this painful. Shoving raw code inside TeXComment's makes HaTeX not attempt to parse it in any way.
-		-- The call to show makes sure we don't get multi-line LaTeX comments which could also cause confusion.
-
 		parse b ('/' : rest) = "/" <> parse b rest
-		parse b s = TeXComm "coderaw" [FixArg (TeXComment $ Text.pack $ show $ code)] <> parse b rest
+		parse b s = TeXRaw (Text.pack code) <> parse b rest
 			where (code, rest) = break (`elem` ['@', '/', '"']) s
 
 		breakLineComment s = case break (== '\n') s of

@@ -141,8 +141,8 @@ instance Render TeXArg where
 
 instance Render LaTeX where
 	render (TeXSeq (TeXCommS "textbackslash") y)
-		| TeXSeq (TeXRaw s) rest <- y  = \sec -> "\\" ++ render (TeXRaw $ unspace s) sec ++ render rest sec
-		| TeXRaw s <- y                = ("\\" ++) . render (TeXRaw $ unspace s)
+		| TeXSeq (TeXRaw s) rest <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
+		| TeXRaw s <- y                = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec
 		where
 			unspace s
 				| Just (c, cc) <- Text.uncons s, isSpace c = cc
@@ -150,8 +150,9 @@ instance Render LaTeX where
 	render (TeXSeq (TeXCommS "itshape") x) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXSeq x y               ) = liftM2 (++) (render x) (render y)
 	render (TeXRaw x                 ) = \ctx ->
-	                                   replace "~" " "
-	                                   $ (if inCode ctx then id else replace "--" "–" . replace "---" "—")
+	                                     (if rawHyphens ctx then id
+	                                         else replace "--" "–" . replace "---" "—")
+	                                   $ (if rawTilde ctx then id else replace "~" " ")
 	                                   $ replace ">" "&gt;"
 	                                   $ replace "<" "&lt;"
 	                                   $ replace "&" "&amp;"
@@ -163,6 +164,7 @@ instance Render LaTeX where
 	render (TeXEmpty                 ) = return ""
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath m
+	render (TeXComm "comment" [FixArg comment]) = \c -> spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
 	render (TeXComm "ref" [FixArg abbr]) = \RenderContext{..} -> simpleRender (case () of
 		_ | "fig:" `isPrefixOf` simpleRender abbr ->
@@ -181,7 +183,7 @@ instance Render LaTeX where
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
 	render (TeXComm "bigoh" [FixArg content]) =
 		spanTag "math" . ("Ο(" ++) . (++ ")") . renderMath content
-	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<code>" ++ render x ctx{inCode=True} ++ "</code>"
+	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<code>" ++ render x ctx{rawHyphens=True} ++ "</code>"
 	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
@@ -192,7 +194,7 @@ instance Render LaTeX where
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
-	render (TeXComm "verb" [FixArg a]) = xml "code" [] . renderVerb a
+	render (TeXComm "verb" [FixArg a]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
 	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) =
 		render anchor{aClass="footnotenum", aText=n, aHref="#footnote-" ++ n}
 	render (TeXComm "raisebox" args)
@@ -215,7 +217,7 @@ instance Render LaTeX where
 	       lookup s simpleMacros       = return x
 	    | s `elem` kill                = return ""
 	    | otherwise                    = return $ spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = xml "code" [("class", "itemdecl")] . renderCode t
+	render (TeXEnv "itemdecl" [] t)    = \c -> xml "code" [("class", "itemdecl")] $ render t c{rawTilde=True, rawHyphens=True}
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
@@ -273,7 +275,7 @@ instance Render Element where
 	render (Tabbing t) =
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
-	render Codeblock{..} = xml "pre" [("class", "codeblock")] . renderCode code
+	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
 	render (Enumerated ek ps) = \sec -> xml t [] $ mconcat $ xml "li" [] . flip render sec . ps
 		where
 			t = case ek of
@@ -293,21 +295,6 @@ instance Render Element where
 			render content sec
 	render (Minipage content) = xml "div" [("class", "minipage")] . render content
 
-renderVerb :: LaTeX -> RenderContext -> Text
-renderVerb t@(TeXRaw _) = renderCode t
-renderVerb (TeXBraces _) = return ""
-renderVerb other = render other
-
-renderCode :: LaTeX -> RenderContext -> Text
-renderCode (TeXSeq a b) = renderCode a ++ renderCode b
-renderCode (TeXComm "coderaw" [FixArg (TeXComment code)]) = return $
-	Text.replace "<" "&lt;" $
-	Text.replace ">" "&gt;" $
-	Text.replace "&" "&amp;" $
-	(Text.pack $ read $ Text.unpack $ code)
-renderCode (TeXComm "codecomment" [FixArg comment]) = spanTag "comment" . render comment
-renderCode other = render other
-
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 
 	(not . null $ matchCommand (`elem` ["frac", "sum", "binom", "int"]) t)
@@ -319,7 +306,9 @@ isComplexMath _ = False
 data RenderContext = RenderContext
 	{ page :: Maybe Section
 	, draft :: Draft
-	, inCode :: Bool }
+	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
+	, rawTilde :: Bool   -- in real code envs but not in \texttt
+	, rawSpace :: Bool }
 
 squareAbbr x = "[" ++ simpleRender x ++ "]"
 
@@ -536,7 +525,7 @@ url = replace "&lt;" "%3c"
     . simpleRender
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render (RenderContext (error "no page") (error "no draft") False)
+simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False)
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
