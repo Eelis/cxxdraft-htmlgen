@@ -13,7 +13,6 @@
 	MultiParamTypeClasses,
 	FunctionalDependencies,
 	UndecidableInstances,
-	OverlappingInstances,
 	RecursiveDo #-}
 
 module Load14882 (
@@ -33,11 +32,8 @@ import Data.Text (Text, replace)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import qualified Data.List as List
-import Data.Monoid (Monoid(..), mconcat)
 import Data.Function (on)
 import Control.Monad (forM)
-import qualified Prelude
-import qualified Data.Text.IO
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, ord, isDigit, isAlpha, isAlphaNum, toLower)
 import Control.Arrow (first)
@@ -46,6 +42,7 @@ import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
 import Data.List (sort, unfoldr, stripPrefix)
 import Data.Maybe (isJust, fromJust, listToMaybe)
+import Data.String (IsString)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
@@ -567,11 +564,9 @@ recognizeEnvs (TeXSeq b@(TeXComm "begin" (FixArg (TeXRaw n) : aa)) rest) =
 			Just (x, y) -> TeXSeq (TeXEnv (Text.unpack n) aa (recognizeEnvs x)) (recognizeEnvs y)
 	where
 		findEnd :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
-		findEnd n (TeXSeq (TeXComm "end" [FixArg (TeXRaw m)]) rest) | n == m =
-			Just (TeXEmpty, rest)
-		findEnd n (TeXSeq x y) = case findEnd n y of
-			Nothing -> Nothing
-			Just (a, b) -> Just (TeXSeq x a, b)
+		findEnd n' (TeXSeq (TeXComm "end" [FixArg (TeXRaw m)]) rest') | n' == m =
+			Just (TeXEmpty, rest')
+		findEnd n' (TeXSeq x y) = first (TeXSeq x) . findEnd n' y
 		findEnd _ _ = Nothing
 recognizeEnvs (TeXSeq x y) = TeXSeq (recognizeEnvs x) (recognizeEnvs y)
 recognizeEnvs z = z
@@ -710,25 +705,25 @@ reparseEnvs = mapTeX $
 -- \@. becomes \atDot
 -- .\@ becomes \dotAt
 reparseAtCommand :: LaTeX -> LaTeX
-reparseAtCommand (TeXSeq (TeXRaw b) (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw a) tail))) =
+reparseAtCommand (TeXSeq (TeXRaw b) (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw a) rest))) =
 	if Text.head a /= '@' then
 		TeXSeq (TeXRaw b) (
 			TeXSeq (TeXCommS "") (
-				TeXSeq (TeXRaw a) (reparseAtCommand tail)))
+				TeXSeq (TeXRaw a) (reparseAtCommand rest)))
 	else
 		if Text.last b == '.' then
 			TeXSeq (TeXRaw $ Text.dropEnd 1 b) (
 				TeXSeq (TeXCommS "dotAt") (
-					TeXSeq (TeXRaw $ Text.drop 1 a) (reparseAtCommand tail)))
+					TeXSeq (TeXRaw $ Text.drop 1 a) (reparseAtCommand rest)))
 		else
 			if Text.index a 1 /= '.' then error("\\@ without dot detected") else
 			TeXSeq (TeXRaw b) (
 				TeXSeq (TeXCommS "atDot") (
-					TeXSeq (TeXRaw $ Text.drop 2 a) (reparseAtCommand tail)))
+					TeXSeq (TeXRaw $ Text.drop 2 a) (reparseAtCommand rest)))
 reparseAtCommand (TeXSeq l r) = TeXSeq (reparseAtCommand l) (reparseAtCommand r)
 reparseAtCommand (TeXComm n args) = TeXComm n $ map (mapTeXArg reparseAtCommand) args
 reparseAtCommand (TeXEnv n args body) = TeXEnv n (map (mapTeXArg reparseAtCommand) args) (reparseAtCommand body)
-reparseAtCommand id = id
+reparseAtCommand x = x
 
 
 moreArgs :: LaTeX -> LaTeX
@@ -1144,9 +1139,11 @@ type IndexCategory = Text
 
 type Index = Map IndexCategory IndexTree
 
+indexCatName :: (Eq b , IsString a, IsString b) => b -> a
 indexCatName "impldefindex" = "Index of implementation-defined behavior"
 indexCatName "libraryindex" = "Index of library names"
 indexCatName "generalindex" = "Index"
+indexCatName _ = error "indexCatName"
 
 data IndexEntry = IndexEntry
 	{ indexEntrySection :: Section
@@ -1190,6 +1187,7 @@ toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
 		go :: [IndexComponent] -> IndexTree
 		go [c] = Map.singleton c (IndexNode [IndexEntry indexSection rawIndexKind rawIndexPath] Map.empty)
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
+		go _ = error "toIndex"
 
 mergeIndices :: [Index] -> Index
 mergeIndices = Map.unionsWith (Map.unionWith mergeIndexNodes)
@@ -1228,7 +1226,7 @@ load14882 = do
 			"grammar limits compatibility future charname"
 
 	putStrLn "Loading chapters"
-	sections <- forM files $ \c -> do
+	secs <- forM files $ \c -> do
 		let p = c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
@@ -1243,9 +1241,9 @@ load14882 = do
 		putStrLn $ show (length r) ++ " sections"
 		return r
 
-	if length (show sections) == 0 then undefined else do
+	if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
-		let chapters = evalState (treeizeChapters 1 $ mconcat sections) (Numbers 1 1 1 1)
+		let chapters = evalState (treeizeChapters 1 $ mconcat secs) (Numbers 1 1 1 1)
 
 		let ntdefs = Map.unions $ map nontermdefsInSection chapters
 		let chapters' = map (resolveGrammarterms ntdefs) chapters

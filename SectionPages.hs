@@ -13,8 +13,6 @@ import Render
 import Load14882
 import Util
 
-type Page = Section
-
 renderParagraph :: Text -> Paragraph -> RenderContext -> Text
 renderParagraph idPrefix Paragraph{..} page =
 	(case paraNumber of
@@ -83,9 +81,9 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref = h hLevel $
 	simpleRender abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
-writeFiguresFile sfs figures = writeSectionFile "fig" sfs "14882: Figures" $
+writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
-	++ mconcat (r . figures)
+	++ mconcat (r . figs)
 	where
 		r :: Figure -> Text
 		r f@Figure{figureSection=s@Section{..}, ..} =

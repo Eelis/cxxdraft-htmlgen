@@ -311,14 +311,15 @@ data RenderContext = RenderContext
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool }
 
+squareAbbr :: Render a => a -> Text
 squareAbbr x = "[" ++ simpleRender x ++ "]"
 
 linkToRemoteTable :: Table -> Anchor
-linkToRemoteTable t@Table{tableSection=s@Section{..}, ..} =
+linkToRemoteTable Table{tableSection=Section{..}, ..} =
 	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url (head tableAbbrs) }
 
 linkToRemoteFigure :: Figure -> Anchor
-linkToRemoteFigure t@Figure{figureSection=s@Section{..}, ..} =
+linkToRemoteFigure Figure{figureSection=Section{..}, ..} =
 	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url figureAbbr }
 
 renderMath :: LaTeX -> RenderContext -> Text
@@ -427,7 +428,7 @@ renderTable colspec a sec =
 	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
 		stripColspec (TeXRaw s) = s
-		stripColspec (TeXSeq a b) = stripColspec a ++ stripColspec b
+		stripColspec (TeXSeq x y) = stripColspec x ++ stripColspec y
 		stripColspec _ = ""
 
 		parseColspec :: String -> [Text]

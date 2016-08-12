@@ -8,7 +8,7 @@ import Data.Time.Format (formatTime, defaultTimeLocale)
 import Data.Time.Clock (getCurrentTime)
 import Prelude hiding ((.), (++), writeFile)
 import Render (
-	render, secnum, Link(..), linkToSection, simpleRender, squareAbbr,
+	secnum, Link(..), linkToSection, simpleRender, squareAbbr,
 	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
 import Util
 import Load14882 (Figure(..), Table(..), Section(..), Draft(..), indexCatName, figures, tables)
@@ -34,12 +34,12 @@ tocChapter s@Section{..} =
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
 
 listOfTables :: [Table] -> Text
-listOfTables tables =
+listOfTables ts =
 	xml "div" [("id", "tab")] $
 		h 2 ("List of Tables "
 			++ simpleRender abbrAnchor{aHref="#tab", aClass="folded_abbr_ref"}
 			++ simpleRender abbrAnchor{aHref="TocToSection/tab", aClass="unfolded_abbr_ref"})
-		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . tables))
+		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . ts))
 	where
 		abbrAnchor = anchor{aText="[tab]"}
 		tableItem :: Table -> Text
@@ -54,12 +54,12 @@ listOfTables tables =
 			++ "<br>"
 
 listOfFigures :: [Figure] -> Text
-listOfFigures figures =
+listOfFigures figs =
 	xml "div" [("id", "fig")] $
 		h 2 ("List of Figures "
 			++ simpleRender abbrAnchor{aHref="#fig", aClass="folded_abbr_ref"}
 			++ simpleRender abbrAnchor{aHref="TocToSection/fig", aClass="unfolded_abbr_ref"})
-		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figures))
+		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figs))
 	where
 		abbrAnchor = anchor{aText="[fig]"}
 		figureItem :: Figure -> Text

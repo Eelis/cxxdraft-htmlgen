@@ -9,7 +9,6 @@ module Util (
 import Prelude hiding ((.), (++), writeFile)
 import qualified Data.Text as Text
 import Data.Text (Text, replace)
-import Data.Monoid (Monoid(mappend), mconcat)
 import Data.Text.IO (writeFile)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
