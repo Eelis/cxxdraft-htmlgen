@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 
 module Util (

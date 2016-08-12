@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE RecordWildCards, OverloadedStrings, ViewPatterns #-}
 
 module Toc (writeTocFile) where

@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
 import Render (imgDir, outputDir, SectionFileStyle(..))
