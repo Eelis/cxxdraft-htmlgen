@@ -176,15 +176,13 @@ instance Render LaTeX where
 				Just t | not ([abbr] `elem` (tableAbbrs . tables page)) -> linkToRemoteTable t
 				_ -> anchor{aHref = "#" ++ url abbr}
 		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
-	render (TeXComm "xname" [FixArg (TeXRaw s)]) = return $ spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s
-	render (TeXComm "mname" [FixArg (TeXRaw s)]) = return $ spanTag "texttt" $ "_<span class=\"ungap\"></span>_" ++ s ++ "_<span class=\"ungap\"></span>_"
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId=s, aText=(s ++ ":")}
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
 	render (TeXComm "bigoh" [FixArg content]) =
 		spanTag "math" . ("Ο(" ++) . (++ ")") . renderMath content
-	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<code>" ++ render x ctx{rawHyphens=True} ++ "</code>"
+	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<span class='texttt'>" ++ render x ctx{rawHyphens=True} ++ "</span>"
 	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
