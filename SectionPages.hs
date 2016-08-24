@@ -29,7 +29,14 @@ renderParagraph idPrefix Paragraph{..} page =
 
 type SectionAbbr = LaTeX
 
-renderSection :: RenderContext -> Maybe SectionAbbr -> Bool -> Section -> (Text, Bool)
+parentLink :: Section -> Section -> Text
+parentLink parent child
+	| Just sub <- Text.stripPrefix (simpleRender (abbreviation parent) ++ ".") secname = sub
+	| otherwise = secname
+	where
+		secname = simpleRender (abbreviation child)
+
+renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (Text, Bool)
 renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		xml "div" [("id", secOnPage)] $ header ++
@@ -43,19 +50,19 @@ renderSection context specific parasEmitted s@Section{..}
 		  mconcat (fst . renderSection context specific False . subsections)
 		, anysubcontent )
 	where
-		secOnPage
-			| Just (Load14882.abbreviation -> simpleRender -> x) <- page context, Just sub <- Text.stripPrefix (x ++ ".") secname = sub
-			| otherwise = secname
-		secname = simpleRender abbreviation
-		full = specific == Nothing || specific == Just abbreviation
+		secOnPage :: Text
+		secOnPage = case page context of
+			Just parent -> parentLink parent s
+			Nothing -> simpleRender (Load14882.abbreviation s)
+		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
 			(if specific == Nothing then "#" ++ secOnPage else "")
 			abbr
 		abbr
-			| specific == Just abbreviation && not (null parents)
+			| specific == Just s && not (null parents)
 				= anchor
-			| Just sp <- specific, sp /= abbreviation, not (null parents)
-				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url sp}
+			| Just sp <- specific, sp /= s, not (null parents)
+				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ parentLink s sp}
 			| otherwise = linkToSection
 					(if null parents then SectionToToc else SectionToSection)
 					abbreviation
@@ -116,7 +123,7 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False) (Just abbreviation) False . chapters draft)
+			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False) (Just section) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()

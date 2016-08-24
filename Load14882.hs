@@ -149,6 +149,9 @@ data Section = Section
 	}
 	deriving Show
 
+instance Eq Section where
+	x == y = abbreviation x == abbreviation y
+
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
 
