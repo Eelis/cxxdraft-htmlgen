@@ -289,7 +289,7 @@ instance Render Element where
 			num = render n sec
 		in
 			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
-			xml "div" [("class", "marginalizedparent")]
+			xml "div" [("class", "footnoteNumberParent")]
 				(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"} sec) ++
 			render content sec
 	render (Minipage content) = xml "div" [("class", "minipage")] . render content
