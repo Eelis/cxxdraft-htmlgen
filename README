@@ -86,5 +86,6 @@ Todo
   - different kinds of enumeration
   - very long section names screw up layout
   - table meta.unary.prop#tab:type-traits.properties is horribly wide due to lack of hyphenation
+  - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS does not support tab stops)
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)
