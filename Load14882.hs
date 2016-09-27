@@ -1233,7 +1233,9 @@ load14882 = do
 		let p = c ++ ".tex"
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
-		stuff <- readFile p
+		stuff <-
+			replace "\\indeximpldef{" "\\index[impldefindex]{" .
+			readFile p
 
 		extra <-
 			if c /= "grammar" then return ""
