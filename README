@@ -6,7 +6,7 @@ Introduction
 
 Prerequisites
 
-  - various Hackage packages
+  - various Hackage packages (see cxxdraft-htmlgen.cabal)
   - graphviz
   - dvipng
   - git
@@ -48,7 +48,7 @@ Output
 
   - index.html    A table of contents with links to...
 
-  - ~1660 interlinked section pages
+  - ~2000 interlinked section pages
 
     These are named after the section abbreviation, which for
     the Bare section file style look like:
@@ -73,7 +73,7 @@ Output
 
       full#temp.dep       (see below)
 
-  - full         ~6 mbyte, the entire draft.
+  - full         ~8 mbyte, the entire draft.
 
   - 14882.css    Used by all of the above.
 
@@ -82,10 +82,11 @@ Output
 
 Todo
 
-  - list required hackage packages in prereqs
   - different kinds of enumeration
   - very long section names screw up layout
-  - table meta.unary.prop#tab:type-traits.properties is horribly wide due to lack of hyphenation
-  - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS does not support tab stops)
+  - table meta.unary.prop#tab:type-traits.properties is horribly
+    wide due to lack of hyphenation
+  - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS
+    does not support tab stops)
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)
