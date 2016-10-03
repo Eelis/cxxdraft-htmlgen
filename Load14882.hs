@@ -1023,8 +1023,8 @@ parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
 parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 
 	where
-		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ SeeAlso y)
-		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See y)
+		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ See True y)
+		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
 		go t = (parseIndexPath t, Nothing)
@@ -1097,7 +1097,7 @@ indexKeyContent = ikc
 
 type IndexPath = [IndexComponent]
 
-data IndexKind = See LaTeX | SeeAlso LaTeX | IndexOpen | IndexClose
+data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose
 	deriving Show
 
 data RawIndexEntry = RawIndexEntry

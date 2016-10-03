@@ -255,8 +255,16 @@ instance Render IndexComponent where
 		render (if indexFormatting == TeXEmpty then indexKey else indexFormatting)
 
 instance Render IndexEntry where
-	render IndexEntry{indexEntryKind=Just (See x), ..} = ("<i>see</i> " ++) . render x
-	render IndexEntry{indexEntryKind=Just (SeeAlso x), ..} = ("<i>see also</i> " ++) . render x
+	render IndexEntry{indexEntryKind=Just (See also x), ..} = \ctx ->
+		"<i>" ++ (if also then "see also" else "see") ++ "</i> " ++
+		render (anchor
+			{ aHref = "#" ++
+				(replace "'" "&#39;" $
+				replace " " "_" $
+				replace "~" " " $
+				replace ", " "," $
+				indexKeyContent x)
+			, aText = render x ctx}) ctx
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} = return $ simpleRender anchor
 		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathHref indexPath
@@ -264,13 +272,20 @@ instance Render IndexEntry where
 		where abbr = abbreviation indexEntrySection
 
 instance Render IndexTree where
-	render x sec = mconcat $ f . Map.toList x
+	render y sec = go [] y
 		where
-			f :: (IndexComponent, IndexNode) -> Text
-			f (comp, IndexNode{..}) =
-				xml "div" [("class", "indexitems")] $
-				Text.intercalate ", " (nub $ filter (/= "") $ render comp sec : flip render sec . indexEntries) ++
-				render indexSubnodes sec
+			go :: IndexPath -> Map.Map IndexComponent IndexNode -> Text
+			go up x = mconcat $ f up . Map.toList x
+
+			f :: IndexPath -> (IndexComponent, IndexNode) -> Text
+			f up (comp, IndexNode{..}) =
+				let
+					up' = up ++ [comp]
+				in
+					xml "div" [("id", indexPathId up')] $
+					xml "div" [("class", "indexitems")] $
+					Text.intercalate ", " (nub $ filter (/= "") $ render comp sec : flip render sec . indexEntries) ++
+					go up' indexSubnodes
 
 renderTab :: Bool -> Table -> RenderContext -> Text
 renderTab stripTab Table{..} sec =
