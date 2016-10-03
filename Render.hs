@@ -118,12 +118,33 @@ makeDiv = words "definition cvqual textit textnormal term emph exitnote footnote
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
-indexPathId :: IndexPath -> Text
-indexPathId =
+indexPathString :: IndexPath -> Text
+indexPathString =
 	replace " " "_" . -- HTML forbids space.
 	replace "~" " " . -- The LaTeX uses ~ erratically, e.g. "\indextext{ambiguity!declaration~versus cast}"
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
+
+indexPathId :: IndexPath -> Text
+indexPathId =
+	replace " "  "%20" .
+	replace "'" "&#39;" .
+	indexPathString
+
+indexPathHref :: IndexPath -> Text
+indexPathHref =
+	replace "'"  "&#39;" .
+	replace "<"  "%3c" .
+	replace ">"  "%3e" .
+	replace "\"" "%22" .
+	replace "#"  "%23" .
+	replace "{"  "%7b" .
+	replace "|"  "%7c" .
+	replace "}"  "%7d" .
+	replace "^"  "%5e" .
+	replace " "  "%20" .
+	replace "%"  "%25" .
+	indexPathString
 
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
@@ -238,7 +259,7 @@ instance Render IndexEntry where
 	render IndexEntry{indexEntryKind=Just (SeeAlso x), ..} = ("<i>see also</i> " ++) . render x
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} = return $ simpleRender anchor
-		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathId indexPath
+		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathHref indexPath
 		, aText = squareAbbr abbr }
 		where abbr = abbreviation indexEntrySection
 
