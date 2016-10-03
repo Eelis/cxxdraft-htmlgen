@@ -176,7 +176,7 @@ instance Render LaTeX where
 				Just t | not ([abbr] `elem` (tableAbbrs . tables page)) -> linkToRemoteTable t
 				_ -> anchor{aHref = "#" ++ url abbr}
 		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
-	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId=s, aText=(s ++ ":")}
+	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId = "nt:"++s, aText = s++":"}
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
@@ -509,7 +509,7 @@ renderBnfTable :: LaTeX -> RenderContext -> Text
 renderBnfTable l = bnfPre . htmlTabs . render (preprocessPre l)
 
 grammarNameRef :: Text -> Text -> Text
-grammarNameRef s n = "SectionToSection/" ++ s ++ "#" ++ (Text.toLower n)
+grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
 
 data Link = TocToSection | SectionToToc | SectionToSection | ToImage
 	deriving Show
