@@ -119,7 +119,11 @@ makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
 indexPathId :: IndexPath -> Text
-indexPathId = Text.intercalate "!" . map (indexKeyContent . indexKey)
+indexPathId =
+	replace " " "_" . -- HTML forbids space.
+	replace "~" " " . -- The LaTeX uses ~ erratically, e.g. "\indextext{ambiguity!declaration~versus cast}"
+	Text.intercalate "," .
+	map (indexKeyContent . indexKey)
 
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
