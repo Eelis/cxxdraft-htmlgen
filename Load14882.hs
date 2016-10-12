@@ -974,6 +974,7 @@ resolveGrammarterms links Section{..} =
 		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
 		resolve g (Enumerated s ps) = Enumerated s $ map (map (resolve g)) ps
 		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
+		resolve g (Footnote n c) = Footnote n $ map (resolve g) c
 		resolve _ other = other
 
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
