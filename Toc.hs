@@ -5,7 +5,7 @@ module Toc (writeTocFile) where
 
 import qualified Data.Text as Text
 import Data.Time.Format (formatTime, defaultTimeLocale)
-import Data.Time.Clock (getCurrentTime)
+import Data.Time.Clock (getCurrentTime, UTCTime)
 import Prelude hiding ((.), (++), writeFile)
 import Render (
 	secnum, Link(..), linkToSection, simpleRender, squareAbbr,
@@ -73,17 +73,21 @@ listOfFigures figs =
 				aClass = "abbr_ref"}
 			++ "<br>"
 
+tocHeader :: UTCTime -> Text -> Text
+tocHeader date commitUrl =
+	"Generated on " ++ Text.pack (formatTime defaultTimeLocale "%F" date)
+	++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
+	++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
+	++ " This is <em>not</em> an ISO publication."
+	++ "<hr/>"
+
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
 writeTocFile sfs draft@Draft{..} = do
 	putStrLn "  toc"
-	date <- Text.pack . formatTime defaultTimeLocale "%F" . getCurrentTime
+	date <- getCurrentTime
 	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $
 		fileContent "" "14882: Contents" $
-			xml "div" [("class", "tocHeader")]
-				( "Generated on " ++ date
-				++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
-				++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
-				++ "<hr/>") ++
+			xml "div" [("class", "tocHeader")] (tocHeader date commitUrl) ++
 			"<h1>Contents</h1>" ++
 			listOfTables (tables draft) ++
 			listOfFigures (figures draft) ++
