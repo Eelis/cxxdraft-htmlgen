@@ -114,7 +114,7 @@ simpleMacros =
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "indented center"
-makeDiv = words "definition cvqual textit textnormal term emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
+makeDiv = words "definition cvqual textit textnormal emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
@@ -125,14 +125,8 @@ indexPathString =
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
 
-indexPathId :: IndexPath -> Text
-indexPathId =
-	replace " "  "%20" .
-	replace "'" "&#39;" .
-	indexPathString
-
-indexPathHref :: IndexPath -> Text
-indexPathHref =
+urlChars :: Text -> Text
+urlChars =
 	replace "'"  "&#39;" .
 	replace "<"  "%3c" .
 	replace ">"  "%3e" .
@@ -143,8 +137,16 @@ indexPathHref =
 	replace "}"  "%7d" .
 	replace "^"  "%5e" .
 	replace " "  "%20" .
-	replace "%"  "%25" .
+	replace "%"  "%25"
+
+indexPathId :: IndexPath -> Text
+indexPathId =
+	replace " "  "%20" .
+	replace "'" "&#39;" .
 	indexPathString
+
+indexPathHref :: IndexPath -> Text
+indexPathHref = urlChars . indexPathString
 
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
@@ -233,6 +235,18 @@ instance Render LaTeX where
 				| Text.head s == '-' = Text.tail s
 				| otherwise = "-" ++ s
 			in xml "span" [("style", "position: relative; top: " ++ neg d)] . render content
+	render (TeXComm "term" [FixArg x]) =
+		\sec ->
+			let
+				y = render x sec
+				i = "def:" ++ replace " " "_" y
+				-- It's tempting to use 'term:' instead of 'def:' here, but if we do that,
+				-- URLs break when upstream promotes a \term to a \defn.
+			in render anchor
+				{ aText  = "<i>" ++ y ++ "</i>"
+				, aId    = i
+				, aHref  = "#" ++ urlChars i
+				, aClass = "hidden_link" } sec
 	render (TeXComm x s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
