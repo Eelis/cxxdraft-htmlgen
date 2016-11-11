@@ -1098,7 +1098,7 @@ indexKeyContent = ikc
 
 type IndexPath = [IndexComponent]
 
-data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose
+data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose | DefinitionIndex
 	deriving Show
 
 data RawIndexEntry = RawIndexEntry
@@ -1134,9 +1134,12 @@ sectionIndexEntries s =
 	| indexSection <- withSubsections s
 	, [OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
 		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
-	[ RawIndexEntry{indexCategory="generalindex", ..}
+	[ RawIndexEntry
+		{ indexCategory = "generalindex"
+		, rawIndexKind = Just DefinitionIndex
+		, ..}
 	| indexSection <- withSubsections s
-	, [FixArg _, FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
+	, [FixArg _, FixArg (parseIndex -> (rawIndexPath, Nothing))]
 		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
 
 type IndexCategory = Text
