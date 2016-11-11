@@ -214,7 +214,12 @@ instance Render LaTeX where
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
 		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
 	render (TeXComm "defnx" (FixArg x : FixArg (parseIndex -> (p, _)) : y))
-		= \sec -> render anchor{aText="<i>" ++ render x sec ++ "</i>", aId="def:"++indexPathId p} sec ++ render y sec
+		= \sec -> render anchor
+			{ aText  = "<i>" ++ render x sec ++ "</i>"
+			, aId    = "def:" ++ indexPathId p
+			, aHref  = "#def:" ++ indexPathHref p
+			, aClass = "hidden_link" } sec
+			++ render y sec
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
