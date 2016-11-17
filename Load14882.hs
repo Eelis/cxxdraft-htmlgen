@@ -558,7 +558,7 @@ replaceArgsInString args = concatRaws . go
 		go [] = TeXEmpty
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret"
 
 recognizeEnvs :: LaTeX -> LaTeX
 recognizeEnvs (TeXSeq b@(TeXComm "begin" (FixArg (TeXRaw n) : aa)) rest) =
@@ -1081,6 +1081,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "#") = "#"
 		ikc (TeXCommS "{") = "{"
 		ikc (TeXCommS "}") = "}"
+		ikc (TeXCommS "caret") = "^"
 		ikc (TeXCommS s)
 			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
 		ikc (TeXCommS "tilde") = "~"

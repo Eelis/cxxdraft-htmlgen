@@ -55,6 +55,7 @@ simpleMacros =
 	, (","              , "&nbsp;")
 	, ("\""             , "\"")
 	, ("prime"          , "'")
+	, ("caret"          , "^")
 	, ("atsign"         , "@")
 	, ("copyright"      , "&copy;")
 	, ("textregistered" , "&reg;")
