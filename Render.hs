@@ -114,7 +114,7 @@ simpleMacros =
 	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "indented center"
+makeSpan = words "center"
 makeDiv = words "definition cvqual textit textnormal emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
