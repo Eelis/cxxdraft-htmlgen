@@ -149,6 +149,18 @@ indexPathId =
 indexPathHref :: IndexPath -> Text
 indexPathHref = urlChars . indexPathString
 
+asId :: LaTeX -> Text
+asId (TeXRaw t) = replace " " "_" t
+asId (TeXSeq x y) = asId x ++ asId y
+asId TeXEmpty = ""
+asId (TeXComm "texttt" [FixArg x]) = asId x
+asId (TeXComm "textit" [FixArg x]) = asId x
+asId (TeXComm "mathsf" [FixArg x]) = asId x
+asId (TeXCommS "Cpp") = "C++"
+asId (TeXBraces x) = asId x
+asId (TeXMath Dollar x) = asId x
+asId x = error $ "asId: unexpected: " ++ show x
+
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
 	                             [("href" , aHref ) | aHref  /= "" ] ++
@@ -239,12 +251,11 @@ instance Render LaTeX where
 	render (TeXComm "term" [FixArg x]) =
 		\sec ->
 			let
-				y = render x sec
-				i = "def:" ++ replace " " "_" y
+				i = "def:" ++ asId x
 				-- It's tempting to use 'term:' instead of 'def:' here, but if we do that,
 				-- URLs break when upstream promotes a \term to a \defn.
 			in render anchor
-				{ aText  = "<i>" ++ y ++ "</i>"
+				{ aText  = "<i>" ++ render x sec ++ "</i>"
 				, aId    = i
 				, aHref  = "#" ++ urlChars i
 				, aClass = "hidden_link" } sec
