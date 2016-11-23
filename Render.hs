@@ -328,6 +328,22 @@ renderFig stripFig Figure{..} =
 		simpleRender figureName
 	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
+renderListItem :: RenderContext -> Int -> Elements -> Text
+renderListItem ctx n elems =
+		xml "li" [("id", thisId)] $
+		(xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
+			(render (anchor{
+				aClass = "marginalized",
+				aHref  = "#" ++ thisId,
+				aText  = "(" ++ mconcat (map (\x -> simpleRender x ++ ".") (paragraph ctx))
+						++ simpleRender n ++ ")"
+			}) ctx') ++)
+		(render elems ctx')
+	where
+		left = simpleRender (-5 - 2 * length (paragraph ctx)) ++ "em"
+		thisId = idPrefix ctx ++ simpleRender n
+		ctx' = ctx{ idPrefix = thisId ++ ".", paragraph = paragraph ctx ++ [n] }
+
 instance Render Element where
 	render (LatexElements t) = \sec ->
 		case Text.stripStart (render t sec) of "" -> ""; x -> xml "p" [] x
@@ -340,7 +356,7 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render (Enumerated ek ps) = \sec -> xml t [] $ mconcat $ xml "li" [] . flip render sec . ps
+	render (Enumerated ek ps) = \ctx -> xml t [] $ mconcat $ uncurry (renderListItem ctx) . (zip [1..] ps)
 		where
 			t = case ek of
 				"enumeraten" -> "ol"
@@ -372,7 +388,9 @@ data RenderContext = RenderContext
 	, draft :: Draft
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
-	, rawSpace :: Bool }
+	, rawSpace :: Bool
+	, paragraph :: [Int]
+	, idPrefix :: Text }
 
 squareAbbr :: Render a => a -> Text
 squareAbbr x = "[" ++ simpleRender x ++ "]"
@@ -590,7 +608,7 @@ url = replace "&lt;" "%3c"
     . simpleRender
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False)
+simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False [] "")
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =

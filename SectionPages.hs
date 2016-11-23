@@ -7,25 +7,31 @@ import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
+import Data.Maybe (maybeToList)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render
 import Load14882
 import Util
 
-renderParagraph :: Text -> Paragraph -> RenderContext -> Text
-renderParagraph idPrefix Paragraph{..} page =
-	(case paraNumber of
-		Just (flip render page -> i) ->
-			xml "div" [("class", "para"), ("id", idPrefix ++ i)] .
-			(xml "div" [("class", "marginalizedparent")]
-				(render (anchor{
-					aClass = "marginalized",
-					aHref  = "#" ++ idPrefix ++ i,
-					aText  = i
-				}) page) ++)
-		_ -> id)
-	$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id) (render paraElems page)
+renderParagraph :: Paragraph -> RenderContext -> Text
+renderParagraph Paragraph{..} ctx =
+		(case paraNumber of
+			Just (flip render ctx -> i) ->
+				xml "div" [("class", "para"), ("id", idPrefix ctx ++ i)] .
+				(xml "div" [("class", "marginalizedparent")]
+					(render (anchor{
+						aClass = "marginalized",
+						aHref  = "#" ++ idPrefix ctx ++ i,
+						aText  = i
+					}) ctx') ++)
+			_ -> id)
+		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
+		$ (render paraElems ctx'{paragraph=maybeToList paraNumber})
+	where
+		ctx' = case paraNumber of
+			Just (flip render ctx -> i) -> ctx{ idPrefix = idPrefix ctx ++ i ++ "." }
+			Nothing -> ctx
 
 type SectionAbbr = LaTeX
 
@@ -41,7 +47,7 @@ renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		xml "div" [("id", secOnPage)] $ header ++
 		mconcat (map
-			(\p -> renderParagraph (if parasEmitted then secOnPage ++ "-" else "") p context)
+			(\p -> renderParagraph p (context{idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
 			paragraphs) ++
 		mconcat (fst . renderSection context Nothing True . subsections)
 	| not anysubcontent = ("", False)
@@ -109,12 +115,12 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t (RenderContext Nothing draft False False False)
+			++ renderTab True t (RenderContext Nothing draft False False False [] "")
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $
 	mconcat $ applySectionFileStyle sfs . fst .
-		renderSection (RenderContext Nothing draft False False False) Nothing True . chapters draft
+		renderSection (RenderContext Nothing draft False False False [] "") Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
@@ -123,7 +129,7 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False) (Just section) False . chapters draft)
+			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False [] "") (Just section) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()
