@@ -368,7 +368,7 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render (Enumerated ek ps) = \ctx -> xml t [] $ mconcat $ uncurry (renderListItem ctx (ek == "itemize")) . (zip [1..] ps)
+	render (Enumerated ek ps) = \ctx -> xml t [("class", Text.pack ek)] $ mconcat $ uncurry (renderListItem ctx (ek == "itemize")) . (zip [1..] ps)
 		where
 			t = case ek of
 				"enumeratea" -> "ol"
