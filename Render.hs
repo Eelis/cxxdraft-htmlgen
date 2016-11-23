@@ -339,21 +339,22 @@ renderFig stripFig Figure{..} =
 		simpleRender figureName
 	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
-renderListItem :: RenderContext -> Int -> Elements -> Text
-renderListItem ctx n elems =
-		xml "li" [("id", thisId)] $
-		(xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
+renderListItem :: RenderContext -> Bool -> Int -> Elements -> Text
+renderListItem ctx makeLink n elems =
+		xml "li" [("id", thisId)]
+		$ (if makeLink then (margin ++) else id)
+		$ render elems ctx'
+	where
+		left = simpleRender (-5 - 2 * length (paragraph ctx)) ++ "em"
+		thisId = idPrefix ctx ++ simpleRender n
+		ctx' = ctx{ idPrefix = thisId ++ ".", paragraph = paragraph ctx ++ [n] }
+		margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
 			(render (anchor{
 				aClass = "marginalized",
 				aHref  = "#" ++ thisId,
 				aText  = "(" ++ mconcat (map (\x -> simpleRender x ++ ".") (paragraph ctx))
 						++ simpleRender n ++ ")"
-			}) ctx') ++)
-		(render elems ctx')
-	where
-		left = simpleRender (-5 - 2 * length (paragraph ctx)) ++ "em"
-		thisId = idPrefix ctx ++ simpleRender n
-		ctx' = ctx{ idPrefix = thisId ++ ".", paragraph = paragraph ctx ++ [n] }
+			}) ctx')
 
 instance Render Element where
 	render (LatexElements t) = \sec ->
@@ -367,10 +368,9 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render (Enumerated ek ps) = \ctx -> xml t [] $ mconcat $ uncurry (renderListItem ctx) . (zip [1..] ps)
+	render (Enumerated ek ps) = \ctx -> xml t [] $ mconcat $ uncurry (renderListItem ctx (ek == "itemize")) . (zip [1..] ps)
 		where
 			t = case ek of
-				"enumeraten" -> "ol"
 				"enumeratea" -> "ol"
 				"enumerate" -> "ol"
 				"itemize" -> "ul"

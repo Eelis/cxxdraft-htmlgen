@@ -165,7 +165,7 @@ instance Sections Section where sections s = s : concatMap sections (subsections
 
 isEnumerate :: LaTeX -> Maybe String
 isEnumerate (TeXEnv s _ _)
-	| s `elem` ["enumeraten", "enumeratea", "enumerate", "itemize", "description"] = Just s
+	| s `elem` ["enumeratea", "enumerate", "itemize", "description"] = Just s
 isEnumerate _ = Nothing
 
 bnfEnvs :: [String]
