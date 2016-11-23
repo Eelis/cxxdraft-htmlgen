@@ -1,8 +1,8 @@
 Introduction
 
-  genhtml parses the LaTeX sources of the draft, and generates
-  an HTML version, with figures embedded as inline SVG, and
-  math formulas as LaTeX-rendered PNG images.
+  cxxdraft-htmlgen parses the LaTeX sources of the draft, and
+  generates an HTML version, with figures embedded as inline SVG,
+  and math formulas as LaTeX-rendered PNG images.
 
 Prerequisites
 
@@ -82,7 +82,6 @@ Output
 
 Todo
 
-  - different kinds of enumeration
   - very long section names screw up layout
   - table meta.unary.prop#tab:type-traits.properties is horribly
     wide due to lack of hyphenation
