@@ -17,7 +17,7 @@
 
 module Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
-	Section(..), Chapter(..), Draft(..), Table(..), Figure(..),
+	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
 	parseIndex, indexKeyContent, indexCatName, sections,
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr,
@@ -48,7 +48,7 @@ import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
-import Util (greekAlphabet)
+import Util (greekAlphabet, mapLast)
 
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
@@ -91,9 +91,14 @@ data Figure = Figure
 	, figureSection :: Section }
 	deriving Show
 
+data Item = Item
+	{ itemNumber :: Maybe [Int]
+	, itemContent :: Elements }
+	deriving Show
+
 data Element
 	= LatexElements [LaTeX]
-	| Enumerated String [Elements]
+	| Enumerated String [Item]
 	| Bnf String LaTeX
 	| TableElement Table
 	| Tabbing LaTeX
@@ -102,6 +107,25 @@ data Element
 	| Codeblock { code :: LaTeX }
 	| Minipage Elements
 	deriving Show
+
+assignItemNumbers :: Paragraph -> Paragraph
+assignItemNumbers p
+	| Just n <- paraNumber p = p{ paraElems = fst $ goElems [n,1] (paraElems p) }
+	| otherwise = p
+	where
+		goElems :: [Int] -> [Element] -> ([Element], [Int])
+		goElems nn [] = ([], nn)
+		goElems nn (e:ee) = case e of
+			Enumerated cmd@"itemize" items ->
+				let
+					items' = map (\(i, (itemContent -> iee)) ->
+						Item
+							(Just (mapLast (+i) nn))
+							(fst (goElems (mapLast (+i) nn ++ [1]) iee))
+						) (zip [0..] items)
+				in
+					first (Enumerated cmd items' :) (goElems (mapLast (+ length items) nn) ee)
+			_ -> first (e:) (goElems nn ee)
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
@@ -226,13 +250,11 @@ isItem (TeXComm "item" _) = True
 isItem _ = False
 	-- Todo: render the different kinds of items properly
 
-type Item = RawElements
-
 mapHead :: (a -> a) -> [a] -> [a]
 mapHead f (x:y) = f x : y
 mapHead _ [] = []
 
-parseItems :: [LaTeX] -> [Item]
+parseItems :: [LaTeX] -> [RawElements]
 parseItems [] = []
 parseItems (x : (span isJunk -> (junk, rest)))
 	| isJunk x = mapHead (RawLatexElements (x : junk) :) (parseItems rest)
@@ -854,7 +876,7 @@ instance AssignNumbers RawElement Element where
 		put Numbers{footnoteNr = footnoteNr+1, ..}
 		t' <- assignNumbers s t
 		return Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
-	assignNumbers s (RawEnumerated x p) = Enumerated x . assignNumbers s p
+	assignNumbers s (RawEnumerated x p) = Enumerated x . (Item Nothing .) . assignNumbers s p
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
@@ -882,7 +904,7 @@ treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
-				return Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
+				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
 		more'' <- treeizeChapters (sectionNumber + 1) more'
 		return $ newSec : more''
@@ -905,7 +927,7 @@ treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
-				return Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
+				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
 		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
 		return $ newSec : more''
@@ -972,7 +994,8 @@ resolveGrammarterms links Section{..} =
 	where
 		resolve :: GrammarLinks -> Element -> Element
 		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
-		resolve g (Enumerated s ps) = Enumerated s $ map (map (resolve g)) ps
+		resolve g (Enumerated s ps) = Enumerated s $ map f ps
+			where f i@Item{..} = i{itemContent=map (resolve g) itemContent}
 		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
 		resolve g (Footnote n c) = Footnote n $ map (resolve g) c
 		resolve _ other = other
@@ -1121,7 +1144,7 @@ withSubsections s = s : concatMap withSubsections (subsections s)
 
 elemTex :: Element -> [LaTeX]
 elemTex (LatexElements l) = l
-elemTex (Enumerated _ e) = e >>= (>>= elemTex)
+elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
 elemTex (Bnf _ l) = [l]
 elemTex (Codeblock c) = [c]
 elemTex (Minipage l) = l >>= elemTex

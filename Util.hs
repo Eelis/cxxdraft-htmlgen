@@ -3,7 +3,7 @@
 
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h,
-	anchor, Anchor(..), writeFile, greekAlphabet
+	anchor, Anchor(..), writeFile, greekAlphabet, mapLast
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -50,3 +50,8 @@ greekAlphabet =
 
 	, ("Gamma"          , 'Γ')
 	, ("Pi"             , 'Π') ]
+
+mapLast :: (a -> a) -> [a] -> [a]
+mapLast _ [] = []
+mapLast f [x] = [f x]
+mapLast f (x:xx) = x : mapLast f xx

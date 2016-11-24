@@ -17,7 +17,7 @@ module Render (
 
 import Load14882 (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Draft,
-	Section(..), Chapter(..), Table(..), Figure(..), figures, tables,
+	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), parseIndex,
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr)
 
@@ -340,22 +340,19 @@ renderFig stripFig Figure{..} =
 		simpleRender figureName
 	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
-renderListItem :: RenderContext -> Bool -> Int -> Elements -> Text
-renderListItem ctx makeLink n elems =
-		xml "li" [("id", thisId)]
-		$ (if makeLink then (margin ++) else id)
-		$ render elems ctx'
-	where
-		left = simpleRender (-5 - 2 * length (paragraph ctx)) ++ "em"
-		thisId = idPrefix ctx ++ simpleRender n
-		ctx' = ctx{ idPrefix = thisId ++ ".", paragraph = paragraph ctx ++ [n] }
-		margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
-			(render (anchor{
-				aClass = "marginalized",
-				aHref  = "#" ++ thisId,
-				aText  = "(" ++ mconcat (map (\x -> simpleRender x ++ ".") (paragraph ctx))
-						++ simpleRender n ++ ")"
-			}) ctx')
+instance Render Item where
+	render (Item Nothing elems) ctx = xml "li" [] $ render elems ctx
+	render (Item (Just nn) elems) ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
+		where
+			left = simpleRender (-3 - 2 * length nn) ++ "em"
+			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
+			ctx' = ctx{ idPrefix = thisId ++ "." }
+			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
+				(render (anchor{
+					aClass = "marginalized",
+					aHref  = "#" ++ thisId,
+					aText  = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
+				}) ctx')
 
 instance Render Element where
 	render (LatexElements t) = \sec ->
@@ -369,7 +366,7 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render (Enumerated ek ps) = \ctx -> xml t [("class", Text.pack ek)] $ mconcat $ uncurry (renderListItem ctx (ek == "itemize")) . (zip [1..] ps)
+	render (Enumerated ek ps) = \ctx -> xml t [("class", Text.pack ek)] $ mconcat $ flip render ctx . ps
 		where
 			t = case ek of
 				"enumeratea" -> "ol"
@@ -401,7 +398,6 @@ data RenderContext = RenderContext
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
-	, paragraph :: [Int]
 	, idPrefix :: Text }
 
 squareAbbr :: Render a => a -> Text
@@ -620,7 +616,7 @@ url = replace "&lt;" "%3c"
     . simpleRender
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False [] "")
+simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False "")
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =
