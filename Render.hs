@@ -73,6 +73,7 @@ simpleMacros =
 	, ("unun"           , "__")
 	, ("^"              , "^")
 	, ("ldots"          , "&hellip;")
+	, ("dotsc"          , "&hellip;")
 	, ("times"          , "&times;")
 	, ("&"              , "&amp;")
 	, ("$"              , "&#36;")
