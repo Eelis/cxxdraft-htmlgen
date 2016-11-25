@@ -15,12 +15,12 @@ module Render (
 	abbrAsPath, abbreviations, imgDir, RenderContext(..),
 	) where
 
-import Load14882 (
+import Load14882 (parseIndex) -- todo: bad
+import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Draft,
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
-	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), parseIndex,
+	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr)
-
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
@@ -37,17 +37,12 @@ import Data.Hashable (hash)
 import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust)
-import Util
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
+import LaTeXUtil (texFromArg)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "ttfamily", "endlist", "cline", "itcorr", "label"]
 literal = [" ", "#", "{", "}", "~", "%", ""]
-
-texFromArg :: TeXArg -> LaTeX
-texFromArg (FixArg t) = t
-texFromArg (OptArg t) = t
-texFromArg (SymArg t) = t
-texFromArg _ = error "no"
 
 simpleMacros :: [(String, Text)]
 simpleMacros =
@@ -366,9 +361,9 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render (Enumerated ek ps) = \ctx -> xml t [("class", Text.pack ek)] $ mconcat $ flip render ctx . ps
+	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] . render enumItems
 		where
-			t = case ek of
+			t = case enumCmd of
 				"enumeratea" -> "ol"
 				"enumerate" -> "ol"
 				"itemize" -> "ul"

@@ -2,7 +2,8 @@
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
 import Render (imgDir, outputDir, SectionFileStyle(..))
-import Load14882 (Draft(..), load14882, figures)
+import Document (Draft(..), figures)
+import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, copyFile, setCurrentDirectory, getCurrentDirectory)
 import System.Environment (getArgs)

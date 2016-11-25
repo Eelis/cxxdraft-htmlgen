@@ -10,7 +10,7 @@ import Control.Monad (forM_)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render
-import Load14882
+import Document
 import Util
 
 renderParagraph :: Paragraph -> RenderContext -> Text
@@ -31,8 +31,6 @@ renderParagraph Paragraph{..} ctx =
 		ctx' = case paraNumber of
 			Just (flip render ctx -> i) -> ctx{ idPrefix = idPrefix ctx ++ i ++ "." }
 			Nothing -> ctx
-
-type SectionAbbr = LaTeX
 
 parentLink :: Section -> Section -> Text
 parentLink parent child
@@ -58,7 +56,7 @@ renderSection context specific parasEmitted s@Section{..}
 		secOnPage :: Text
 		secOnPage = case page context of
 			Just parent -> parentLink parent s
-			Nothing -> simpleRender (Load14882.abbreviation s)
+			Nothing -> simpleRender (Document.abbreviation s)
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
 			(if specific == Nothing then "#" ++ secOnPage else "")
@@ -124,7 +122,7 @@ writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
 	putStr "  sections..";
-	let secs = Load14882.sections draft
+	let secs = Document.sections draft
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
