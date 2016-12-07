@@ -286,7 +286,7 @@ instance ExtractFootnotes LaTeX where
 parsePara :: [LaTeX] -> RawElements
 parsePara [] = []
 parsePara (env@(TeXEnv _ _ _) : more) =
-	go e' : parsePara more ++ (RawFootnote . footnotes)
+	go e' : parsePara more ++ (RawFootnote . fnotes)
 	where
 		go :: LaTeX -> RawElement
 		go e@(TeXEnv k a stuff)
@@ -309,10 +309,10 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
 		go other = error $ "parsePara: unexpected " ++ show other
 
-		(e', footnotes) = extractFootnotes env
+		(e', fnotes) = extractFootnotes env
 
-parsePara (elems -> (extractFootnotes -> (e, footnotes), more))
-	= RawLatexElements e : parsePara more ++ (RawFootnote . footnotes)
+parsePara (elems -> (extractFootnotes -> (e, fnotes), more))
+	= RawLatexElements e : parsePara more ++ (RawFootnote . fnotes)
 
 elems :: [LaTeX] -> ([LaTeX], [LaTeX])
 elems [] = ([], [])
@@ -578,7 +578,7 @@ instance AssignNumbers RawElement Element where
 		Numbers{..} <- get
 		put Numbers{footnoteNr = footnoteNr+1, ..}
 		t' <- assignNumbers s t
-		return Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
+		return $ FootnoteElement Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 	assignNumbers s (RawEnumerated x p) = Enumerated x . (Item Nothing .) . assignNumbers s p
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
@@ -675,7 +675,7 @@ resolveGrammarterms links Section{..} =
 		resolve g (Enumerated s ps) = Enumerated s $ map f ps
 			where f i@Item{..} = i{itemContent=map (resolve g) itemContent}
 		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
-		resolve g (Footnote n c) = Footnote n $ map (resolve g) c
+		resolve g (FootnoteElement (Footnote n c)) = FootnoteElement (Footnote n $ map (resolve g) c)
 		resolve _ other = other
 
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX

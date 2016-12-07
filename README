@@ -89,3 +89,4 @@ Todo
     does not support tab stops)
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)
+  - marginalized numbers of items inside inside itemdescr too far right

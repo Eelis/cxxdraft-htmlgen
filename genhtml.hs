@@ -10,7 +10,7 @@ import System.Environment (getArgs)
 import Util
 
 import Toc (writeTocFile)
-import SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile, writeIndexFiles)
+import SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile, writeIndexFiles, writeFootnotesFile)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
@@ -39,5 +39,6 @@ main = do
 	writeIndexFiles sectionFileStyle index
 	writeFiguresFile sectionFileStyle (figures draft)
 	writeTablesFile sectionFileStyle draft
+	writeFootnotesFile sectionFileStyle draft
 	writeFullFile sectionFileStyle draft
 	writeSectionFiles sectionFileStyle draft

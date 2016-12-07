@@ -17,7 +17,7 @@ module Render (
 
 import Load14882 (parseIndex) -- todo: bad
 import Document (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Draft,
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft, Footnote(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr)
@@ -349,6 +349,16 @@ instance Render Item where
 					aText  = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
 				}) ctx')
 
+instance Render Footnote where
+	render (Footnote n content) = \sec ->
+		let
+			num = render n sec
+		in
+			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
+			xml "div" [("class", "footnoteNumberParent")]
+				(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"} sec) ++
+			render content sec
+
 instance Render Element where
 	render (LatexElements t) = \sec ->
 		case Text.stripStart (render t sec) of "" -> ""; x -> xml "p" [] x
@@ -369,14 +379,7 @@ instance Render Element where
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined
-	render (Footnote n content) = \sec ->
-		let
-			num = render n sec
-		in
-			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
-			xml "div" [("class", "footnoteNumberParent")]
-				(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"} sec) ++
-			render content sec
+	render (FootnoteElement e) = render e
 	render (Minipage content) = xml "div" [("class", "minipage")] . render content
 
 isComplexMath :: LaTeX -> Bool
@@ -507,7 +510,7 @@ renderComplexMath m =
 			++
 			"\\end{document}\n"
 
-renderTable :: LaTeX -> [Row Elements] -> RenderContext -> Text
+renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =
 	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
@@ -571,7 +574,7 @@ renderTable colspec a sec =
 				" cline"
 			| otherwise = ""
 
-renderCell :: Elements -> RenderContext -> Text
+renderCell :: [Element] -> RenderContext -> Text
 renderCell e sec = mconcat (map renderCell' e)
 	where
 		renderCell' (LatexElements t) = render t sec

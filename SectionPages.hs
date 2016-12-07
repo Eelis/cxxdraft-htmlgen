@@ -1,7 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns #-}
 
-module SectionPages (writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile, writeIndexFiles) where
+module SectionPages
+	( writeSectionFiles
+	, writeFullFile
+	, writeFiguresFile
+	, writeTablesFile
+	, writeIndexFiles
+	, writeFootnotesFile
+	) where
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
@@ -113,6 +120,14 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
 			++ renderTab True t (RenderContext Nothing draft False False False "")
+
+writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
+writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
+	"<h1>List of Footnotes</h1>"
+	++ mconcat (r . footnotes draft)
+	where
+		r :: Footnote -> Text
+		r fn = simpleRender fn
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $

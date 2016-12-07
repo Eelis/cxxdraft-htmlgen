@@ -3,10 +3,10 @@
 
 module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
-	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..),
+	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, withSubsections,
-	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex,
+	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(Dollar))
@@ -34,7 +34,7 @@ data Table = Table
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
 	, tableAbbrs :: [LaTeX]
-	, tableBody :: [Row Elements]
+	, tableBody :: [Row [Element]]
 	, tableSection :: Section }
 	deriving Show
 
@@ -48,7 +48,12 @@ data Figure = Figure
 
 data Item = Item
 	{ itemNumber :: Maybe [Int]
-	, itemContent :: Elements }
+	, itemContent :: [Element] }
+	deriving Show
+
+data Footnote = Footnote
+	{ footnoteNumber :: Int
+	, footnoteContent :: [Element] }
 	deriving Show
 
 data Element
@@ -58,15 +63,13 @@ data Element
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
-	| Footnote { footnoteNumber :: Int, footnoteContent :: Elements }
+	| FootnoteElement Footnote
 	| Codeblock { code :: LaTeX }
-	| Minipage Elements
+	| Minipage [Element]
 	deriving Show
 
 -- We don't represent examples as elements with nested content
 -- because sometimes they span multiple (numbered) paragraphs.
-
-type Elements = [Element]
 
 data SectionKind
 	= NormalSection { _level :: Int }
@@ -81,7 +84,7 @@ data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 data Paragraph = Paragraph
 	{ paraNumber :: Maybe Int
 	, paraInItemdescr :: Bool
-	, paraElems :: Elements }
+	, paraElems :: [Element] }
 	deriving Show
 
 data Section = Section
@@ -186,7 +189,7 @@ indexCatName "libraryindex" = "Index of library names"
 indexCatName "generalindex" = "Index"
 indexCatName _ = error "indexCatName"
 
--- Gathering sections/tables/figures:
+-- Gathering sections/tables/figures/footnotes:
 
 class Sections a where sections :: a -> [Section]
 
@@ -194,33 +197,33 @@ instance Sections Section where sections s = s : concatMap sections (subsections
 
 instance Sections Draft where sections = concatMap sections . chapters
 
-class Tables a where tables :: a -> [Table]
+class Elements a where elements :: a -> [Element]
 
-instance Tables a => Tables [a] where tables = concatMap tables
-instance Tables a => Tables (Maybe a) where tables = maybe [] tables
+instance Elements a => Elements (Maybe a) where elements = maybe [] elements
 
-instance Tables Section where
-	tables Section{..} = (paragraphs >>= paraElems >>= tables) ++ (subsections >>= tables)
+instance Elements a => Elements [a] where elements = concatMap elements
 
-instance Tables Element where
-	tables (TableElement t) = [t]
-	tables _ = []
+instance Elements Draft where elements = elements . chapters
 
-instance Tables Draft where tables = tables . chapters
+instance Elements Section where
+	elements Section{..} = elements (paraElems . paragraphs) ++ elements subsections
 
-class Figures a where figures :: a -> [Figure]
+instance Elements Element where
+	elements e = e : case e of
+		Enumerated {..} -> elements $ itemContent . enumItems
+		TableElement Table{..} -> elements $ tableBody >>= ((>>= content) . cells)
+		FootnoteElement Footnote{..} -> elements footnoteContent
+		Minipage x -> elements x
+		_ -> []
 
-instance Figures a => Figures [a] where figures = concatMap figures
-instance Figures a => Figures (Maybe a) where figures = maybe [] figures
+tables :: Elements a => a -> [Table]
+tables x = [t | TableElement t <- elements x]
 
-instance Figures Section where
-	figures Section{..} = (paragraphs >>= paraElems >>= figures) ++ (subsections >>= figures)
+figures :: Elements a => a -> [Figure]
+figures x = [f | FigureElement f <- elements x]
 
-instance Figures Element where
-	figures (FigureElement f) = [f]
-	figures _ = []
-
-instance Figures Draft where figures = figures . chapters
+footnotes :: Elements a => a -> [Footnote]
+footnotes x = [f | FootnoteElement f <- elements x]
 
 -- Misc:
 
@@ -233,11 +236,11 @@ elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
 elemTex (Bnf _ l) = [l]
 elemTex (Codeblock c) = [c]
 elemTex (Minipage l) = l >>= elemTex
-elemTex (Footnote _ c) = c >>= elemTex
+elemTex (FootnoteElement (Footnote _ c)) = c >>= elemTex
 elemTex (Tabbing t) = [t]
 elemTex (TableElement t) = tableBody t >>= rowTex
 	where
-		rowTex :: Row Elements -> [LaTeX]
+		rowTex :: Row [Element] -> [LaTeX]
 		rowTex r = content . cells r >>= (>>= elemTex)
 elemTex (FigureElement _) = []
 
