@@ -65,7 +65,7 @@ assignItemNumbers p
 		goElems :: [Int] -> [Element] -> ([Element], [Int])
 		goElems nn [] = ([], nn)
 		goElems nn (e:ee) = case e of
-			Enumerated{enumCmd="itemize",..} ->
+			Enumerated{..} ->
 				let
 					items' = map (\(i, Item{..}) ->
 						Item
@@ -73,7 +73,7 @@ assignItemNumbers p
 							(fst (goElems (mapLast (+i) nn ++ [1]) itemContent))
 						) (zip [0..] enumItems)
 				in
-					first (Enumerated "itemize" items' :) (goElems (mapLast (+ length enumItems) nn) ee)
+					first (Enumerated enumCmd items' :) (goElems (mapLast (+ length enumItems) nn) ee)
 			_ -> first (e:) (goElems nn ee)
 
 -- We don't represent examples as elements with nested content

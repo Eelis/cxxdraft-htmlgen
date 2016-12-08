@@ -335,19 +335,25 @@ renderFig stripFig Figure{..} =
 		simpleRender figureName
 	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
-instance Render Item where
-	render (Item Nothing elems) ctx = xml "li" [] $ render elems ctx
-	render (Item (Just nn) elems) ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
+data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
+
+instance Render RenderItem where
+	render (RenderItem _ (Item Nothing elems)) ctx = xml "li" [] $ render elems ctx
+	render (RenderItem ordered (Item (Just nn) elems)) ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
 		where
-			left = simpleRender (-3 - 2 * length nn) ++ "em"
+			left
+				| ordered = "-5em"
+				| otherwise = simpleRender (-3 - 2 * length nn) ++ "em"
 			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
+			linkText
+				| ordered = Text.pack (show (Prelude.last nn))
+				| otherwise = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
+			linkClass
+				| ordered = "enumerated_item_num"
+				| otherwise = "marginalized"
 			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
-				(render (anchor{
-					aClass = "marginalized",
-					aHref  = "#" ++ thisId,
-					aText  = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
-				}) ctx')
+				(render (anchor{aClass=linkClass, aHref="#" ++ thisId, aText=linkText}) ctx')
 
 instance Render Footnote where
 	render (Footnote n content) = \sec ->
@@ -371,7 +377,8 @@ instance Render Element where
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
-	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] . render enumItems
+	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
+			render (RenderItem (enumCmd == "enumerate") . enumItems)
 		where
 			t = case enumCmd of
 				"enumeratea" -> "ol"
