@@ -342,12 +342,12 @@ instance Render RenderItem where
 	render (RenderItem ordered (Item (Just nn) elems)) ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
 		where
 			left
-				| ordered = "-5em"
+				| ordered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn) ++ "em"
 			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
 			linkText
-				| ordered = Text.pack (show (Prelude.last nn))
+				| ordered = Text.pack (show (Prelude.last nn)) ++ "."
 				| otherwise = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
 			linkClass
 				| ordered = "enumerated_item_num"
