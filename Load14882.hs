@@ -782,6 +782,7 @@ load14882 = do
 		. doParseLaTeX
 		. replace "\\indeximpldef{" "\\index[impldefindex]{"
 		. newlineCurlies
+		. Text.pack . flip (subRegex (mkRegex "\\\\penalty[0-9]+")) "" . Text.unpack
 		. mconcat
 		. mapM readFile
 		["config.tex", "macros.tex", "tables.tex"]
