@@ -11,7 +11,7 @@
 module Render (
 	Render(render), url, renderTab, renderFig, simpleRender, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
-	fileContent, Link(..), outputDir, linkToRemoteTable,
+	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext,
 	abbrAsPath, abbreviations, imgDir, RenderContext(..),
 	) where
 
@@ -343,7 +343,7 @@ instance Render RenderItem where
 		where
 			left
 				| ordered = "-4.5em"
-				| otherwise = simpleRender (-3 - 2 * length nn) ++ "em"
+				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
 			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
 			linkText
@@ -403,7 +403,17 @@ data RenderContext = RenderContext
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
+	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
+
+defaultRenderContext = RenderContext
+	{ page = Nothing
+	, draft = error "no draft"
+	, rawHyphens = False
+	, rawTilde = False
+	, rawSpace = False
+	, extraIndentation = 0
+	, idPrefix = "" }
 
 squareAbbr :: Render a => a -> Text
 squareAbbr x = "[" ++ simpleRender x ++ "]"
@@ -621,7 +631,7 @@ url = replace "&lt;" "%3c"
     . simpleRender
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render (RenderContext (error "no page") (error "no draft") False False False "")
+simpleRender = flip render defaultRenderContext
 
 secnum :: Text -> Section -> Text
 secnum href Section{sectionNumber=n,..} =

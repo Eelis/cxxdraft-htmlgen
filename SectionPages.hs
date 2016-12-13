@@ -33,7 +33,7 @@ renderParagraph Paragraph{..} ctx =
 					}) ctx') ++)
 			_ -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
-		$ (render paraElems ctx')
+		$ (render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
 		ctx' = case paraNumber of
 			Just (flip render ctx -> i) -> ctx{ idPrefix = idPrefix ctx ++ i ++ "." }
@@ -119,7 +119,7 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t (RenderContext Nothing draft False False False "")
+			++ renderTab True t defaultRenderContext{draft=draft}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
@@ -132,7 +132,7 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $
 	mconcat $ applySectionFileStyle sfs . fst .
-		renderSection (RenderContext Nothing draft False False False "") Nothing True . chapters draft
+		renderSection defaultRenderContext{draft=draft} Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
@@ -141,7 +141,7 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (RenderContext (Just section) draft False False False "") (Just section) False . chapters draft)
+			(mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=Just section}) (Just section) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()
