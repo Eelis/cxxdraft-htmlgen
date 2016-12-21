@@ -338,22 +338,25 @@ renderFig stripFig Figure{..} =
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
 instance Render RenderItem where
-	render (RenderItem _ (Item Nothing elems)) ctx = xml "li" [] $ render elems ctx
-	render (RenderItem ordered (Item (Just nn) elems)) ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
+	render RenderItem{item=Item Nothing elems} ctx = xml "li" [] $ render elems ctx
+	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
 		where
 			left
-				| ordered = "-4.5em"
+				| listOrdered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
 			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
 			linkText
-				| ordered = Text.pack (show (Prelude.last nn)) ++ "."
+				| listOrdered = Text.pack (show (Prelude.last nn)) ++ "."
 				| otherwise = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
 			linkClass
-				| ordered = "enumerated_item_num"
+				| listOrdered = "enumerated_item_num"
 				| otherwise = "marginalized"
 			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
-				(render (anchor{aClass=linkClass, aHref="#" ++ thisId, aText=linkText}) ctx')
+				(render (anchor
+					{ aClass = linkClass
+					, aHref  = "#" ++ thisId
+					, aText  = linkText}) ctx')
 
 instance Render Footnote where
 	render (Footnote n content) = \sec ->
@@ -406,6 +409,7 @@ data RenderContext = RenderContext
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
 
+defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
 	{ page = Nothing
 	, draft = error "no draft"

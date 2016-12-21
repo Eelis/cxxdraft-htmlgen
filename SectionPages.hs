@@ -14,6 +14,7 @@ import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
+import Data.Maybe (isJust)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render
@@ -23,20 +24,26 @@ import Util
 renderParagraph :: Paragraph -> RenderContext -> Text
 renderParagraph Paragraph{..} ctx =
 		(case paraNumber of
-			Just (flip render ctx -> i) ->
-				xml "div" [("class", "para"), ("id", idPrefix ctx ++ i)] .
-				(xml "div" [("class", "marginalizedparent")]
-					(render (anchor{
-						aClass = "marginalized",
-						aHref  = "#" ++ idPrefix ctx ++ i,
-						aText  = i
-					}) ctx') ++)
-			_ -> id)
+			Just (flip render ctx -> i) -> renderNumbered i
+			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
+		renderNumbered n =
+			let
+				idTag = if isJust (page ctx) then [("id", idPrefix ctx ++ n)] else []
+				a = anchor
+					{ aClass = "marginalized"
+					, aHref  =
+						if isJust (page ctx)
+							then "#" ++ idPrefix ctx ++ n
+							else "SectionToSection/" ++ url (abbreviation paraSection) ++ "#" ++ n
+					, aText  = n }
+			in
+				xml "div" (("class", "para") : idTag) .
+				(xml "div" [("class", "marginalizedparent")] (render a ctx') ++)
 		ctx' = case paraNumber of
-			Just (flip render ctx -> i) -> ctx{ idPrefix = idPrefix ctx ++ i ++ "." }
+			Just (flip render ctx -> n) -> ctx{ idPrefix = idPrefix ctx ++ n ++ "." }
 			Nothing -> ctx
 
 parentLink :: Section -> Section -> Text

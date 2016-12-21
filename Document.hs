@@ -84,7 +84,8 @@ data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 data Paragraph = Paragraph
 	{ paraNumber :: Maybe Int
 	, paraInItemdescr :: Bool
-	, paraElems :: [Element] }
+	, paraElems :: [Element]
+	, paraSection :: Section }
 	deriving Show
 
 data Section = Section

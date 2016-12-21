@@ -602,11 +602,12 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> [LinearSection] -> m [Section]
 treeizeChapters _ [] = return []
 treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
-		newSec <- return Section{..}
+		let newSec = Section{..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
+				let paraSection = newSec
 				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
 		more'' <- treeizeChapters (sectionNumber + 1) more'
@@ -625,11 +626,12 @@ treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
-		newSec <- return Section{..}
+		let newSec = Section{..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
+				let paraSection = newSec
 				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
 		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
