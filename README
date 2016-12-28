@@ -68,7 +68,7 @@ Output
       temp.res#temp.dep   (the same section highlighted on the
                            page for section 14.6 "Name resolution")
 
-      temp#temp.dep       (the same section highlighted on the
+      temp#dep            (the same section highlighted on the
                            page for chapter 14 "Templates")
 
       full#temp.dep       (see below)
