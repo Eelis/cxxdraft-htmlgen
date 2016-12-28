@@ -137,9 +137,11 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 		r fn = simpleRender fn
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
-writeFullFile sfs draft = writeSectionFile "full" sfs "14882" $
-	mconcat $ applySectionFileStyle sfs . fst .
-		renderSection defaultRenderContext{draft=draft} Nothing True . chapters draft
+writeFullFile sfs draft = do
+	putStrLn "  full"
+	writeSectionFile "full" sfs "14882" $
+		mconcat $ applySectionFileStyle sfs . fst .
+			renderSection defaultRenderContext{draft=draft} Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
