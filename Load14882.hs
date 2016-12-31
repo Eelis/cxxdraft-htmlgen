@@ -21,7 +21,7 @@ import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Text.LaTeX.Base (protectString)
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>))
-import Data.Text (Text, replace)
+import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import Control.Monad (forM)
@@ -525,6 +525,23 @@ gitGetCommitRef = do
 	x <- readProcess "git" ["rev-parse", "HEAD"] ""
 	return $ Text.strip $ Text.pack $ x
 
+-- In the LaTeX sources, \definition is often preceded by corresponding \indexdefns.
+-- Since we treat definitions like sections (and generate pages for them), we need
+-- to move the \indexdefns inside (after) the \definition, so that the index entries
+-- don't link to the page for the preceding section.
+
+moveIndexEntriesIntoDefs :: Text -> Text
+moveIndexEntriesIntoDefs = Text.unlines . go . Text.lines
+	where
+		go :: [Text] -> [Text]
+		go [] = []
+		go (x:xs)
+			| "\\indexdefn{" `isPrefixOf` x = case go xs of
+				[] -> [x]
+				y:ys
+					| "\\definition{" `isPrefixOf` y -> y : x : ys
+					| otherwise -> x : y : ys
+			| otherwise = x : go xs
 
 -- Numbering
 
@@ -809,6 +826,7 @@ load14882 = do
 
 		stuff <-
 			replace "\\indeximpldef{" "\\index[impldefindex]{" .
+			moveIndexEntriesIntoDefs .
 			readFile p
 
 		extra <-
