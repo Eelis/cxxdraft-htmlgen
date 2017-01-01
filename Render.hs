@@ -20,7 +20,7 @@ import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft, Footnote(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
-	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr)
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..))
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
@@ -209,7 +209,7 @@ instance Render LaTeX where
 			else linkToRemoteFigure (figureByAbbr draft abbr)
 		_ | "tab:" `isPrefixOf` simpleRender abbr ->
 			case tableByAbbr draft abbr of
-				Just t | not ([abbr] `elem` (tableAbbrs . tables page)) -> linkToRemoteTable t
+				Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> linkToRemoteTable t
 				_ -> anchor{aHref = "#" ++ url abbr}
 		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId = "nt:"++s, aText = s++":"}
@@ -235,8 +235,12 @@ instance Render LaTeX where
 	render (TeXComm "leftshift" [FixArg content]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
 	render (TeXComm "verb" [FixArg a]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
-	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) =
-		render anchor{aClass="footnotenum", aText=n, aHref="#footnote-" ++ n}
+	render (TeXComm "footnoteref" [FixArg (TeXRaw n)]) = \ctx -> flip render ctx $ anchor
+		{ aClass = "footnotenum"
+		, aText  = n
+		, aHref  =
+			(if isJust (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+			++ "#footnote-" ++ n }
 	render (TeXComm "raisebox" args)
 		| FixArg (TeXRaw d) <- head args
 		, FixArg content <- Prelude.last args =
@@ -346,27 +350,39 @@ instance Render RenderItem where
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
 			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
+			dottedNumber = Text.intercalate "." (Text.pack . show . nn)
 			linkText
 				| listOrdered = Text.pack (show (Prelude.last nn)) ++ "."
-				| otherwise = "(" ++ Text.intercalate "." (Text.pack . show . nn) ++ ")"
+				| otherwise = "(" ++ dottedNumber ++ ")"
 			linkClass
 				| listOrdered = "enumerated_item_num"
 				| otherwise = "marginalized"
-			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)]
-				(render (anchor
+			margin :: Text
+			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx')
+			link = anchor
 					{ aClass = linkClass
-					, aHref  = "#" ++ thisId
-					, aText  = linkText}) ctx')
+					, aHref  = if isJust (page ctx)
+						then "#" ++ thisId
+						else "SectionToSection/" ++ paraUrl ctx ++ "#" ++ dottedNumber
+					, aText  = linkText }
+
+paraUrl :: RenderContext -> Text
+paraUrl = url . abbreviation . paraSection . nearestEnclosingPara
 
 instance Render Footnote where
-	render (Footnote n content) = \sec ->
-		let
-			num = render n sec
-		in
+	render (Footnote n content) ctx =
 			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
 			xml "div" [("class", "footnoteNumberParent")]
-				(render anchor{aText=num++")", aHref="#footnote-" ++ num, aClass="marginalized"} sec) ++
-			render content sec
+			(render link ctx) ++
+			render content ctx
+		where
+			num = render n ctx
+			link = anchor
+				{ aText  = num ++ ")"
+				, aHref  =
+					(if isJust (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+					++ "#footnote-" ++ num
+				, aClass = "marginalized" }
 
 instance Render Element where
 	render (LatexElements t) = \sec ->
@@ -403,6 +419,7 @@ isComplexMath _ = False
 data RenderContext = RenderContext
 	{ page :: Maybe Section
 	, draft :: Draft
+	, nearestEnclosingPara :: Paragraph
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
@@ -413,6 +430,7 @@ defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
 	{ page = Nothing
 	, draft = error "no draft"
+	, nearestEnclosingPara = error "no para"
 	, rawHyphens = False
 	, rawTilde = False
 	, rawSpace = False
@@ -576,7 +594,7 @@ renderTable colspec a sec =
 		renderCols (c : cs) colnum clines (Cell{..} : rest)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
-				let 
+				let
 					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
 					c' = combine c'' c ++ clineClass colnum clines
 					colspan

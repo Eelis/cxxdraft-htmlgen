@@ -21,14 +21,15 @@ import Render
 import Document
 import Util
 
-renderParagraph :: Paragraph -> RenderContext -> Text
-renderParagraph Paragraph{..} ctx =
+renderParagraph :: RenderContext -> Text
+renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
+		renderNumbered :: Text -> Text -> Text
 		renderNumbered n =
 			let
 				idTag = if isJust (page ctx) then [("id", idPrefix ctx ++ n)] else []
@@ -58,7 +59,7 @@ renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		xml "div" [("id", secOnPage)] $ header ++
 		mconcat (map
-			(\p -> renderParagraph p (context{idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
+			(\p -> renderParagraph (context{nearestEnclosingPara=p,idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
 			paragraphs) ++
 		mconcat (fst . renderSection context Nothing True . subsections)
 	| not anysubcontent = ("", False)
@@ -120,21 +121,21 @@ writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
 writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 	"<h1>List of Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
-	++ mconcat (r . tables draft)
+	++ mconcat (uncurry r . tables draft)
 	where
-		r :: Table -> Text
-		r t@Table{tableSection=s@Section{..}, ..} =
+		r :: Paragraph -> Table -> Text
+		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t defaultRenderContext{draft=draft}
+			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosingPara=p}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
 	"<h1>List of Footnotes</h1>"
-	++ mconcat (r . footnotes draft)
+	++ mconcat (uncurry r . footnotes draft)
 	where
-		r :: Footnote -> Text
-		r fn = simpleRender fn
+		r :: Paragraph -> Footnote -> Text
+		r p fn = render fn defaultRenderContext{nearestEnclosingPara=p}
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = do

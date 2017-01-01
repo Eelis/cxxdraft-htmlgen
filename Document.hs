@@ -2,10 +2,10 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
 module Document (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Elements, Paragraph(..),
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
-	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, withSubsections,
+	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices,
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
 
@@ -190,46 +190,38 @@ indexCatName "libraryindex" = "Index of library names"
 indexCatName "generalindex" = "Index"
 indexCatName _ = error "indexCatName"
 
--- Gathering sections/tables/figures/footnotes:
+-- Gathering entities:
 
 class Sections a where sections :: a -> [Section]
 
-instance Sections Section where sections s = s : concatMap sections (subsections s)
-
+instance Sections Section where sections s = s : (subsections s >>= sections)
 instance Sections Draft where sections = concatMap sections . chapters
+instance Sections a => Sections (Maybe a) where sections = maybe [] sections
 
-class Elements a where elements :: a -> [Element]
+allParagraphs :: Sections a => a -> [Paragraph]
+allParagraphs = (>>= paragraphs) . sections
 
-instance Elements a => Elements (Maybe a) where elements = maybe [] elements
+allElements :: Paragraph -> [Element]
+allElements p = paraElems p >>= f
+	where
+		f :: Element -> [Element]
+		f e = e : case e of
+			Enumerated {..} -> enumItems >>= itemContent >>= f
+			TableElement Table{..} -> tableBody >>= cells >>= content >>= f
+			FootnoteElement Footnote{..} -> footnoteContent >>= f
+			Minipage x -> x >>= f
+			_ -> []
 
-instance Elements a => Elements [a] where elements = concatMap elements
+tables :: Sections a => a -> [(Paragraph, Table)]
+tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allElements p]
 
-instance Elements Draft where elements = elements . chapters
+figures :: Sections a => a -> [Figure]
+figures x = [f | p <- allParagraphs x, FigureElement f <- allElements p]
 
-instance Elements Section where
-	elements Section{..} = elements (paraElems . paragraphs) ++ elements subsections
-
-instance Elements Element where
-	elements e = e : case e of
-		Enumerated {..} -> elements $ itemContent . enumItems
-		TableElement Table{..} -> elements $ tableBody >>= ((>>= content) . cells)
-		FootnoteElement Footnote{..} -> elements footnoteContent
-		Minipage x -> elements x
-		_ -> []
-
-tables :: Elements a => a -> [Table]
-tables x = [t | TableElement t <- elements x]
-
-figures :: Elements a => a -> [Figure]
-figures x = [f | FigureElement f <- elements x]
-
-footnotes :: Elements a => a -> [Footnote]
-footnotes x = [f | FootnoteElement f <- elements x]
+footnotes :: Sections a => a -> [(Paragraph, Footnote)]
+footnotes x = [(p, f) | p <- allParagraphs x, FootnoteElement f <- allElements p]
 
 -- Misc:
-
-withSubsections :: Section -> [Section]
-withSubsections s = s : concatMap withSubsections (subsections s)
 
 elemTex :: Element -> [LaTeX]
 elemTex (LatexElements l) = l
@@ -247,7 +239,7 @@ elemTex (FigureElement _) = []
 
 tableByAbbr :: Draft -> LaTeX -> Maybe Table
 	-- only returns Maybe because some of our tables are broken
-tableByAbbr d a = listToMaybe [ t | t <- tables d, a `elem` tableAbbrs t ]
+tableByAbbr d a = listToMaybe [ t | (_, t) <- tables d, a `elem` tableAbbrs t ]
 
 figureByAbbr :: Draft -> LaTeX -> Figure
 figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of

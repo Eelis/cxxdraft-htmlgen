@@ -89,7 +89,7 @@ writeTocFile sfs draft@Draft{..} = do
 		fileContent "" "14882: Contents" $
 			xml "div" [("class", "tocHeader")] (tocHeader date commitUrl) ++
 			"<h1>Contents</h1>" ++
-			listOfTables (tables draft) ++
+			listOfTables (snd . tables draft) ++
 			listOfFigures (figures draft) ++
 			mconcat (tocChapter . chapters) ++
 			mconcat (h 2

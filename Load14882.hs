@@ -771,14 +771,14 @@ instance Show RawIndexEntry where
 sectionIndexEntries :: Section -> [RawIndexEntry]
 sectionIndexEntries s =
 	[ RawIndexEntry{..}
-	| indexSection <- withSubsections s
+	| indexSection <- sections s
 	, [OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
 		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
 	[ RawIndexEntry
 		{ indexCategory = "generalindex"
 		, rawIndexKind = Just DefinitionIndex
 		, ..}
-	| indexSection <- withSubsections s
+	| indexSection <- sections s
 	, [FixArg _, FixArg (parseIndex -> (rawIndexPath, Nothing))]
 		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
 
