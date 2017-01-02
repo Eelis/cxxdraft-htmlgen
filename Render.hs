@@ -36,7 +36,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
-import LaTeXUtil (texFromArg)
+import LaTeXUtil (texFromArg, trim)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "discretionary", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily"]
@@ -508,6 +508,7 @@ renderSimpleMath (TeXSeq (TeXComm "frac" [(FixArg num)]) rest) sec =
 		findDenum (TeXSeq _ r) = findDenum r
 		findDenum r = (r, TeXEmpty)
 renderSimpleMath (TeXSeq a b) sec = (renderSimpleMath a sec) ++ (renderSimpleMath b sec)
+renderSimpleMath (TeXMath Dollar m) sec = renderSimpleMath (trim m) sec
 renderSimpleMath (TeXMath _ m) sec = renderSimpleMath m sec
 renderSimpleMath other sec = render other sec
 

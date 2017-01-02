@@ -4,10 +4,12 @@
 module LaTeXUtil where
 
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), texmap)
-import Prelude hiding ((.), (++), writeFile)
+import Prelude hiding ((.), (++), writeFile, dropWhile)
 import Data.Text (Text, pack, unpack)
+import qualified Data.Text as Text
 import Data.Maybe (isJust, fromJust)
 import Data.Map (Map)
+import Data.Char (isSpace)
 import qualified Data.Map as Map
 import Util ((.), (++), getDigit, stripInfix)
 import Control.Arrow (first)
@@ -218,3 +220,19 @@ texStripInfix t = go
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
 rmseqs x = [x]
+
+dropWhile :: (Char -> Bool) -> LaTeX -> LaTeX
+dropWhile p (TeXSeq x y) = TeXSeq (dropWhile p x) y
+dropWhile p (TeXRaw x) = TeXRaw (Text.dropWhile p x)
+dropWhile _ x = x
+
+dropWhileEnd :: (Char -> Bool) -> LaTeX -> LaTeX
+dropWhileEnd p (TeXSeq x y) = TeXSeq x (dropWhileEnd p y)
+dropWhileEnd p (TeXRaw x) = TeXRaw (Text.dropWhileEnd p x)
+dropWhileEnd _ x = x
+
+-- These dropWhile and dropWhileEnd only make a half-hearted effort, in that
+-- they don't handle TeXRaws sequenced together, but we don't need that.
+
+trim :: LaTeX -> LaTeX
+trim = dropWhile isSpace . dropWhileEnd isSpace
