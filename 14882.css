@@ -149,19 +149,6 @@ span.mathalpha {
 	font-style: italic;
 }
 
-img.mathinlineimg {
-	display: inline;
-	vertical-align: middle;
-}
-
-img.mathblockimg {
-	display: block;
-	margin-left: auto;
-	margin-right: auto;
-	margin-top: 1.2em;
-	margin-bottom: 1.2em;
-}
-
 span.synopsis {
 	font-weight: bold;
 	margin-top: 0.5em;

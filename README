@@ -1,8 +1,8 @@
 Introduction
 
   cxxdraft-htmlgen parses the LaTeX sources of the draft, and
-  generates an HTML version, with figures embedded as inline SVG,
-  and math formulas as LaTeX-rendered PNG images.
+  generates an HTML version, with figures and math formulas
+  embedded as inline SVG.
 
 Prerequisites
 
@@ -10,7 +10,7 @@ Prerequisites
   - graphviz
   - dvipng
   - git
-  - latex
+  - mathjax-node (npm package)
 
 Usage
 
@@ -76,9 +76,6 @@ Output
   - full         ~8 mbyte, the entire draft.
 
   - 14882.css    Used by all of the above.
-
-  - math/        Subdirectory with .png images containing rendered
-                 mathematical formulas.
 
 Todo
 

@@ -26,14 +26,12 @@ import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
 import Data.Char (isAlpha, isSpace)
-import Control.Monad (when, liftM2)
+import Control.Monad (liftM2)
 import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO.Unsafe (unsafePerformIO)
-import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcess)
-import System.Directory (doesFileExist)
-import Data.Hashable (hash)
+import Data.MemoTrie (memo2)
 import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust)
@@ -514,40 +512,19 @@ renderSimpleMath (TeXMath _ m) sec = renderSimpleMath m sec
 renderSimpleMath other sec = render other sec
 
 renderComplexMath :: LaTeX -> Text
-renderComplexMath m =
-	unsafePerformIO $ do
-	exists <- doesFileExist filePath
-	when (not exists) generateImage
-	return $ "<img src='ToImage/" ++ Text.pack fileName ++ "' class='" ++ imgClass m ++ "' alt='" ++ escape math ++ "'/>"
-
+renderComplexMath x = case x of
+		TeXMath kind t -> memodRenderMath (Text.unpack $ prepMath t) (kind == Dollar)
+		TeXEnv "eqnarray*" [] _ -> memodRenderMath (Text.unpack $ prepMath x) False
+		_ -> error "renderComplexMath"
 	where
-		imgClass (TeXMath Square _) = "mathblockimg"
-		imgClass (TeXMath _ _) = "mathinlineimg"
-		imgClass _ = "mathblockimg"
+		prepMath = Text.replace "\\ensuremath" "" . TeXRender.render
 
-		generateImage =
-			withSystemTempDirectory "genhtml" $ \tmp -> do
-			_ <- readProcess "latex" ["-output-format=dvi", "-output-directory=" ++ tmp, "-halt-on-error"] latex
-			_ <- readProcess "dvipng" ["-bg", "transparent", "-T", "tight", "-D", "130", tmp ++ "/texput.dvi", "-o", filePath] ""
-			return ()
-
-		escape = replace "'" "&apos;" . replace "&" "&amp;"
-
-		math = TeXRender.render m
-		fileName = (show . abs $ hash math) ++ ".png"
-		filePath = outputDir ++ imgDir ++ fileName
-		latex = Text.unpack $
-			"\\documentclass{article}\n" ++
-			"\\pagestyle{empty}\n" ++
-			"\\usepackage{array}\n" ++
-			"\\usepackage{amsmath}\n" ++
-			"\\usepackage{mathrsfs}\n" ++
-			"\\usepackage[T1]{fontenc}\n" ++
-			"\\begin{document}\n"
-			++
-			math
-			++
-			"\\end{document}\n"
+memodRenderMath :: String -> Bool -> Text
+memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
+	let args = ["--inline" | inline] ++ [s]
+	svg <- Text.replace " focusable=\"false\"" "" . Text.pack .
+		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2svg" args ""
+	return $ if inline then svg else "</p><p style='text-align:center'>" ++ svg ++ "</p><p>"
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =
