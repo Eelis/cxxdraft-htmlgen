@@ -12,7 +12,7 @@ module Render (
 	Render(render), url, renderTab, renderFig, simpleRender, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext,
-	abbrAsPath, abbreviations, imgDir, RenderContext(..),
+	abbrAsPath, abbreviations, RenderContext(..),
 	) where
 
 import Load14882 (parseIndex) -- todo: bad
@@ -616,7 +616,7 @@ renderBnfTable l = bnfPre . htmlTabs . render (preprocessPre l)
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
 
-data Link = TocToSection | SectionToToc | SectionToSection | ToImage
+data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
 
 linkToSection :: Link -> LaTeX -> Anchor
@@ -679,21 +679,17 @@ doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
 		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = x ++ f a ++ go (b : z)
 		go [x] = x
 		go _ = undefined
-		idir = Text.pack imgDir
 		f :: Text -> Text
 		f u = case (sfs, l) of
 			(Bare, SectionToToc) -> "./#" ++ u
 			(Bare, TocToSection) -> dotSlashForColon u
 			(Bare, SectionToSection) -> dotSlashForColon u
-			(Bare, ToImage) -> idir ++ u
 			(InSubdir, SectionToToc) -> "../#" ++ u
 			(InSubdir, TocToSection) -> u ++ "/"
 			(InSubdir, SectionToSection) -> "../" ++ u
-			(InSubdir, ToImage) -> "../" ++ idir ++ u
 			(WithExtension, SectionToToc) -> "index.html#" ++ u
 			(WithExtension, TocToSection) -> dotSlashForColon u ++ ".html"
 			(WithExtension, SectionToSection) -> dotSlashForColon u ++ ".html"
-			(WithExtension, ToImage) -> idir ++ u
 		dotSlashForColon x = if ':' `elem` Text.unpack x then "./" ++ x else x
 			-- Without this, we generate urls like "string::replace.html",
 			-- in which "string" is parsed as the protocol.
@@ -703,8 +699,6 @@ applySectionFileStyle sfs =
 	doLink sfs SectionToSection
 	. doLink sfs SectionToToc
 	. doLink sfs TocToSection
-	. doLink sfs ToImage
 
-outputDir, imgDir :: FilePath
+outputDir :: FilePath
 outputDir = "14882/"
-imgDir = "math/"

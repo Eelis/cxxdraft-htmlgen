@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
-import Render (imgDir, outputDir, SectionFileStyle(..))
+import Render (outputDir, SectionFileStyle(..))
 import Document (Draft(..), figures)
 import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
@@ -33,7 +33,6 @@ main = do
 	setCurrentDirectory cwd
 	putStrLn $ "Writing to " ++ outputDir
 	createDirectoryIfMissing True outputDir
-	createDirectoryIfMissing True (outputDir ++ imgDir)
 	copyFile "14882.css" (outputDir ++ "/14882.css")
 	writeTocFile sectionFileStyle draft
 	writeIndexFiles sectionFileStyle index
