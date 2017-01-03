@@ -266,6 +266,6 @@ div.indented {
 	margin-top: 1em;
 }
 
-ol.enumeratea { list-style-type: lower-alpha; }
+ol.enumeratea { list-style-type: none; }
 
 ol.enumerate { list-style-type: none; }

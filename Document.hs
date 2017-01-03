@@ -47,7 +47,7 @@ data Figure = Figure
 	deriving Show
 
 data Item = Item
-	{ itemNumber :: Maybe [Int]
+	{ itemNumber :: Maybe [String]
 	, itemContent :: [Element] }
 	deriving Show
 

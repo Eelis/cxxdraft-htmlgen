@@ -168,6 +168,8 @@ class Render a where render :: a -> RenderContext -> Text
 instance Render a => Render [a] where
 	render = mconcat . map render
 
+instance Render Char where render c _ = Text.pack [c]
+
 instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
 
@@ -346,11 +348,18 @@ instance Render RenderItem where
 			left
 				| listOrdered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
-			thisId = idPrefix ctx ++ simpleRender (Prelude.last nn)
+			thisId = idPrefix ctx ++ Text.pack (Prelude.last nn)
 			ctx' = ctx{ idPrefix = thisId ++ "." }
-			dottedNumber = Text.intercalate "." (Text.pack . show . nn)
+			dottedNumber = Text.intercalate "." (Text.pack . nn)
 			linkText
-				| listOrdered = Text.pack (show (Prelude.last nn)) ++ "."
+				| listOrdered =
+					let
+						s = Prelude.last nn
+						punct
+							| isAlpha (head s) = ")"
+							| otherwise = "."
+					in
+						Text.pack $ s ++ punct
 				| otherwise = "(" ++ dottedNumber ++ ")"
 			linkClass
 				| listOrdered = "enumerated_item_num"
@@ -395,7 +404,7 @@ instance Render Element where
 	render (FigureElement f) = return $ renderFig False f
 	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
-			render (RenderItem (enumCmd == "enumerate") . enumItems)
+			render (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where
 			t = case enumCmd of
 				"enumeratea" -> "ol"

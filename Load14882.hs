@@ -67,9 +67,12 @@ assignItemNumbers p
 		goElems nn (e:ee) = case e of
 			Enumerated{..} ->
 				let
+					h l
+						| enumCmd == "enumeratea" = map show (init l) ++ [[['a'..] !! (last l - 1)]]
+						| otherwise = map show l
 					items' = map (\(i, Item{..}) ->
 						Item
-							(Just (mapLast (+i) nn))
+							(Just (h $ mapLast (+i) nn))
 							(fst (goElems (mapLast (+i) nn ++ [1]) itemContent))
 						) (zip [0..] enumItems)
 				in
