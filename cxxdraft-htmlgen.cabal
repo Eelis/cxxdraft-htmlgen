@@ -23,6 +23,7 @@ executable cxxdraft-htmlgen
                , containers >=0.5 && <0.6
                , mtl >=2.2 && <2.3
                , time >=1.4 && <1.7
+               , MemoTrie
                , regex-compat
                , temporary
   hs-source-dirs:      .
