@@ -417,9 +417,10 @@ instance Render Element where
 
 isComplexMath :: LaTeX -> Bool
 isComplexMath (TeXMath _ t) = 
-	(not . null $ matchCommand (`elem` ["frac", "sum", "binom", "int"]) t)
+	(not . null $ matchCommand (`elem` complexCmds) t)
 	||
 	(not . null $ matchEnv (`elem` ["array"]) t)
+	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil"
 isComplexMath (TeXEnv e _ _) = e `elem` ["eqnarray*"]
 isComplexMath _ = False
 
