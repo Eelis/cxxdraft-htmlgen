@@ -8,12 +8,14 @@ module SectionPages
 	, writeTablesFile
 	, writeIndexFiles
 	, writeFootnotesFile
+	, writeCssFile
 	) where
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
+import System.Process (readProcess)
 import Data.Maybe (isJust)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -158,3 +160,25 @@ writeIndexFiles :: SectionFileStyle -> Index -> IO ()
 writeIndexFiles sfs index = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
 	putStrLn $ "  " ++ cat
 	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ simpleRender i
+
+writeCssFile :: IO ()
+writeCssFile = do
+	base <- Text.pack . readFile "14882.css"
+	let
+		replaceFonts =
+			Text.replace
+				".MJXc-TeX-sans-R {font-family: MJXc-TeX-sans-R,MJXc-TeX-sans-Rw}"
+				".MJXc-TeX-sans-R {font-family: sans-serif}" .
+			Text.replace
+				".MJXc-TeX-type-R {font-family: MJXc-TeX-type-R,MJXc-TeX-type-Rw}"
+				".MJXc-TeX-type-R {font-family: monospace}" .
+			Text.replace
+				".MJXc-TeX-main-R {font-family: MJXc-TeX-main-R,MJXc-TeX-main-Rw}"
+				".MJXc-TeX-main-R {}" .
+			Text.replace
+				".MJXc-TeX-math-I {font-family: MJXc-TeX-math-I,MJXc-TeX-math-Ix,MJXc-TeX-math-Iw}"
+				".MJXc-TeX-math-I {font-style: italic}"
+		-- Replace fonts to make sure code in formulas matches code in code blocks, etc.
+	mjx <- replaceFonts . Text.pack .
+		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" ["--css", ""] ""
+	writeFile (outputDir ++ "/14882.css") (base ++ mjx)

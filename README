@@ -1,8 +1,7 @@
 Introduction
 
-  cxxdraft-htmlgen parses the LaTeX sources of the draft, and
-  generates a static HTML version, with figures and math formulas
-  embedded as inline SVG.
+  cxxdraft-htmlgen parses the LaTeX sources of the draft,
+  and generates static HTML pages from them.
 
 Prerequisites
 

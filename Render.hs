@@ -532,9 +532,9 @@ renderComplexMath x = case x of
 memodRenderMath :: String -> Bool -> Text
 memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 	let args = ["--inline" | inline] ++ [s]
-	svg <- Text.replace " focusable=\"false\"" "" . Text.pack .
-		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2svg" args ""
-	return $ if inline then svg else "</p><p style='text-align:center'>" ++ svg ++ "</p><p>"
+	formula <- Text.replace " focusable=\"false\"" "" . Text.pack .
+		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
+	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =
