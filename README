@@ -1,15 +1,18 @@
 Introduction
 
   cxxdraft-htmlgen parses the LaTeX sources of the draft, and
-  generates an HTML version, with figures and math formulas
+  generates a static HTML version, with figures and math formulas
   embedded as inline SVG.
 
 Prerequisites
 
-  - various Hackage packages (see cxxdraft-htmlgen.cabal)
-  - graphviz
-  - dvipng
-  - git
+  - A filesystem that supports punctuation in filenames
+     (this may rule out Windows filesystems)
+  - Git
+  - The C++ Standard Draft Sources (https://github.com/cplusplus/draft)
+  - The Haskell Platform (https://www.haskell.org/platform/)
+  - Graphviz
+  - Node.js
   - mathjax-node (npm package)
 
 Usage
@@ -21,7 +24,7 @@ Usage
 
     runhaskell genhtml.hs path/to/draft [sectionfilestyle]
 
-  Where sectionfilestyle is one of:
+  where sectionfilestyle is one of:
 
     Bare            (to generate e.g. intro.execution)
     WithExtension   (to generate e.g. intro.execution.html)
@@ -73,7 +76,7 @@ Output
 
       full#temp.dep       (see below)
 
-  - full         ~8 mbyte, the entire draft.
+  - full         ~9 mbyte, the entire draft.
 
   - 14882.css    Used by all of the above.
 
