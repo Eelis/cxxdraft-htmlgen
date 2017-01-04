@@ -88,3 +88,4 @@ Todo
     does not support tab stops)
   - put note/example prefixes/suffixes in inline-block so the whitespace within
     them doesn't get stretched (will require recognizing note/example environments)
+  - item label for rand.adapt.shuf#2.a too high (due to math)

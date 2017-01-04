@@ -45,7 +45,7 @@ literal = [" ", "#", "{", "}", "~", "%", ""]
 simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
-	, (","              , "&nbsp;")
+	, (","              , " ")
 	, ("\""             , "\"")
 	, ("prime"          , "'")
 	, ("caret"          , "^")
