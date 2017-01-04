@@ -36,7 +36,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
-import LaTeXUtil (texFromArg, trim)
+import LaTeXUtil (texFromArg, trim, trimr)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "discretionary", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily"]
@@ -402,7 +402,7 @@ instance Render Element where
 	render (Tabbing t) =
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
-	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render code c{rawTilde=True, rawHyphens=True, rawSpace=True})
+	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render (trimr code) c{rawTilde=True, rawHyphens=True, rawSpace=True})
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			render (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where

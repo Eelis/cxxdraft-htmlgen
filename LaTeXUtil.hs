@@ -234,5 +234,7 @@ dropWhileEnd _ x = x
 -- These dropWhile and dropWhileEnd only make a half-hearted effort, in that
 -- they don't handle TeXRaws sequenced together, but we don't need that.
 
-trim :: LaTeX -> LaTeX
-trim = dropWhile isSpace . dropWhileEnd isSpace
+triml, trimr, trim :: LaTeX -> LaTeX
+triml = dropWhile isSpace
+trimr = dropWhileEnd isSpace
+trim = triml . trimr
