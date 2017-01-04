@@ -5,7 +5,7 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
-	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices,
+	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
 
@@ -81,11 +81,17 @@ data SectionKind
 data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving (Eq, Show)
 
+data SourceLocation = SourceLocation
+	{ sourceFile :: FilePath
+	, sourceLine :: Int }
+	deriving (Eq, Show)
+
 data Paragraph = Paragraph
 	{ paraNumber :: Maybe Int
 	, paraInItemdescr :: Bool
 	, paraElems :: [Element]
-	, paraSection :: Section }
+	, paraSection :: Section
+	, paraSourceLoc :: Maybe SourceLocation }
 	deriving Show
 
 data Section = Section

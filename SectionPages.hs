@@ -24,13 +24,25 @@ import Document
 import Util
 
 renderParagraph :: RenderContext -> Text
-renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}} =
+renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Draft{..}} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
-		$ (render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
+		$ (sourceLink
+		  ++ render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
+		urlBase = Text.replace "/commit/" "/tree/" commitUrl ++ "/source/"
+		sourceLink :: Text
+		sourceLink
+			| Just SourceLocation{..} <- paraSourceLoc =
+				xml "div" [("class", "sourceLinkParent")]
+				$ simpleRender $ anchor
+					{ aClass = "sourceLink"
+					, aText = "#"
+					, aHref = urlBase ++ Text.pack (sourceFile ++ "#L" ++ show sourceLine) }
+			| otherwise = ""
+
 		renderNumbered :: Text -> Text -> Text
 		renderNumbered n =
 			let

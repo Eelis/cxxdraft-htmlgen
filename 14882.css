@@ -46,6 +46,20 @@ div.tocChapter { display: none; }
 .secnum { display: inline-block; min-width: 35pt; }
 .annexnum { display: block; }
 
+div.sourceLinkParent {
+	float: right;
+}
+
+a.sourceLink {
+	position: absolute;
+	opacity: 0;
+	margin-left: 10pt;
+}
+
+a.sourceLink:hover {
+	opacity: 1;
+}
+
 div.marginalizedparent {
 	position: relative;
 	left: -5em;

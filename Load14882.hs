@@ -38,7 +38,7 @@ import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
-import Util ((.), (++), mapLast, mapHead)
+import Util ((.), (++), mapLast, mapHead, stripInfix)
 import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, Macros(..), Environment(..), Command(..), eval, rmseqs, texStripInfix)
 
 data RawElement
@@ -87,7 +87,8 @@ type RawElements = [RawElement]
 data RawParagraph = RawParagraph
 	{ paraNumbered :: Bool
 	, rawParaInItemdescr :: Bool
-	, rawParaElems :: RawElements }
+	, rawParaElems :: RawElements
+	, rawParaSourceLoc :: Maybe SourceLocation }
 	deriving Show
 
 data LinearSection = LinearSection
@@ -137,7 +138,7 @@ isComment _ = False
 
 isParaEnd :: LaTeX -> Bool
 isParaEnd (TeXEnv "itemdescr" _ _) = True
-isParaEnd (TeXCommS "pnum") = True
+isParaEnd (TeXComm "pnum" _) = True
 isParaEnd x = isParasEnd x
 
 isParasEnd :: LaTeX -> Bool
@@ -327,16 +328,19 @@ elems y@(x:xs)
 
 parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX] {- rest -})
 parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
-		= (collectParas stuff ++ [RawParagraph False False $ RawFootnote . fs], rest)
+		= (collectParas stuff ++ [RawParagraph False False (RawFootnote . fs) Nothing], rest)
 	where
 		collectParas :: [LaTeX] -> [RawParagraph]
 		collectParas (TeXEnv "itemdescr" _ desc : more) =
 			map (\p -> p{rawParaInItemdescr=True}) (collectParas $ rmseqs desc)
 			++ collectParas more
-		collectParas (TeXCommS "pnum" : more) =
-			(\(p : x) -> p{paraNumbered=True} : x) (collectParas more)
+		collectParas (TeXComm "pnum"
+			[ FixArg (TeXRaw (Text.unpack -> file))
+			, FixArg (TeXRaw (Text.unpack -> read -> lineNr))] : more) =
+				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Just (SourceLocation file lineNr)} : x)
+				(collectParas more)
 		collectParas [] = []
-		collectParas x = (RawParagraph False False (parsePara p) : ps)
+		collectParas x = (RawParagraph False False (parsePara p) Nothing : ps)
 			where
 				ps = collectParas more
 				(p, more) = break isParaEnd x
@@ -628,6 +632,7 @@ treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
 				let paraSection = newSec
+				let paraSourceLoc = rawParaSourceLoc
 				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
 		more'' <- treeizeChapters (sectionNumber + 1) more'
@@ -652,6 +657,7 @@ treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
 			\(paraNumber, RawParagraph{..}) -> do
 				paraElems <- assignNumbers newSec rawParaElems
 				let paraSection = newSec
+				let paraSourceLoc = rawParaSourceLoc
 				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
 		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
@@ -793,6 +799,18 @@ toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
 		go _ = error "toIndex"
 
+
+
+trackPnums :: FilePath -> Text -> Text
+	-- Replaces \pnum with \pnum{file}{line}
+trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Text.unpack
+	where
+		f :: Integer -> String -> String
+		f lineNr line
+			| Just (pre, post) <- stripInfix "\\pnum" line
+				= pre ++ "\\pnum{" ++ file ++ "}{" ++ show lineNr ++ "}" ++ post
+			| otherwise = line
+
 load14882 :: IO Draft
 load14882 = do
 
@@ -830,6 +848,7 @@ load14882 = do
 		stuff <-
 			replace "\\indeximpldef{" "\\index[impldefindex]{" .
 			moveIndexEntriesIntoDefs .
+			trackPnums p .
 			readFile p
 
 		extra <-
