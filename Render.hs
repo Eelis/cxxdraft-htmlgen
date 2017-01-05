@@ -40,12 +40,13 @@ import LaTeXUtil (texFromArg, trim, trimr)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "discretionary", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily"]
-literal = [" ", "#", "{", "}", "~", "%", ""]
+literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
 	, (","              , " ")
+	, (" "              , "&nbsp;")
 	, ("\""             , "\"")
 	, ("prime"          , "'")
 	, ("caret"          , "^")
