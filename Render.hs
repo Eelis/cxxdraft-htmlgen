@@ -217,8 +217,6 @@ instance Render LaTeX where
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
-	render (TeXComm "bigoh" [FixArg content]) =
-		spanTag "math" . ("Ο(" ++) . (++ ")") . renderMath content
 	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<span class='texttt'>" ++ render x ctx{rawHyphens=True} ++ "</span>"
 	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
@@ -419,14 +417,24 @@ instance Render Element where
 	render (FootnoteElement e) = render e
 	render (Minipage content) = xml "div" [("class", "minipage")] . render content
 
+allText :: LaTeX -> [Text]
+allText (TeXRaw x) = [x]
+allText (TeXSeq x y) = allText x ++ allText y
+allText (TeXComm _ args) = concat (map (allText . texFromArg) args)
+allText (TeXEnv _ _ x) = allText x
+allText (TeXBraces x) = allText x
+allText (TeXMath _ x) = allText x
+allText _ = []
+
+trimText :: Text -> Text
+trimText = Text.dropWhile isSpace . Text.dropWhileEnd isSpace
+
 isComplexMath :: LaTeX -> Bool
-isComplexMath (TeXMath _ t) = 
+isComplexMath t =
 	(not . null $ matchCommand (`elem` complexCmds) t)
-	||
-	(not . null $ matchEnv (`elem` ["array"]) t)
-	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil"
-isComplexMath (TeXEnv e _ _) = e `elem` ["eqnarray*"]
-isComplexMath _ = False
+	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
+	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ trimText $ Text.concat $ allText t)
+	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log"
 
 data RenderContext = RenderContext
 	{ page :: Maybe Section
@@ -530,16 +538,24 @@ renderComplexMath :: LaTeX -> Text
 renderComplexMath x = case x of
 		TeXMath kind t -> memodRenderMath (Text.unpack $ prepMath t) (kind == Dollar)
 		TeXEnv "eqnarray*" [] _ -> memodRenderMath (Text.unpack $ prepMath x) False
-		_ -> error "renderComplexMath"
+		_ -> memodRenderMath (Text.unpack $ prepMath x) True
 	where
 		prepMath = Text.replace "\\ensuremath" "" . TeXRender.render
 
+rmTrailingNewline :: Text -> Text
+rmTrailingNewline (Text.stripSuffix "\n" -> Just x) = x
+rmTrailingNewline x = x
+
 memodRenderMath :: String -> Bool -> Text
 memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
-	let args = ["--inline" | inline] ++ [s]
-	formula <- Text.replace " focusable=\"false\"" "" . Text.pack .
-		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
+	let args = ["--inline" | inline] ++ ["--", cleanup s]
+	formula <- Text.replace " focusable=\"false\"" "" 
+		. rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
+		. Text.pack . readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
 	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
+	where
+		cleanup = Text.unpack . Text.replace "\\discretionary{}{}" "" . Text.pack
+			-- MathJax does not seem to support \discretionary.
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =

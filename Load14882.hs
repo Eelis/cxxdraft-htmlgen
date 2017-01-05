@@ -385,7 +385,7 @@ initialMacros = mempty
 		[ ("gramSec", Command 2 "") ]}
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep bigoh itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea"
 
 parseStr :: String -> LaTeX
 parseStr = doParse . Text.pack
