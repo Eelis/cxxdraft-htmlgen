@@ -34,7 +34,7 @@ import System.Process (readProcess)
 import Data.MemoTrie (memo2)
 import Data.List (find, nub)
 import qualified Data.Map as Map
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
 import LaTeXUtil (texFromArg, trim, trimr)
 
@@ -344,7 +344,7 @@ data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
 instance Render RenderItem where
 	render RenderItem{item=Item Nothing elems} ctx = xml "li" [] $ render elems ctx
-	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ margin ++ render elems ctx'
+	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ addItemLink $ render elems ctx'
 		where
 			left
 				| listOrdered = "-4.5em"
@@ -365,8 +365,11 @@ instance Render RenderItem where
 			linkClass
 				| listOrdered = "enumerated_item_num"
 				| otherwise = "marginalized"
-			margin :: Text
-			margin = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx')
+			addItemLink :: Text -> Text
+			addItemLink x
+				| listOrdered = "<p>" ++ render link ctx' ++ fromJust (Text.stripPrefix "<p >" x)
+					-- The link needs to be in the <p> so that it shares the baseline.
+				| otherwise = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx') ++ x
 			link = anchor
 					{ aClass = linkClass
 					, aHref  = if isJust (page ctx)
