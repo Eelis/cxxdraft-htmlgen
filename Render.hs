@@ -691,6 +691,7 @@ fileContent pathHome title body =
 			"<title>" ++ title ++ "</title>" ++
 			"<meta charset='UTF-8'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
+			"<link rel='icon' href='icon.png'/>" ++
 		"</head>" ++
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"

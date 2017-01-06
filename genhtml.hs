@@ -5,7 +5,7 @@ import Render (outputDir, SectionFileStyle(..))
 import Document (Draft(..), figures)
 import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
-import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory)
+import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
 import Util
 
@@ -35,6 +35,7 @@ main = do
 	setCurrentDirectory cwd
 	putStrLn $ "Writing to " ++ outputDir
 	createDirectoryIfMissing True outputDir
+	copyFile "icon.png" (outputDir ++ "/icon.png")
 	writeCssFile
 	writeTocFile sectionFileStyle draft
 	writeIndexFiles sectionFileStyle index
