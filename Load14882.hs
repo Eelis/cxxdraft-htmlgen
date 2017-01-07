@@ -39,7 +39,7 @@ import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix)
-import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, Macros(..), Environment(..), Command(..), eval, rmseqs, texStripInfix)
+import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, Macros(..), Environment(..), Command(..), eval, rmseqs, texStripInfix, rmWsAfterCommS)
 
 data RawElement
 	= RawLatexElements [LaTeX]
@@ -385,7 +385,7 @@ initialMacros = mempty
 		[ ("gramSec", Command 2 "") ]}
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx Cpp importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea"
 
 parseStr :: String -> LaTeX
 parseStr = doParse . Text.pack
@@ -479,6 +479,7 @@ doParse t = case parseLaTeX t of
 doParseLaTeX :: Text -> LaTeX
 doParseLaTeX =
 	reparseAtCommand
+	. rmWsAfterCommS
 	. reparseEnvs
 	. moreArgs
 	. doParse
@@ -604,7 +605,7 @@ instance AssignNumbers RawElement Element where
 		t' <- assignNumbers s t
 		return $ FootnoteElement Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 	assignNumbers s (RawEnumerated x p) = Enumerated x . (Item Nothing .) . assignNumbers s p
-	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s x
+	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s (filter (/= TeXRaw "") x)
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers s (RawCodeblock x) = Codeblock . assignNumbers s x

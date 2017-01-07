@@ -7,9 +7,10 @@ import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), texmap)
 import Prelude hiding ((.), (++), writeFile, dropWhile)
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text as Text
+import qualified Util
 import Data.Maybe (isJust, fromJust)
 import Data.Map (Map)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isAlphaNum)
 import qualified Data.Map as Map
 import Util ((.), (++), getDigit, stripInfix)
 import Control.Arrow (first)
@@ -238,3 +239,54 @@ triml, trimr, trim :: LaTeX -> LaTeX
 triml = dropWhile isSpace
 trimr = dropWhileEnd isSpace
 trim = triml . trimr
+
+isMath :: LaTeX -> Bool
+isMath (TeXMath _ _) = True
+isMath (TeXComm "ensuremath" _) = True
+isMath (TeXEnv "eqnarray*" _ _) = True
+isMath _ = False
+
+rmWsAfterCommS :: LaTeX -> LaTeX
+	-- Needed for "\dcr x" --> "--x"
+rmWsAfterCommS y
+		| isMath y = y -- don't touch math because it will be re-serialized
+		               -- to TeX before passing on to MathJax
+		| otherwise = f y
+	where
+		f (TeXSeq (TeXCommS x) m)
+			| not (x `elem` words "{ & # %") = TeXSeq (TeXCommS x) (rmWsAfterCommS $ dropWhile (== ' ') m)
+		f x@TeXEmpty = x
+		f x@(TeXRaw _) = x
+		f x@(TeXCommS _) = x
+		f x@(TeXEnv "codeblock" _ _) = x
+		f x@(TeXEnv "itemdecl" _ _) = x
+		f (TeXEnv x a z) = TeXEnv x (map (mapTeXArg rmWsAfterCommS) a) (rmWsAfterCommS z)
+		f x@(TeXComment _) = x
+		f (TeXComm x a) = TeXComm x (map (mapTeXArg rmWsAfterCommS) a)
+		f (TeXBraces x) = TeXBraces (rmWsAfterCommS x)
+		f x@(TeXLineBreak _ _) = x
+		f (TeXSeq x a) = TeXSeq (rmWsAfterCommS x) (rmWsAfterCommS a)
+		f x = error $ "rmWsAfterCommS: " ++ show x
+
+needsSpace :: LaTeX -> Bool
+	-- In the sense of \xspace
+needsSpace TeXEmpty = False
+needsSpace (TeXMath _ x) = needsSpace x
+needsSpace (TeXSeq (TeXComm "index" _) x) = needsSpace x
+needsSpace (TeXSeq x _) = needsSpace x
+needsSpace (TeXComm "texttt" _) = True
+needsSpace (TeXComm "mathsf" [FixArg x]) = needsSpace x
+needsSpace (TeXComm "mathscr" [FixArg x]) = needsSpace x
+needsSpace (TeXComm "textit" [FixArg x]) = needsSpace x
+needsSpace (TeXComm "grammarterm_" _) = True
+needsSpace (TeXComm "index" _) = False
+needsSpace (TeXComm "sqrt" _) = False
+needsSpace (TeXComm "ensuremath" (x : _)) = needsSpace $ texFromArg x
+needsSpace (TeXComm "texorpdfstring" [_, FixArg x]) = needsSpace x
+needsSpace (TeXCommS " ") = False
+needsSpace (TeXCommS ",") = False
+needsSpace (TeXCommS "~") = False
+needsSpace (TeXCommS "&") = False
+needsSpace (TeXBraces x) = needsSpace x
+needsSpace (TeXRaw t) = Util.startsWith (\c -> isAlphaNum c || (c `elem` ("*(" :: String))) t
+needsSpace x = error $ "needsSpace: unexpected: " ++ show x

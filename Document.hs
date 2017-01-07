@@ -185,6 +185,7 @@ indexKeyContent = ikc
 		ikc (TeXCommS "textbackslash") = "\\";
 		ikc (TeXCommS "textunderscore") = "_";
 		ikc (TeXComm "discretionary" _) = ""
+		ikc (TeXComm "texorpdfstring" [_, FixArg x]) = ikc x
 		ikc (TeXBraces x) = ikc x
 		ikc (TeXMath Dollar x) = ikc x
 		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x

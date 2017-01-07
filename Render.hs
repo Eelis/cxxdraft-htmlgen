@@ -36,7 +36,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
-import LaTeXUtil (texFromArg, trim, trimr)
+import LaTeXUtil (texFromArg, trim, trimr, needsSpace)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "discretionary", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily"]
@@ -102,7 +102,7 @@ simpleMacros =
 	, ("opt"            , "<sub><small>opt</small></sub>")
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	, ("dotAt"          , ".")
-	, ("atDot"          , ".")
+	, ("atDot"          , ". ")
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
 	]
@@ -151,9 +151,10 @@ asId TeXEmpty = ""
 asId (TeXComm "texttt" [FixArg x]) = asId x
 asId (TeXComm "textit" [FixArg x]) = asId x
 asId (TeXComm "mathsf" [FixArg x]) = asId x
-asId (TeXCommS "Cpp") = "C++"
+asId (TeXCommS "xspace") = "_"
 asId (TeXBraces x) = asId x
 asId (TeXMath Dollar x) = asId x
+asId (TeXComm "texorpdfstring" [_, FixArg x]) = asId x
 asId x = error $ "asId: unexpected: " ++ show x
 
 instance Render Anchor where
@@ -162,7 +163,6 @@ instance Render Anchor where
 	                             [("id"   , aId   ) | aId    /= "" ] ++
 	                             [("style", aStyle) | aStyle /= "" ])
 	                        aText
-
 
 class Render a where render :: a -> RenderContext -> Text
 
@@ -178,6 +178,7 @@ instance Render TeXArg where
 	render = render . texFromArg
 
 instance Render LaTeX where
+	render (TeXSeq (TeXCommS "xspace") x) = (if needsSpace x then (" " ++) else id) . render x
 	render (TeXSeq (TeXCommS "textbackslash") y)
 		| TeXSeq (TeXRaw s) rest <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
 		| TeXRaw s <- y                = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec
@@ -258,6 +259,7 @@ instance Render LaTeX where
 				, aId    = i
 				, aHref  = "#" ++ urlChars i
 				, aClass = "hidden_link" } sec
+	render (TeXComm "texorpdfstring" [_, FixArg x]) = render x
 	render (TeXComm x s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
@@ -395,7 +397,7 @@ instance Render Footnote where
 
 instance Render Element where
 	render (LatexElements t) = \sec ->
-		case Text.stripStart (render t sec) of "" -> ""; x -> xml "p" [] x
+		case Text.stripStart (render (mconcat t) sec) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable t
 		| e `elem` makeBnfPre = bnfPre . render (preprocessPre t)
@@ -624,7 +626,7 @@ renderTable colspec a sec =
 renderCell :: [Element] -> RenderContext -> Text
 renderCell e sec = mconcat (map renderCell' e)
 	where
-		renderCell' (LatexElements t) = render t sec
+		renderCell' (LatexElements t) = render (mconcat t) sec
 		renderCell' other = render other sec
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.

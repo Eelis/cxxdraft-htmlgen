@@ -2,7 +2,7 @@
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 
 module Util (
-	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit,
+	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith,
 	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix
 	) where
 
@@ -72,3 +72,7 @@ stripInfix :: Eq a => [a] -> [a] -> Maybe ([a], [a])
 stripInfix p s | Just r <- stripPrefix p s = Just ([], r)
 stripInfix p (hd:t) = first (hd:) . stripInfix p t
 stripInfix _ _  = Nothing
+
+startsWith :: (Char -> Bool) -> (Text -> Bool)
+startsWith _ "" = False
+startsWith p t = p (Text.head t)
