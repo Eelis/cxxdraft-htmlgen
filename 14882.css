@@ -200,6 +200,7 @@ code.itemdecl {
 
 .comment {
 	font-style: italic;
+	font-family: serif;
 }
 
 .footnotenum { vertical-align: super; font-size: smaller; }
