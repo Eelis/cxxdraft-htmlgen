@@ -117,7 +117,18 @@ div.itemdescr {
 }
 
 .bnf {
-	font-style: italic;
+	font-family: serif;
+	margin: 1.2em;
+	margin-left: 4em;
+}
+
+.ncbnf {
+	font-family: serif;
+	margin: 1.2em;
+	margin-left: 4em;
+}
+
+.bnfkeywordtab {
 	margin: 1.2em;
 	margin-left: 4em;
 }
@@ -137,7 +148,7 @@ span.nonterminal { font-style: italic; }
 span.tcode { font-family: monospace; font-style: normal; }
 span.textbf { font-weight: bold; }
 span.textsc { font-variant: small-caps; }
-span.nontermdef { font-style: italic; }
+a.nontermdef { font-style: italic; font-family: serif; }
 span.emph { font-style: italic; }
 span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }

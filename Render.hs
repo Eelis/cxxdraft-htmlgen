@@ -214,7 +214,10 @@ instance Render LaTeX where
 				Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> linkToRemoteTable t
 				_ -> anchor{aHref = "#" ++ url abbr}
 		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
-	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor{aId = "nt:"++s, aText = s++":"}
+	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor
+		{ aId    = "nt:" ++ s
+		, aText  = s ++ ":"
+		, aClass = "nontermdef" }
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
@@ -399,8 +402,8 @@ instance Render Element where
 	render (LatexElements t) = \sec ->
 		case Text.stripStart (render (mconcat t) sec) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
-		| e `elem` makeBnfTable = renderBnfTable t
-		| e `elem` makeBnfPre = bnfPre . render (preprocessPre t)
+		| e `elem` makeBnfTable = renderBnfTable (Text.pack e) t
+		| e `elem` makeBnfPre = bnfPre (Text.pack e) . render (preprocessPre t)
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
@@ -637,14 +640,14 @@ preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
 
-bnfPre :: Text -> Text
-bnfPre = xml "pre" [("class", "bnf")] . Text.strip
+bnfPre :: Text -> Text -> Text
+bnfPre c = xml "pre" [("class", c)] . Text.strip
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;"
 
-renderBnfTable :: LaTeX -> RenderContext -> Text
-renderBnfTable l = bnfPre . htmlTabs . render (preprocessPre l)
+renderBnfTable :: Text -> LaTeX -> RenderContext -> Text
+renderBnfTable c l = bnfPre c . htmlTabs . render (preprocessPre l)
 
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
