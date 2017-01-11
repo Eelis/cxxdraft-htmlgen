@@ -86,7 +86,4 @@ Todo
     wide due to lack of hyphenation
   - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS
     does not support tab stops)
-  - put note/example prefixes/suffixes in inline-block so the whitespace within
-    them doesn't get stretched (will require recognizing note/example environments)
-  - don't use MathJax for simple things like "x < 3", because MathJax-generated HTML isn't clipboard friendly
   - remove ids and empty style attributes from MathJax-generated HTML

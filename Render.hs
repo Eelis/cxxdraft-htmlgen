@@ -45,7 +45,8 @@ literal = ["#", "{", "}", "~", "%", ""]
 simpleMacros :: [(String, Text)]
 simpleMacros =
 	[ ("dcr"            , "--")
-	, (","              , " ")
+	, (","              , "<span style='white-space:nowrap'>&thinsp;</span>")
+	                           -- thin, non-breaking, non-stretching space
 	, (" "              , "&nbsp;")
 	, ("\""             , "\"")
 	, ("prime"          , "'")
