@@ -640,8 +640,18 @@ preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest
 
+makeTabs :: Text -> Text
+	-- Instead of implementing the internal mechanics of the bnf
+	-- environments for real, we just turn leading whitespace into
+	-- a tab.
+makeTabs = Text.unlines . map f . Text.lines
+	where
+		f :: Text -> Text
+		f x = let (a, b) = Text.span (== ' ') x in
+			if Text.length a >= 2 then "&#9;" ++ b else x
+
 bnfPre :: Text -> Text -> Text
-bnfPre c = xml "pre" [("class", c)] . Text.strip
+bnfPre c = xml "pre" [("class", c)] . makeTabs . Text.strip
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;"

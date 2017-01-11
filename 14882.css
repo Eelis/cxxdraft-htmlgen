@@ -119,18 +119,24 @@ div.itemdescr {
 .bnf {
 	font-family: serif;
 	margin: 1.2em;
-	margin-left: 4em;
+	margin-left: 40pt;
 }
 
 .ncbnf {
 	font-family: serif;
 	margin: 1.2em;
-	margin-left: 4em;
+	margin-left: 40pt;
+}
+
+.bnftab {
+	font-family: serif;
+	margin: 1.2em;
+	margin-left: 40pt;
 }
 
 .bnfkeywordtab {
 	margin: 1.2em;
-	margin-left: 4em;
+	margin-left: 40pt;
 }
 
 span.textnormal {
