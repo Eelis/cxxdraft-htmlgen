@@ -88,7 +88,7 @@ renderSection context specific parasEmitted s@Section{..}
 			Nothing -> simpleRender (Document.abbreviation s)
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
-			(if specific == Nothing then "#" ++ secOnPage else "")
+			(if specific == Nothing && isJust (page context) then "#" ++ secOnPage else "")
 			abbr
 		abbr
 			| specific == Just s && not (null parents)
