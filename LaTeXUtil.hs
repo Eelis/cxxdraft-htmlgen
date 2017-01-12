@@ -50,9 +50,8 @@ mapTeX f = texmap (isJust . f) (fromJust . f)
 
 concatRaws :: LaTeX -> LaTeX
 concatRaws l =
-		if b == ""
-			then a
-			else (if a == TeXEmpty then id else TeXSeq a) (TeXRaw b)
+		let (a, b) =  go "" l
+		in if b == "" then a else a ++ TeXRaw b
 	where
 		ppp :: Text -> (LaTeX -> LaTeX)
 		ppp "" = id
@@ -72,8 +71,7 @@ concatRaws l =
 				(x', s) = go pre x
 				(y', s') = go s y
 			in
-				((if x' /= TeXEmpty then TeXSeq x' else id) y', s')
-		(a, b) =  go "" l
+				(x' ++ y', s')
 
 data Command = Command
 	{ arity :: !Int
