@@ -39,7 +39,7 @@ import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAl
 import LaTeXUtil (texFromArg, trim, trimr, needsSpace)
 
 kill, literal :: [String]
-kill = ["clearpage", "renewcommand", "brk", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "discretionary", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
+kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
 literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
@@ -106,8 +106,12 @@ simpleMacros =
 	, ("atDot"          , ". ")
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
+	, ("discretionary"  , zwsp)
 	]
 	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
+
+zwsp :: Text
+zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
 makeSpan = words "center"
@@ -157,6 +161,11 @@ asId (TeXBraces x) = asId x
 asId (TeXMath Dollar x) = asId x
 asId (TeXComm "texorpdfstring" [_, FixArg x]) = asId x
 asId x = error $ "asId: unexpected: " ++ show x
+
+addBreaks :: Text -> Text
+addBreaks =
+	replace "::" (zwsp ++ "::" ++ zwsp) . -- The LaTeX sources very often neglect to use \colcol.
+	replace "_" "_&shy;"
 
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
@@ -222,7 +231,8 @@ instance Render LaTeX where
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
-	render (TeXComm "texttt" [FixArg x]) = \ctx -> "<span class='texttt'>" ++ render x ctx{rawHyphens=True} ++ "</span>"
+	render (TeXComm "texttt" [FixArg x]) = \ctx ->
+		spanTag "texttt" $ addBreaks $ render x ctx{rawHyphens=True}
 	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
 	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
