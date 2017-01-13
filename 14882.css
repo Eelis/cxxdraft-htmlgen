@@ -161,6 +161,7 @@ span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
 span.mathsf { font-family: sans-serif; }
 span.mathrm { font-family: serif; font-style: normal; }
+span.textrm { font-family: serif; }
 span.mathtt { font-family: monospace; font-style: normal; }
 span.mathscr { font-style: normal; }
 span.mbox { font-family: serif; font-style: normal; }
