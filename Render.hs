@@ -668,7 +668,7 @@ htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;"
 
 renderBnfTable :: Text -> LaTeX -> RenderContext -> Text
-renderBnfTable c l = bnfPre c . htmlTabs . render (preprocessPre l)
+renderBnfTable c l = bnfPre c . htmlTabs . render (trimr $ preprocessPre l)
 
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
