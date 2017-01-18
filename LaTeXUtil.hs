@@ -225,8 +225,16 @@ dropWhile p (TeXSeq x y) = TeXSeq (dropWhile p x) y
 dropWhile p (TeXRaw x) = TeXRaw (Text.dropWhile p x)
 dropWhile _ x = x
 
+invisible :: LaTeX -> Bool
+invisible (TeXComm "index" _) = True
+invisible (TeXComment _) = True
+invisible (TeXSeq x y) = invisible x && invisible y
+invisible _ = False
+
 dropWhileEnd :: (Char -> Bool) -> LaTeX -> LaTeX
-dropWhileEnd p (TeXSeq x y) = TeXSeq x (dropWhileEnd p y)
+dropWhileEnd p (TeXSeq x y)
+	| invisible y = TeXSeq (dropWhileEnd p x) y
+	| otherwise = TeXSeq x (dropWhileEnd p y)
 dropWhileEnd p (TeXRaw x) = TeXRaw (Text.dropWhileEnd p x)
 dropWhileEnd _ x = x
 

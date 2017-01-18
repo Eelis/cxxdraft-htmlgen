@@ -414,7 +414,7 @@ instance Render Element where
 		case Text.stripStart (render (mconcat t) sec) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable (Text.pack e) t
-		| e `elem` makeBnfPre = bnfPre (Text.pack e) . render (preprocessPre t)
+		| e `elem` makeBnfPre = bnfPre (Text.pack e) . render (trimr $ preprocessPre t)
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
