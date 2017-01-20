@@ -125,7 +125,7 @@ data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
 
 type IndexPath = [IndexComponent]
 
-data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose | DefinitionIndex
+data IndexKind = See { _also :: Bool, _ref :: [LaTeX] } | IndexOpen | IndexClose | DefinitionIndex
 	deriving (Eq, Show)
 
 type IndexCategory = Text

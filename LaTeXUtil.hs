@@ -92,9 +92,18 @@ texStripInfix t = go
 		go (TeXRaw (unpack -> stripInfix (unpack t) -> Just ((pack -> x), (pack -> y))))
 			= Just (texText x, texText y)
 		go (TeXSeq x y)
-			| Just (x', x'') <- go x = Just (x', x'' ++ y)
-			| Just (y', y'') <- go y = Just (x ++ y', y'')
+			| Just (x', x'') <- go x = Just (x', h x'' y)
+			| Just (y', y'') <- go y = Just (h x y', y'')
 		go _ = Nothing
+		h (TeXRaw "") x = x
+		h x (TeXRaw "") = x
+		h x y = x ++ y
+
+texSplitOn :: Text -> LaTeX -> [LaTeX]
+texSplitOn delim = go
+	where
+		go (texStripInfix delim -> Just (x, y)) = x : go y
+		go t = [t]
 
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
