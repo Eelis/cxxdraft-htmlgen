@@ -137,6 +137,7 @@ isComment (TeXComment _) = True
 isComment _ = False
 
 isParaEnd :: LaTeX -> Bool
+isParaEnd (TeXEnv "itemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True
 isParaEnd (TeXComm "pnum" _) = True
 isParaEnd x = isParasEnd x
@@ -311,6 +312,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isBnf e = RawBnf k stuff
 			| isMinipage e = RawMinipage $ parsePara $ rmseqs stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
+			| k == "itemdecl" = RawLatexElements [e]
 		go other = error $ "parsePara: unexpected " ++ show other
 
 		(e', fnotes) = extractFootnotes env
@@ -331,6 +333,8 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 		= (collectParas stuff ++ [RawParagraph False False (RawFootnote . fs) Nothing], rest)
 	where
 		collectParas :: [LaTeX] -> [RawParagraph]
+		collectParas (t@(TeXEnv "itemdecl" _ _) : more) =
+			RawParagraph False False (parsePara [t]) Nothing : collectParas more
 		collectParas (TeXEnv "itemdescr" _ desc : more) =
 			map (\p -> p{rawParaInItemdescr=True}) (collectParas $ rmseqs desc)
 			++ collectParas more
