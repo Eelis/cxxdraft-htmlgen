@@ -237,7 +237,7 @@ code.itemdecl {
 	font-family: serif;
 }
 
-.footnotenum { vertical-align: super; font-size: smaller; }
+.footnotenum { vertical-align: super; font-size: smaller; line-height: 0; }
 .footnote { font-size: small; margin: 2em; }
 
 div.minipage {
