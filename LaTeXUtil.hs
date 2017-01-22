@@ -295,5 +295,5 @@ needsSpace (TeXCommS ",") = False
 needsSpace (TeXCommS "~") = False
 needsSpace (TeXCommS "&") = False
 needsSpace (TeXBraces x) = needsSpace x
-needsSpace (TeXRaw t) = Util.startsWith (\c -> isAlphaNum c || (c `elem` ("*(" :: String))) t
+needsSpace (TeXRaw t) = Util.startsWith (\c -> isAlphaNum c || (c `elem` ("~&-!*(" :: String))) t
 needsSpace x = error $ "needsSpace: unexpected: " ++ show x
