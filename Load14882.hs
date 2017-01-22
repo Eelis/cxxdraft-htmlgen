@@ -468,10 +468,17 @@ reparseAtCommand x = x
 moreArgs :: LaTeX -> LaTeX
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
 	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
+moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXComment _) (TeXSeq (TeXBraces x) more)))
+	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
+moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXRaw (Text.unpack -> all isSpace -> True)) (TeXSeq (TeXBraces x) more)))
+	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
 moreArgs (TeXComm n a) = TeXComm n (map (mapTeXArg moreArgs) a)
 moreArgs (TeXSeq x y) = moreArgs x ++ moreArgs y
-moreArgs (TeXEnv e a x) 
-	| otherwise = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
+moreArgs (TeXEnv e a (TeXSeq (TeXRaw (Text.unpack -> all isSpace -> True)) (TeXSeq (TeXBraces y) more)))
+	= moreArgs $ TeXEnv e (a ++ [FixArg y]) more
+moreArgs (TeXEnv e a (TeXSeq (TeXBraces y) more))
+	= moreArgs $ TeXEnv e (a ++ [FixArg y]) more
+moreArgs (TeXEnv e a x) = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
 moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
 moreArgs x = x
 
@@ -488,15 +495,6 @@ doParseLaTeX =
 	. moreArgs
 	. doParse
 
-newlineCurlies :: Text -> Text
-newlineCurlies =
-	replace "\n{" "{"
-	. replace "\n\t{" "{"
-	. replace "\n {" "{"
-	. replace "}\n  {" "}{"
-	. replace "} \n  {" "}{"
-		-- Todo: These are sometimes inappropriate...
-
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros =
 	parseSections
@@ -506,7 +504,6 @@ parseFile macros =
 	. doParseLaTeX
 	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
-	. newlineCurlies
 	. replace "``" "“"
 	. replace "''" "”"
 	. replace "\\rSec0" "\\rSec[0]"
@@ -826,7 +823,6 @@ load14882 = do
 		. snd . eval mempty dontEval
 		. doParseLaTeX
 		. replace "\\indeximpldef{" "\\index[impldefindex]{"
-		. newlineCurlies
 		. Text.pack . flip (subRegex (mkRegex "\\\\penalty[0-9]+")) "" . Text.unpack
 		. mconcat
 		. mapM readFile

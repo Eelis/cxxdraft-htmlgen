@@ -114,8 +114,8 @@ zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "center"
-makeDiv = words "definition cvqual textit textnormal emph exitnote footnote terminal nonterminal mathit indented paras ttfamily TableBase table tabular longtable"
+makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl"
+makeDiv = words "definition cvqual textit emph exitnote footnote mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
@@ -275,13 +275,14 @@ instance Render LaTeX where
 				, aHref  = "#" ++ urlChars i
 				, aClass = "hidden_link" } sec
 	render (TeXComm "texorpdfstring" [_, FixArg x]) = render x
-	render (TeXComm x s)
+	render t@(TeXComm x s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
 	       lookup x simpleMacros       = return y
 	    | [FixArg z] <- s, Just y <-
 	       lookup x simpleMacros       = (y ++) . render z
-	    | otherwise                    = spanTag (Text.pack x) . render (map texFromArg s)
+	    | x `elem` makeSpan            = spanTag (Text.pack x) . render (map texFromArg s)
+	    | otherwise                    = error $ "render: unexpected: " ++ show t
 	render (TeXCommS s)
 	    | s `elem` literal             = return $ Text.pack s
 	    | Just x <-
