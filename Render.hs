@@ -262,6 +262,7 @@ instance Render LaTeX where
 				| Text.head s == '-' = Text.tail s
 				| otherwise = "-" ++ s
 			in xml "span" [("style", "position: relative; top: " ++ neg d)] . render content
+	render (TeXComm "parbox" [_, FixArg x]) = render x
 	render (TeXComm "term" [FixArg x]) =
 		\sec ->
 			let
