@@ -161,6 +161,7 @@ indexKeyContent = ikc
 		ikc (TeXRaw t) = replace "\n" " " t
 		ikc (TeXSeq x y) = ikc x ++ ikc y
 		ikc TeXEmpty = ""
+		ikc (TeXComm "tcode" [FixArg x]) = ikc x
 		ikc (TeXComm "texttt" [FixArg x]) = ikc x
 		ikc (TeXComm "textit" [FixArg x]) = ikc x
 		ikc (TeXComm "mathsf" [FixArg x]) = ikc x

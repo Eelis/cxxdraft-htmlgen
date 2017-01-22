@@ -389,7 +389,7 @@ initialMacros = mempty
 		[ ("gramSec", Command 2 "") ]}
 
 dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea"
+dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea tcode"
 
 parseStr :: String -> LaTeX
 parseStr = doParse . Text.pack
@@ -466,6 +466,7 @@ reparseAtCommand x = x
 
 
 moreArgs :: LaTeX -> LaTeX
+moreArgs (TeXComm "tcode" [FixArg x, FixArg y]) = moreArgs $ TeXSeq (TeXComm "tcode" [FixArg x]) y
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
 	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
 moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXComment _) (TeXSeq (TeXBraces x) more)))

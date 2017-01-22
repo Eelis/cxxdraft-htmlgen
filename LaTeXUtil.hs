@@ -283,6 +283,7 @@ needsSpace (TeXSeq x _) = needsSpace x
 needsSpace (TeXComm "texttt" _) = True
 needsSpace (TeXComm "mathsf" [FixArg x]) = needsSpace x
 needsSpace (TeXComm "mathscr" [FixArg x]) = needsSpace x
+needsSpace (TeXComm "tcode" [FixArg x]) = needsSpace x
 needsSpace (TeXComm "textit" [FixArg x]) = needsSpace x
 needsSpace (TeXComm "grammarterm_" _) = True
 needsSpace (TeXComm "index" _) = False

@@ -36,7 +36,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
-import LaTeXUtil (texFromArg, trim, trimr, needsSpace)
+import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
@@ -115,8 +115,8 @@ zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl"
-makeDiv = words "definition cvqual textit emph exitnote footnote mathit indented paras ttfamily TableBase table tabular longtable"
+makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl textit"
+makeDiv = words "definition cvqual emph exitnote footnote mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 
@@ -154,6 +154,7 @@ asId :: LaTeX -> Text
 asId (TeXRaw t) = replace " " "_" t
 asId (TeXSeq x y) = asId x ++ asId y
 asId TeXEmpty = ""
+asId (TeXComm "tcode" [FixArg x]) = asId x
 asId (TeXComm "texttt" [FixArg x]) = asId x
 asId (TeXComm "textit" [FixArg x]) = asId x
 asId (TeXComm "mathsf" [FixArg x]) = asId x
@@ -234,8 +235,9 @@ instance Render LaTeX where
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
 	render (TeXComm "texttt" [FixArg x]) = \ctx ->
 		spanTag "texttt" $ addBreaks $ render x ctx{rawHyphens=True}
-	render (TeXComm "textit" [FixArg x]) = ("<i>" ++) . (++ "</i>") . render x
-	render (TeXComm "textit" [FixArg x, OptArg y]) = \sec -> "<i>" ++ render x sec ++ "</i>[" ++ render y sec ++ "]"
+	render (TeXComm "tcode" [FixArg x]) = \ctx ->
+		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
+			addBreaks $ render x ctx{rawHyphens=True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
 		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
@@ -423,7 +425,7 @@ instance Render Element where
 	render (Tabbing t) =
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
-	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render (trimr code) c{rawTilde=True, rawHyphens=True, rawSpace=True})
+	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render (trimr code) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			render (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where
@@ -462,6 +464,7 @@ data RenderContext = RenderContext
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
+	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
 
@@ -473,6 +476,7 @@ defaultRenderContext = RenderContext
 	, rawHyphens = False
 	, rawTilde = False
 	, rawSpace = False
+	, inCodeBlock = False
 	, extraIndentation = 0
 	, idPrefix = "" }
 
@@ -555,11 +559,28 @@ renderSimpleMath other sec = render other sec
 
 renderComplexMath :: LaTeX -> Text
 renderComplexMath x = case x of
-		TeXMath kind t -> memodRenderMath (Text.unpack $ prepMath t) (kind == Dollar)
-		TeXEnv "eqnarray*" [] _ -> memodRenderMath (Text.unpack $ prepMath x) False
-		_ -> memodRenderMath (Text.unpack $ prepMath x) True
+		TeXMath kind t -> memodRenderMath (prepMath t) (kind == Dollar)
+		TeXEnv "eqnarray*" [] _ -> memodRenderMath (prepMath x) False
+		_ -> memodRenderMath (prepMath x) True
 	where
-		prepMath = Text.replace "\\ensuremath" "" . TeXRender.render
+		prepMath = Text.unpack . TeXRender.render . cleanup
+		cleanup :: LaTeX -> LaTeX
+		cleanup (TeXSeq x y) = TeXSeq (cleanup x) (cleanup y)
+		cleanup (TeXComm "tcode" x) = TeXComm "texttt" (map (mapTeXArg cleanup) x)
+		cleanup (TeXComm "ensuremath" [FixArg x]) = cleanup x
+		cleanup (TeXComm "discretionary" _) = TeXEmpty
+		cleanup (TeXCommS "hfill") = TeXEmpty
+		cleanup (TeXCommS "break") = TeXEmpty
+		cleanup (TeXCommS "-") = TeXEmpty
+		cleanup (TeXComm x y) = TeXComm x (map (mapTeXArg cleanup) y)
+		cleanup x@(TeXRaw _) = x
+		cleanup x@(TeXCommS _) = x
+		cleanup (TeXBraces x) = TeXBraces (cleanup x)
+		cleanup x@(TeXComment _) = x
+		cleanup (TeXEnv x y z) = TeXEnv x (map (mapTeXArg cleanup) y) (cleanup z)
+		cleanup x@TeXEmpty = x
+		cleanup (TeXMath x y) = TeXMath x (cleanup y)
+		cleanup x@(TeXLineBreak _ _) = x
 
 rmTrailingNewline :: Text -> Text
 rmTrailingNewline (Text.stripSuffix "\n" -> Just x) = x
@@ -567,14 +588,11 @@ rmTrailingNewline x = x
 
 memodRenderMath :: String -> Bool -> Text
 memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
-	let args = ["--inline" | inline] ++ ["--", cleanup s]
+	let args = ["--inline" | inline] ++ ["--", s]
 	formula <- Text.replace " focusable=\"false\"" "" 
 		. rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
 		. Text.pack . readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
 	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
-	where
-		cleanup = Text.unpack . Text.replace "\\discretionary{}{}" "" . Text.pack
-			-- MathJax does not seem to support \discretionary.
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =

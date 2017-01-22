@@ -201,7 +201,9 @@ span.mathtt { font-family: monospace; font-style: normal; }
 span.mathscr { font-style: normal; }
 span.mbox { font-family: serif; font-style: normal; }
 span.ungap { display: inline-block; width: 2pt; }
-span.texttt { font-family: monospace; font-style: normal; }
+span.textit { font-style: italic; }
+span.texttt { font-family: monospace; }
+span.tcode_in_codeblock { font-family: monospace; font-style: normal; }
 
 span.phantom { color: white; }
 	/* Unfortunately, this way the text is still selectable. Another
