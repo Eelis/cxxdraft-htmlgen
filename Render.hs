@@ -39,7 +39,7 @@ import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAl
 import LaTeXUtil (texFromArg, trim, trimr, needsSpace)
 
 kill, literal :: [String]
-kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "linebreak", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
+kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
 literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
@@ -62,6 +62,7 @@ simpleMacros =
 	, ("cv"             , "cv")
 	, ("shl"            , "&lt;&lt;")
 	, ("br"             , "<br/>&emsp;")
+	, ("linebreak"      , "<br/>")
 	, ("sim"            , "~")
 	, ("quad"           , "&emsp;&ensp;")
 	, ("indent"         , "&emsp;")
