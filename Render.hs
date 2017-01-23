@@ -292,7 +292,9 @@ instance Render LaTeX where
 	       lookup s simpleMacros       = return x
 	    | s `elem` kill                = return ""
 	    | otherwise                    = return $ spanTag (Text.pack s) ""
-	render (TeXEnv "itemdecl" [] t)    = \c -> xml "code" [("class", "itemdecl")] $ render t c{rawTilde=True, rawHyphens=True}
+	render (TeXEnv "itemdecl" [] t)    = \c -> xml "code" [("class", "itemdecl")] $
+	                                     Text.dropWhile (== '\n') $
+	                                     render t c{rawTilde=True, rawHyphens=True}
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
