@@ -435,7 +435,7 @@ reparseCode t = parse False . Text.unpack $ TeXRender.render t
 reparseEnvs :: LaTeX -> LaTeX
 reparseEnvs = mapTeX $
 	\case
-		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl"] ->
+		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl", "codeblockdigitsep"] ->
 			Just $ TeXEnv c [] $ reparseCode body
 		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "ncbnftab", "tabbing"] ->
 			Just $ TeXEnv t [] $ reparseTabs body
