@@ -17,8 +17,8 @@
 module Load14882 (parseIndex, load14882) where
 
 import Document
-import Text.LaTeX.Base.Parser
 import qualified Text.LaTeX.Base.Render as TeXRender
+import qualified LaTeXParser as Parser
 import Text.LaTeX.Base (protectString)
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>))
 import Data.Text (Text, replace, isPrefixOf)
@@ -31,7 +31,7 @@ import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import Data.List (sort, unfoldr)
+import Data.List (sort, unfoldr, take)
 import Data.Maybe (isJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -39,7 +39,40 @@ import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix)
-import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, Macros(..), Environment(..), Command(..), eval, rmseqs, texStripInfix, rmWsAfterCommS)
+import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix)
+import LaTeXParser (Macros(..), Command, Environment, Signature(..))
+
+
+signatures :: [(String, Signature)]
+signatures =
+		[(c, Signature i Nothing) | i <- [0..3], c <- words (a i)] ++
+		[ ("\n", Signature 0 Nothing)
+		, ("index", Signature 2 (Just []))
+		, ("caption", Signature 2 (Just []))
+		, ("gramSec", Signature 2 (Just []))
+		]
+	where
+		a 0 = "today item def makeatletter bottomline makeatother Sec left right bmod " ++
+			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
+			"textup edef x itcorrwidth itletterwidth small BnfIndent setlength par leq " ++
+			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++
+			"xspace onelineskip textlangle textrangle textunderscore tilde raggedright = " ++
+			"space copyright textregistered textbackslash hsize makebox nocorr br Gamma " ++
+			"frenchspacing list leftmargin listparindent itemindent rmfamily itshape relax " ++
+			"color nonfrenchspacing endlist upshape ttfamily baselineskip nobreak noindent " ++
+			"endfirsthead quad cdot cdots dotsc bnfindentinc footnotemark ldots capsep max min " ++
+			"continuedcaption hline endhead footnotesize le times dotsb rightarrow to equiv " ++
+			"lfloor rfloor pi geq neq ge lceil rceil ell alpha bigl bigr mu lambda beta " ++
+			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
+			"phi int theta zeta FlushAndPrintGrammar hfill break backslash"
+		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
+			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
+			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
+			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
+			"phantom sqrt ln emph lstset"
+		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac " ++
+			"glossary binom infannex normannex parbox definitionx"
+		a 3 = "multicolumn discretionary definecolor"
 
 data RawElement
 	= RawLatexElements [LaTeX]
@@ -209,7 +242,6 @@ parseTable latex@(TeXSeq _ _)
 			| otherwise = findEndHead rest'
 			where
 				(row', rest') = breakRow l
-
 parseTable latex = [makeRow latex]
 
 makeRow :: LaTeX -> Row RawElements
@@ -361,7 +393,7 @@ parseSections
 			(abbr, name, NormativeAnnexSection)
 		("infannex", [FixArg abbr, FixArg name]) ->
 			(abbr, name, InformativeAnnexSection)
-		("rSec", [OptArg (TeXRaw level), OptArg abbr, FixArg name]) ->
+		("rSec", [FixArg (TeXRaw level), FixArg abbr, FixArg name]) ->
 			(abbr, name, NormalSection $ read $ Text.unpack level)
 		("definition", [FixArg name, FixArg abbr]) ->
 			(abbr, name, DefinitionSection 2)
@@ -372,149 +404,34 @@ parseSections
 parseSections [] = []
 parseSections (x:_) = error $ "parseSections: " ++ show x
 
-translateVerb :: String -> String
-translateVerb ('\\':'v':'e':'r':'b':delim:rest) =
-	"\\verb{" ++ (protectString inside) ++ "}" ++ translateVerb rest'
+initialContext :: Parser.Context
+initialContext = Parser.defaultContext
+	{ Parser.dontEval = (bnfEnvs ++) $ words $
+			"drawing definition definitionx importgraphic bottomline capsep itemdescr " ++
+			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented " ++
+			"tabular longtable enumeratea emph"
+	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
+			"indent", "vfill", "pagebreak", "!", "-", "glossary",
+			"itcorr", "hfill", "space", "nocorr", "small", "kill", "lstset",
+			"footnotesize", "rmfamily", "microtypesetup", "@", "ungap", "gramSec", "newcolumntype"]
+	, Parser.signatures = signatures }
+
+doParse :: Macros -> Text -> (LaTeX, Macros)
+doParse m t = (x, y)
 	where
-		(inside, _ : rest') = break (== delim) rest
-translateVerb (x:y) = x : translateVerb y
-translateVerb [] = []
-
-initialMacros :: Macros
-initialMacros = mempty
-	{ environments = Map.fromList
-		[ ("ttfamily", Environment mempty mempty [])
-		, ("paras",    Environment mempty mempty []) ]
-	, commands = Map.fromList
-		[ ("gramSec", Command 2 "") ]}
-
-dontEval :: [Text]
-dontEval = map Text.pack $ bnfEnvs ++ words "drawing definition definitionx importgraphic bottomline capsep itemdescr grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented enumeratea tcode"
-
-parseStr :: String -> LaTeX
-parseStr = doParse . Text.pack
-
-reparseTabs :: LaTeX -> LaTeX
-reparseTabs = doParse . Text.replace "\\>" "\t" . TeXRender.render
-
-stringLiteral :: String -> (String, String)
-stringLiteral ('\\' : '"' : x) = first ("\\\"" ++) (stringLiteral x)
-stringLiteral ('\\' : '\\' : x) = first ("\\\\" ++) (stringLiteral x)
-stringLiteral ('"' : x) = ("\"", x)
-stringLiteral (c : x) = first (c :) (stringLiteral x)
-stringLiteral "" = ("", "")
-
-reparseCode :: LaTeX -> LaTeX
-reparseCode t = parse False . Text.unpack $ TeXRender.render t
-	where
-		parse :: Bool {- in string literal -} -> String -> LaTeX
-		parse _ "" = TeXEmpty
-		parse b ('@' : rest) = parseStr cmd <> parse b rest'
-			where (cmd, '@' : rest') = break (== '@') rest
-		parse True ('"' : rest) = "\"" <> parse False rest
-		parse False ('"' : rest) = "\"" <> parse True lit <> parse False rest'
-			where (lit, rest') = stringLiteral rest
-		parse False ('/' : '/' : rest) = TeXComm "comment" [FixArg (parseStr $ "//" ++ comment)] <> parse False rest'
-			where (comment, rest') = breakLineComment rest
-		parse False ('/' : '*' : rest) = TeXComm "comment" [FixArg ("/*" <> parse False comment)] <> parse False rest'
-			where (comment, rest') = breakComment rest
-		parse b ('/' : rest) = "/" <> parse b rest
-		parse b s = TeXRaw (Text.pack code) <> parse b rest
-			where (code, rest) = break (`elem` ['@', '/', '"']) s
-
-		breakLineComment s = case break (== '\n') s of
-			(comment, '\n' : rest) -> (comment ++ "\n", rest)
-			(x, y) -> (x, y)
-
-		breakComment s = go s ""
-			where
-				go "" a = (reverse a, "")
-				go ('*' : '/' : rest) a = (reverse $ '/' : '*' : a, rest)
-				go (x : rest) a = go rest (x : a)
-
-reparseEnvs :: LaTeX -> LaTeX
-reparseEnvs = mapTeX $
-	\case
-		TeXEnv c [] body | c `elem` ["codeblock", "itemdecl", "codeblockdigitsep"] ->
-			Just $ TeXEnv c [] $ reparseCode body
-		TeXEnv t [] body | t `elem` ["bnfkeywordtab", "bnftab", "ncbnftab", "tabbing"] ->
-			Just $ TeXEnv t [] $ reparseTabs body
-		_ -> Nothing
-
--- \@. becomes \atDot
--- .\@ becomes \dotAt
-reparseAtCommand :: LaTeX -> LaTeX
-reparseAtCommand (TeXSeq (TeXRaw b) (TeXSeq (TeXCommS "") (TeXSeq (TeXRaw a) rest))) =
-	if Text.head a /= '@' then
-		TeXSeq (TeXRaw b) (
-			TeXSeq (TeXCommS "") (
-				TeXSeq (TeXRaw a) (reparseAtCommand rest)))
-	else
-		if Text.last b == '.' then
-			TeXSeq (TeXRaw $ Text.dropEnd 1 b) (
-				TeXSeq (TeXCommS "dotAt") (
-					TeXSeq (TeXRaw $ Text.drop 1 a) (reparseAtCommand rest)))
-		else
-			if Text.index a 1 /= '.' then error("\\@ without dot detected") else
-			TeXSeq (TeXRaw b) (
-				TeXSeq (TeXCommS "atDot") (
-					TeXSeq (TeXRaw $ Text.drop 2 a) (reparseAtCommand rest)))
-reparseAtCommand (TeXSeq l r) = TeXSeq (reparseAtCommand l) (reparseAtCommand r)
-reparseAtCommand (TeXComm n args) = TeXComm n $ map (mapTeXArg reparseAtCommand) args
-reparseAtCommand (TeXEnv n args body) = TeXEnv n (map (mapTeXArg reparseAtCommand) args) (reparseAtCommand body)
-reparseAtCommand x = x
-
-
-moreArgs :: LaTeX -> LaTeX
-moreArgs (TeXComm "tcode" [FixArg x, FixArg y]) = moreArgs $ TeXSeq (TeXComm "tcode" [FixArg x]) y
-moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXBraces x) more))
-	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
-moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXComment _) (TeXSeq (TeXBraces x) more)))
-	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
-moreArgs (TeXSeq (TeXComm n a) (TeXSeq (TeXRaw (Text.unpack -> all isSpace -> True)) (TeXSeq (TeXBraces x) more)))
-	= moreArgs (TeXSeq (TeXComm n (a ++ [FixArg x])) more)
-moreArgs (TeXComm n a) = TeXComm n (map (mapTeXArg moreArgs) a)
-moreArgs (TeXSeq x y) = moreArgs x ++ moreArgs y
-moreArgs (TeXEnv e a (TeXSeq (TeXRaw (Text.unpack -> all isSpace -> True)) (TeXSeq (TeXBraces y) more)))
-	= moreArgs $ TeXEnv e (a ++ [FixArg y]) more
-moreArgs (TeXEnv e a (TeXSeq (TeXBraces y) more))
-	= moreArgs $ TeXEnv e (a ++ [FixArg y]) more
-moreArgs (TeXEnv e a x) = TeXEnv e (map (mapTeXArg moreArgs) a) (moreArgs x)
-moreArgs (TeXBraces x) = TeXBraces (moreArgs x)
-moreArgs x = x
-
-doParse :: Text -> LaTeX
-doParse t = case parseLaTeX t of
-	Left e -> error (show e ++ "\nFor given input: " ++ Text.unpack t)
-	Right l -> l
-
-doParseLaTeX :: Text -> LaTeX
-doParseLaTeX =
-	reparseAtCommand
-	. rmWsAfterCommS
-	. reparseEnvs
-	. moreArgs
-	. doParse
+		(x, y, []) = Parser.parseString ctx (Text.unpack t)
+		ctx = initialContext{Parser.macros=m}
 
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros =
 	parseSections
 	. filter (not . isComment)
-	. rmseqs
-	. fst . eval macros dontEval
-	. doParseLaTeX
+	. rmseqs . fst
+	. doParse macros
 	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
 	. replace "``" "“"
 	. replace "''" "”"
-	. replace "\\rSec0" "\\rSec[0]"
-	. replace "\\rSec1" "\\rSec[1]"
-	. replace "\\rSec2" "\\rSec[2]"
-	. replace "\\rSec3" "\\rSec[3]"
-	. replace "\\rSec4" "\\rSec[4]"
-	. replace "\\rSec5" "\\rSec[5]"
-	. replace "\\bigl[" "\\bigl ["
-	. Text.pack . translateVerb . Text.unpack
 
 getCommitUrl :: IO Text
 getCommitUrl = do
@@ -802,8 +719,6 @@ toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
 		go _ = error "toIndex"
 
-
-
 trackPnums :: FilePath -> Text -> Text
 	-- Replaces \pnum with \pnum{file}{line}
 trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Text.unpack
@@ -820,11 +735,11 @@ load14882 = do
 	commitUrl <- getCommitUrl
 
 	macros@Macros{..} <-
-		(initialMacros ++)
-		. snd . eval mempty dontEval
-		. doParseLaTeX
+		snd
+		. doParse mempty
 		. replace "\\indeximpldef{" "\\index[impldefindex]{"
 		. Text.pack . flip (subRegex (mkRegex "\\\\penalty[0-9]+")) "" . Text.unpack
+		. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
 		. mconcat
 		. mapM readFile
 		["config.tex", "macros.tex", "tables.tex"]
@@ -855,7 +770,7 @@ load14882 = do
 
 		extra <-
 			if c /= "grammar" then return ""
-			else replace "\\gramSec" "\\rSec[1]" . readFile "std-gram.ext"
+			else replace "\\gramSec" "\\rSec1" . readFile "std-gram.ext"
 
 		let r = parseFile macros (stuff ++ extra)
 

@@ -39,7 +39,7 @@ import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAl
 import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg)
 
 kill, literal :: [String]
-kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup"]
+kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup", "@"]
 literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
@@ -51,7 +51,6 @@ simpleMacros =
 	, ("\""             , "\"")
 	, ("prime"          , "'")
 	, ("caret"          , "^")
-	, ("atsign"         , "@")
 	, ("copyright"      , "&copy;")
 	, ("textregistered" , "&reg;")
 	, ("Cpp"            , "C++")
@@ -103,11 +102,10 @@ simpleMacros =
 	, ("log"            , "<span class=\"mathrm\">log</span>")
 	, ("opt"            , "<sub><small>opt</small></sub>")
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
-	, ("dotAt"          , ".")
-	, ("atDot"          , ". ")
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
-	, ("discretionary"  , zwsp)
+	, (">"              , "&#9;")
+	, ("\n"             , "\n")
 	]
 	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
 
@@ -115,7 +113,7 @@ zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl textit"
+makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl textit mathit"
 makeDiv = words "definition cvqual emph exitnote footnote mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
@@ -248,6 +246,7 @@ instance Render LaTeX where
 			, aHref  = "#def:" ++ indexPathHref p
 			, aClass = "hidden_link" } sec
 			++ render y sec
+	render (TeXComm "discretionary" _) = const zwsp
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
@@ -573,6 +572,7 @@ renderComplexMath x = case x of
 		cleanup (TeXComm "discretionary" _) = TeXEmpty
 		cleanup (TeXCommS "hfill") = TeXEmpty
 		cleanup (TeXCommS "break") = TeXEmpty
+		cleanup (TeXCommS "br") = TeXEmpty
 		cleanup (TeXCommS "-") = TeXEmpty
 		cleanup (TeXComm x y) = TeXComm x (map (mapTeXArg cleanup) y)
 		cleanup x@(TeXRaw _) = x
@@ -688,7 +688,7 @@ bnfPre :: Text -> Text -> Text
 bnfPre c = xml "pre" [("class", c)] . makeTabs . Text.strip
 
 htmlTabs :: Text -> Text
-htmlTabs = replace "\t" "&#9;"
+htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
 
 renderBnfTable :: Text -> LaTeX -> RenderContext -> Text
 renderBnfTable c l = bnfPre c . htmlTabs . render (trimr $ preprocessPre l)
