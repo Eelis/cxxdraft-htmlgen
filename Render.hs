@@ -238,8 +238,9 @@ instance Render LaTeX where
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			addBreaks $ render x ctx{rawHyphens=True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
-	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, _))])
-		= spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
+	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, kind))])
+		= if kind == Just IndexClose then const "" else
+			spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
 	render (TeXComm "defnx" (FixArg x : FixArg (parseIndex -> (p, _)) : y))
 		= \sec -> render anchor
 			{ aText  = "<i>" ++ render x sec ++ "</i>"

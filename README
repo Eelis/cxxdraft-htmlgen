@@ -84,3 +84,5 @@ Todo
     wide due to lack of hyphenation
   - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS
     does not support tab stops)
+  - don't generate anchors with duplicate ids for index entries with
+    the same key
