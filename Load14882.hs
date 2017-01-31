@@ -622,7 +622,7 @@ resolveGrammarterms links Section{..} =
 		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
 		resolve g (Enumerated s ps) = Enumerated s $ map f ps
 			where f i@Item{..} = i{itemContent=map (resolve g) itemContent}
-		resolve g (Bnf n b) = Bnf n $ bnfGrammarterms g b
+		resolve g (Bnf n b) = Bnf n $ grammarterms g $ bnfGrammarterms g b
 		resolve g (FootnoteElement (Footnote n c)) = FootnoteElement (Footnote n $ map (resolve g) c)
 		resolve _ other = other
 
