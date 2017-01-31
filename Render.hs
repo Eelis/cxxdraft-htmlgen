@@ -31,6 +31,7 @@ import qualified Prelude
 import Prelude hiding (take, last, (.), (++), writeFile)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
+import Text.Regex (mkRegex, subRegex)
 import Data.MemoTrie (memo2)
 import Data.List (find, nub)
 import qualified Data.Map as Map
@@ -593,8 +594,14 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 	let args = ["--inline" | inline] ++ ["--", s]
 	formula <- Text.replace " focusable=\"false\"" "" 
 		. rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
-		. Text.pack . readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
+		. Text.pack
+		. kill " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
+		. kill " style=\"\""
+		. readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
 	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
+	where
+		kill r s = subRegex (mkRegex r) s ""
+
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
 renderTable colspec a sec =

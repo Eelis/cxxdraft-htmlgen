@@ -84,4 +84,3 @@ Todo
     wide due to lack of hyphenation
   - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS
     does not support tab stops)
-  - remove ids and empty style attributes from MathJax-generated HTML
