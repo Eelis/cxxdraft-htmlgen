@@ -11,9 +11,10 @@ import Render (
 	secnum, Link(..), linkToSection, simpleRender, squareAbbr,
 	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
 import Util
-import Document (Figure(..), Table(..), Section(..), Draft(..), indexCatName, figures, tables)
+import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables)
 
 tocSection :: Section -> Text
+tocSection Section{sectionKind=DefinitionSection _} = ""
 tocSection s@Section{..} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (

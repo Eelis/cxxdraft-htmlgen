@@ -546,7 +546,7 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> [LinearSection] -> m [Section]
 treeizeChapters _ [] = return []
 treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
-		let newSec = Section{..}
+		let newSec = Section{sectionKind=lsectionKind, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
@@ -571,7 +571,7 @@ treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
-		let newSec = Section{..}
+		let newSec = Section{sectionKind=lsectionKind, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do

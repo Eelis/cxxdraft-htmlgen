@@ -102,6 +102,7 @@ data Section = Section
 	, sectionNumber :: Int
 	, chapter :: Chapter
 	, parents :: [Section] -- if empty, this is the chapter
+	, sectionKind :: SectionKind
 	}
 	deriving Show
 
