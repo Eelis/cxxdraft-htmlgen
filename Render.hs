@@ -21,7 +21,7 @@ import Document (
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..))
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv)
+import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, lookForCommand)
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
@@ -188,6 +188,13 @@ instance (Render a, Render b) => Render (a, b) where
 instance Render TeXArg where
 	render = render . texFromArg
 
+rmClause :: LaTeX -> LaTeX
+rmClause (TeXSeq (TeXRaw "Clause~") x) = x
+rmClause (TeXSeq (TeXRaw "Clause ") x) = x
+rmClause (TeXSeq (TeXRaw "Table~") x) = x
+rmClause (TeXSeq (TeXRaw "Annex~") x) = x
+rmClause x = x
+
 instance Render LaTeX where
 	render (TeXSeq (TeXCommS "xspace") x) = (if needsSpace x then (" " ++) else id) . render x
 	render (TeXSeq (TeXCommS "textbackslash") y)
@@ -216,19 +223,30 @@ instance Render LaTeX where
 	render m@(TeXMath _ _            ) = renderMath m
 	render (TeXComm "comment" [FixArg comment]) = \c -> spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
-	render (TeXComm "ref" [FixArg abbr]) = \RenderContext{..} -> simpleRender (case () of
-		_ | "fig:" `isPrefixOf` simpleRender abbr ->
-			if abbr `elem` (figureAbbr . figures page) then anchor{aHref = "#" ++ url abbr}
-			else linkToRemoteFigure (figureByAbbr draft abbr)
-		_ | "tab:" `isPrefixOf` simpleRender abbr ->
-			case tableByAbbr draft abbr of
-				Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> linkToRemoteTable t
-				_ -> anchor{aHref = "#" ++ url abbr}
-		_ -> linkToSection SectionToSection abbr){aText = squareAbbr abbr}
+	render (TeXComm "ref" [FixArg abbr]) = \ctx ->
+		simpleRender anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = s ++ ":"
 		, aClass = "nontermdef" }
+	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
+		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx} ctx
+	render (TeXComm "linkx"
+				[ FixArg txt
+				, FixArg (parseIndex -> (p, _))
+				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
+		= \ctx -> render anchor
+			{ aText = render txt ctx
+			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#" ++ indexPathHref p
+			} ctx
+	render (TeXComm "deflinkx"
+				[ FixArg txt
+				, FixArg (parseIndex -> (p, _))
+				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
+		= \ctx -> render anchor
+			{ aText = render txt ctx
+			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def:" ++ indexPathHref p
+			} ctx
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
@@ -248,6 +266,20 @@ instance Render LaTeX where
 			, aHref  = "#def:" ++ indexPathHref p
 			, aClass = "hidden_link" } sec
 			++ render y sec
+	render (TeXComm "indexedspan" [FixArg text, FixArg indices])
+		= \ctx -> foldl f (render text ctx) indexPaths
+		where
+			f t p = xml "span" [("id", indexPathId p)] t
+			indexPaths :: [IndexPath]
+			indexPaths =
+				[ p | [OptArg _, FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
+	render (TeXEnv "indexed" [FixArg indices] content)
+		= \ctx -> foldl f (render content ctx) indexPaths
+		where
+			f t p = xml "div" [("id", indexPathId p)] t
+			indexPaths :: [IndexPath]
+			indexPaths =
+				[ p | [OptArg _, FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
 	render (TeXComm "discretionary" _) = const zwsp
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
@@ -486,13 +518,30 @@ defaultRenderContext = RenderContext
 squareAbbr :: Render a => a -> Text
 squareAbbr x = "[" ++ simpleRender x ++ "]"
 
+remoteTableHref :: Table -> Text
+remoteTableHref Table{tableSection=Section{..}, ..} =
+	"SectionToSection/" ++ url abbreviation ++ "#" ++ url (head tableAbbrs)
+
+remoteFigureHref :: Figure -> Text
+remoteFigureHref Figure{figureSection=Section{..}, ..} =
+	"SectionToSection/" ++ url abbreviation ++ "#" ++ url figureAbbr
+
 linkToRemoteTable :: Table -> Anchor
-linkToRemoteTable Table{tableSection=Section{..}, ..} =
-	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url (head tableAbbrs) }
+linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
 
 linkToRemoteFigure :: Figure -> Anchor
-linkToRemoteFigure Figure{figureSection=Section{..}, ..} =
-	anchor{ aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ url figureAbbr }
+linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
+
+abbrHref :: LaTeX -> RenderContext -> Text
+abbrHref abbr RenderContext{..}
+	| "fig:" `isPrefixOf` simpleRender abbr =
+		if abbr `elem` (figureAbbr . figures page) then "#" ++ url abbr
+		else remoteFigureHref (figureByAbbr draft abbr)
+	| "tab:" `isPrefixOf` simpleRender abbr =
+		case tableByAbbr draft abbr of
+			Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
+			_ -> "#" ++ url abbr
+	| otherwise = linkToSectionHref SectionToSection abbr
 
 renderMath :: LaTeX -> RenderContext -> Text
 renderMath m sec
@@ -707,10 +756,11 @@ grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
 data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
 
+linkToSectionHref :: Link -> LaTeX -> Text
+linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ url abbr
+
 linkToSection :: Link -> LaTeX -> Anchor
-linkToSection link abbr = anchor
-	{	aHref = Text.pack (show link) ++ "/" ++ url abbr
-	,	aText = squareAbbr abbr }
+linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr abbr }
 
 url :: LaTeX -> Text
 url = replace "&lt;" "%3c"

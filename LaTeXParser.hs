@@ -86,6 +86,7 @@ makeEnv =
 	, ("tabular", 1)
 	, ("TableBase", 1)
 	, ("longtable", 1)
+	, ("indexed", 1)
 	, ("itemdecl", 0) ] -- todo: move
 
 parseOptArg :: [Token] -> Maybe ([Token], [Token])
@@ -270,7 +271,7 @@ parseBegin c@Context{..} envname rest'
 				(body, after_end) = balanced_body envname bodyAndOnwards
 				together = replArgs args begin ++ body ++ end
 				f
-					| Just _ <- lookup envname makeEnv = TeXEnv envname []
+					| Just _ <- lookup envname makeEnv = TeXEnv envname (map (FixArg . fullParse c) args)
 					| otherwise = id
 				content = f $ fullParse c together
 			in

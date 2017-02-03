@@ -70,9 +70,9 @@ signatures =
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
 			"phantom sqrt ln emph lstset"
-		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac " ++
-			"glossary binom infannex normannex parbox definitionx"
-		a 3 = "multicolumn discretionary definecolor"
+		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
+			"binom infannex normannex parbox definitionx link indexedspan"
+		a 3 = "multicolumn discretionary definecolor deflinkx linkx"
 
 data RawElement
 	= RawLatexElements [LaTeX]
@@ -409,7 +409,7 @@ initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
 			"drawing definition definitionx importgraphic bottomline capsep itemdescr " ++
 			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented " ++
-			"tabular longtable enumeratea emph"
+			"tabular longtable enumeratea emph link linkx deflinkx indexedspan"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "space", "nocorr", "small", "kill", "lstset",
@@ -658,6 +658,7 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 
 	where
 		go (texStripInfix "|seealso" -> Just (x, y)) = (parseIndexPath x, Just $ See True y)
+		go (texStripInfix "|see " -> Just (x, y)) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|see" -> Just (x, y)) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
