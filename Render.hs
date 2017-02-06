@@ -37,7 +37,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
-import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg)
+import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg, isMath, isCodeblock)
 
 kill, literal :: [String]
 kill = ["clearpage", "renewcommand", "newcommand", "enlargethispage", "noindent", "indent", "vfill", "pagebreak", "topline", "xspace", "!", "caption", "capsep", "continuedcaption", "bottomline", "-", "hline", "rowsep", "hspace", "endlist", "cline", "itcorr", "label", "hfill", "space", "nocorr", "small", "endhead", "kill", "footnotesize", "rmfamily", "microtypesetup", "@"]
@@ -224,7 +224,13 @@ instance Render LaTeX where
 	render (TeXComm "comment" [FixArg comment]) = \c -> spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
 	render (TeXComm "ref" [FixArg abbr]) = \ctx ->
-		simpleRender anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
+		simpleRender anchor{aHref = abbrHref abbr ctx, aText = linkText abbr ctx}
+		where
+			linkText :: LaTeX -> RenderContext -> Text
+			linkText abbr RenderContext{..}
+				| "tab:" `isPrefixOf` simpleRender abbr
+				, Just Table{..} <- tableByAbbr draft abbr = Text.pack (show tableNumber)
+				| otherwise = squareAbbr abbr
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = s ++ ":"
@@ -331,7 +337,9 @@ instance Render LaTeX where
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
-	    | isComplexMath env            = return $ renderComplexMath env
+	    | isMath env && isComplexMath env = return $ renderComplexMath env
+	    | isCodeblock env              = \c -> xml "pre" [("class", "codeblock")]
+	        (render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
 instance Render Int where render = return . Text.pack . show
@@ -460,7 +468,6 @@ instance Render Element where
 	render (Tabbing t) =
 		xml "pre" [] . htmlTabs . render (preprocessPre t)
 	render (FigureElement f) = return $ renderFig False f
-	render Codeblock{..} = \c -> xml "pre" [("class", "codeblock")] (render (trimr code) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			render (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where

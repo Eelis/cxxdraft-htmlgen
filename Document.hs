@@ -64,7 +64,6 @@ data Element
 	| Tabbing LaTeX
 	| FigureElement Figure
 	| FootnoteElement Footnote
-	| Codeblock { code :: LaTeX }
 	| Minipage [Element]
 	deriving Show
 
@@ -236,7 +235,6 @@ elemTex :: Element -> [LaTeX]
 elemTex (LatexElements l) = l
 elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
 elemTex (Bnf _ l) = [l]
-elemTex (Codeblock c) = [c]
 elemTex (Minipage l) = l >>= elemTex
 elemTex (FootnoteElement (Footnote _ c)) = c >>= elemTex
 elemTex (Tabbing t) = [t]

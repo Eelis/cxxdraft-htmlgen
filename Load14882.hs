@@ -39,7 +39,7 @@ import Text.Regex (mkRegex, subRegex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix)
-import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix)
+import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix, isCodeblock)
 import LaTeXParser (Macros(..), Command, Environment, Signature(..))
 
 
@@ -86,7 +86,6 @@ data RawElement
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
 	| RawFootnote RawElements
-	| RawCodeblock LaTeX
 	| RawMinipage RawElements
 	deriving Show
 
@@ -156,11 +155,6 @@ isFigure :: LaTeX -> Bool
 isFigure (TeXEnv "importgraphic" _ _) = True
 isFigure _ = False
 
-isCodeblock :: LaTeX -> Bool
-isCodeblock (TeXEnv "codeblock" _ _) = True
-isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
-isCodeblock _ = False
-
 isMinipage :: LaTeX -> Bool
 isMinipage (TeXEnv "minipage" _ _) = True
 isMinipage _ = False
@@ -170,6 +164,7 @@ isComment (TeXComment _) = True
 isComment _ = False
 
 isParaEnd :: LaTeX -> Bool
+isParaEnd (TeXEnv "indexed" _ x) = isParaEnd x
 isParaEnd (TeXEnv "itemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True
 isParaEnd (TeXComm "pnum" _) = True
@@ -203,6 +198,7 @@ parseItems (x : (break isItem -> (item, rest)))
 parseItems _ = error "need items or nothing"
 
 isElementsEnd :: LaTeX -> Bool
+isElementsEnd (TeXEnv "indexed" _ x) = isElementsEnd x
 isElementsEnd l =
 	isEnumerate l /= Nothing || isBnf l || isTable l
 	|| isTabbing l || isFigure l || isCodeblock l || isMinipage l
@@ -340,11 +336,10 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 				, rawTableBody = parseTable content }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
-			| isCodeblock e = RawCodeblock stuff
 			| isBnf e = RawBnf k stuff
 			| isMinipage e = RawMinipage $ parsePara $ rmseqs stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
-			| k == "itemdecl" = RawLatexElements [e]
+			| k == "itemdecl" || isCodeblock e = RawLatexElements [e]
 		go other = error $ "parsePara: unexpected " ++ show other
 
 		(e', fnotes) = extractFootnotes env
@@ -527,7 +522,6 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s (filter (/= TeXRaw "") x)
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
-	assignNumbers s (RawCodeblock x) = Codeblock . assignNumbers s x
 	assignNumbers s (RawMinipage x) = Minipage . assignNumbers s x
 
 lsectionLevel :: LinearSection -> Int

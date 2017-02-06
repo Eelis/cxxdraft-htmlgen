@@ -132,6 +132,11 @@ isMath (TeXComm "ensuremath" _) = True
 isMath (TeXEnv "eqnarray*" _ _) = True
 isMath _ = False
 
+isCodeblock :: LaTeX -> Bool
+isCodeblock (TeXEnv "codeblock" _ _) = True
+isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
+isCodeblock _ = False
+
 needsSpace :: LaTeX -> Bool
 	-- In the sense of \xspace
 needsSpace TeXEmpty = False
