@@ -109,7 +109,9 @@ removeRedundantLinks :: Text -> Text
 removeRedundantLinks t = Text.pack $ subRegex (mkRegex r) (Text.unpack t) subst
  	where
  		r = "<i ><a href='([^'#]+)#nt:([^']+)'>\\2</a></i>(s?)[[:space:]]*\\((Clause )?<a href='\\1'>\\[\\1\\]</a>\\)"
- 		subst = "<i><a href=\"\\1\"#nt:\\2\">\\2</a></i>\\3"
+ 		subst = "<i><a href=\"\\1#nt:\\2\">\\2</a></i>\\3"
+	-- Todo: Do this as an earlier pass.
+
 
 writeSectionFile :: FilePath -> SectionFileStyle -> Text -> Text -> IO ()
 writeSectionFile n sfs title body = do
