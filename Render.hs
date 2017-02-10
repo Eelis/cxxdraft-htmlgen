@@ -114,7 +114,7 @@ zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
 makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
-makeSpan = words "center grammarterm mbox mathsf emph terminal textsc mathscr phantom term mathtt textnormal textrm descr textsl textit mathit"
+makeSpan = words "center grammarterm mbox mathsf emph terminal textsc phantom term mathtt textnormal textrm descr textsl textit mathit"
 makeDiv = words "definition cvqual emph exitnote footnote mathit indented paras ttfamily TableBase table tabular longtable"
 makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
 makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
@@ -497,7 +497,7 @@ isComplexMath t =
 	(not . null $ matchCommand (`elem` complexCmds) t)
 	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
 	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ trimText $ Text.concat $ allText t)
-	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log"
+	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr"
 
 data RenderContext = RenderContext
 	{ page :: Maybe Section
