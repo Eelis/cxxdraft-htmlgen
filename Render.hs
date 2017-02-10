@@ -797,8 +797,8 @@ secnum href Section{sectionNumber=n,..} =
 abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
-fileContent :: Text -> Text -> Text -> Text
-fileContent pathHome title body =
+fileContent :: Text -> Text -> Text -> Text -> Text
+fileContent pathHome title extraHead body =
 	"<!DOCTYPE html>" ++
 	"<html lang='en'>" ++
 		"<head>" ++
@@ -806,6 +806,7 @@ fileContent pathHome title body =
 			"<meta charset='UTF-8'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
 			"<link rel='icon' href='icon.png'/>" ++
+			extraHead ++
 		"</head>" ++
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"

@@ -122,7 +122,7 @@ writeSectionFile n sfs title body = do
 			createDirectoryIfMissing True (outputDir ++ n)
 			return $ n ++ "/index.html"
 	writeFile (outputDir ++ file) $ removeRedundantLinks $ applySectionFileStyle sfs $
-		fileContent (if sfs == InSubdir then "../" else "") title body
+		fileContent (if sfs == InSubdir then "../" else "") title "" body
 
 sectionHeader :: Int -> Section -> Text -> Anchor -> Text
 sectionHeader hLevel s@Section{..} secnumHref abbr_ref = h hLevel $

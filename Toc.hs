@@ -86,8 +86,10 @@ writeTocFile :: SectionFileStyle -> Draft -> IO ()
 writeTocFile sfs draft@Draft{..} = do
 	putStrLn "  toc"
 	date <- getCurrentTime
+	tocCss <- readFile "toc.css"
+	let tocStyle = "<style>" ++ Text.pack tocCss ++ "</style>"
 	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $
-		fileContent "" "14882: Contents" $
+		fileContent "" "14882: Contents" tocStyle $
 			xml "div" [("class", "tocHeader")] (tocHeader date commitUrl) ++
 			"<h1>Contents</h1>" ++
 			listOfTables (snd . tables draft) ++
