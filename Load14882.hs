@@ -35,7 +35,7 @@ import Data.List (sort, unfoldr, take)
 import Data.Maybe (isJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
-import Text.Regex (mkRegex, subRegex)
+import Text.Regex (mkRegex, subRegex, Regex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix)
@@ -286,6 +286,9 @@ makeRowCells latex =
 			| otherwise =
 				Cell Normal $ getContent content
 
+textSubRegex :: Regex -> String -> Text -> Text
+textSubRegex pat repl txt = Text.pack $ subRegex pat (Text.unpack txt) repl
+
 loadFigure :: Text -> Text
 loadFigure f =
 		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
@@ -293,7 +296,7 @@ loadFigure f =
 	where
 		p = Text.unpack $ Text.replace ".pdf" ".dot" f
 		r = mkRegex "<g id=\"[^\"]*\"" 
-		rmIds = Text.pack . flip (subRegex r) "<g" . Text.unpack
+		rmIds = textSubRegex r "<g"
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
@@ -427,6 +430,11 @@ parseFile macros =
 	. replace "\\hspace*" "\\hspace"
 	. replace "``" "“"
 	. replace "''" "”"
+
+	. textSubRegex (mkRegex "(\\grammarterm\\{[a-z-]*\\})\\{s\\}") "\\1\\textit{s}"
+		-- Mixing italic and upright looks okay in the PDF, but looks bad in browsers,
+		-- and our linkification makes clear enough that the plural 's' is not part
+		-- of the grammarterm.
 
 getCommitUrl :: IO Text
 getCommitUrl = do
@@ -733,7 +741,7 @@ load14882 = do
 		snd
 		. doParse mempty
 		. replace "\\indeximpldef{" "\\index[impldefindex]{"
-		. Text.pack . flip (subRegex (mkRegex "\\\\penalty[0-9]+")) "" . Text.unpack
+		. textSubRegex (mkRegex "\\\\penalty[0-9]+") ""
 		. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
 		. mconcat
 		. mapM readFile
