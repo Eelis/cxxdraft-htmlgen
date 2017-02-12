@@ -238,14 +238,18 @@ tokenize :: String -> [Token]
 tokenize "" = []
 tokenize ('\\':'v':'e':'r':'b': delim : (break (== delim) -> (arg, _ : rest))) =
 	Token ("\\verb:" ++ arg) : tokenize rest
-tokenize ('\\' : (span isAlpha -> (cmd@(_:_), rest)))
-	= Token ('\\' : cmd) : tokenize rest
+tokenize ('\\' : (span isAlpha -> (cmd@(_:_), (span (== ' ') -> (ws, rest)))))
+	= Token ('\\' : cmd ++ ws) : tokenize rest
 tokenize ('\\' : c : rest) = Token ['\\', c] : tokenize rest
 tokenize x@((isAlpha -> True): _) = let (a, b) = span isAlphaNum x in Token a : tokenize b
 tokenize (x:y) = Token [x] : tokenize y
 
 	-- \verb is handled in tokenize so that the 'balanced' function doesn't
 	-- get confused by \verb|{|
+
+	-- Notice how the whitespace following a command like \bla is included in the Token
+	-- This lets the parser include it in the TeXComm/TeXCommS's command field, so that
+	-- the whitespace is not lost when serializing back to text when sending to MathJax.
 
 replArgs :: [[Token]] -> [Token] -> [Token]
 replArgs args = go
@@ -287,8 +291,8 @@ parseBegin c@Context{..} envname rest'
 			in
 				prependContent env (parse c afterend)
 
-parseCmd :: Context -> String -> [Token] -> ParseResult
-parseCmd c@Context{..} cmd rest
+parseCmd :: Context -> String -> String -> [Token] -> ParseResult
+parseCmd c@Context{..} cmd ws rest
 	| cmd == "begin", Just (arg, rest') <- parseFixArg c rest =
 		let TeXRaw envname = concatRaws arg in parseBegin c (Text.unpack envname) rest'
 	| cmd == "end"
@@ -311,7 +315,7 @@ parseCmd c@Context{..} cmd rest
 	| Just signature <- lookup cmd signatures =
 		let
 			(args, rest') = parseArgs2 c signature rest
-			content = if null args then TeXCommS cmd else TeXComm cmd args
+			content = if null args then TeXCommS (cmd ++ ws) else TeXComm (cmd ++ ws) args
 		in
 			(if cmd `elem` kill then id else prependContent content)
 			(parse c rest')
@@ -351,15 +355,15 @@ parse c (Token "\\newcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\renewcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\newenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\lstnewenvironment" : Token "{" : s) = parseNewEnv c s
-
 parse c (Token "\\rSec" : Token [getDigit -> Just i] : s)
 		= prependContent (TeXComm "rSec" args) $ parse c s''
 	where
 		Just (a, s') = parseOptArg s
 		Just (b, s'') = parseFixArg c s'
 		args = map FixArg [TeXRaw $ Text.pack $ show i, fullParse c a, b]
-
-parse c (Token ('\\' : cmd) : rest) = parseCmd c cmd rest
+parse c (Token ('\\' : cmd : ws) : rest)
+	| all isSpace ws = parseCmd c [cmd] ws rest
+parse c (Token ('\\' : (span (not . isSpace) -> (cmd, ws))) : rest) = parseCmd c cmd ws rest
 parse ctx (Token c : rest)
 	| all isAlphaNum c
 		= prependContent (TeXRaw $ Text.pack c) $ parse ctx rest

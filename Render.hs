@@ -36,7 +36,7 @@ import Data.MemoTrie (memo2)
 import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet)
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs)
 import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg, isMath, isCodeblock)
 
 kill, literal :: [String]
@@ -48,7 +48,6 @@ simpleMacros =
 	[ ("dcr"            , "--")
 	, (","              , "<span style='white-space:nowrap'>&thinsp;</span>")
 	                           -- thin, non-breaking, non-stretching space
-	, (" "              , "&nbsp;")
 	, ("\""             , "\"")
 	, ("prime"          , "'")
 	, ("caret"          , "^")
@@ -61,7 +60,7 @@ simpleMacros =
 	, ("shr"            , ">>")
 	, ("cv"             , "cv")
 	, ("shl"            , "&lt;&lt;")
-	, ("br"             , "<br/>&emsp;")
+	, ("br"             , "<br/>")
 	, ("linebreak"      , "<br/>")
 	, ("sim"            , "~")
 	, ("quad"           , "&emsp;&ensp;")
@@ -317,7 +316,7 @@ instance Render LaTeX where
 				, aHref  = "#" ++ urlChars i
 				, aClass = "hidden_link" } sec
 	render (TeXComm "texorpdfstring" [_, FixArg x]) = render x
-	render t@(TeXComm x s)
+	render t@(TeXComm (dropTrailingWs -> x) s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
 	       lookup x simpleMacros       = return y
@@ -325,7 +324,8 @@ instance Render LaTeX where
 	       lookup x simpleMacros       = (y ++) . render z
 	    | x `elem` makeSpan            = spanTag (Text.pack x) . render (map texFromArg s)
 	    | otherwise                    = error $ "render: unexpected: " ++ show t
-	render (TeXCommS s)
+	render (TeXCommS " ")              = return "&nbsp;"
+	render (TeXCommS (dropTrailingWs -> s))
 	    | s `elem` literal             = return $ Text.pack s
 	    | Just x <-
 	       lookup s simpleMacros       = return x
@@ -733,7 +733,7 @@ renderCell e sec = mconcat (map renderCell' e)
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
 preprocessPre (TeXLineBreak _ _) = TeXEmpty
-preprocessPre (TeXCommS "br") = TeXEmpty
+preprocessPre (TeXCommS (dropTrailingWs -> "br")) = TeXEmpty
 preprocessPre (TeXEnv e a c) = TeXEnv e a (preprocessPre c)
 preprocessPre (TeXSeq a b) = TeXSeq (preprocessPre a) (preprocessPre b)
 preprocessPre rest = rest

@@ -3,13 +3,13 @@
 
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith,
-	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix
+	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
 import qualified Data.Text as Text
 import Data.List (stripPrefix)
-import Data.Char (ord, isDigit)
+import Data.Char (ord, isDigit, isSpace)
 import Data.Text (Text, replace)
 import Data.Text.IO (writeFile)
 import Control.Arrow (first)
@@ -76,3 +76,6 @@ stripInfix _ _  = Nothing
 startsWith :: (Char -> Bool) -> (Text -> Bool)
 startsWith _ "" = False
 startsWith p t = p (Text.head t)
+
+dropTrailingWs :: String -> String
+dropTrailingWs = reverse . dropWhile isSpace . reverse

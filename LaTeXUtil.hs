@@ -143,6 +143,7 @@ needsSpace TeXEmpty = False
 needsSpace (TeXMath _ x) = needsSpace x
 needsSpace (TeXSeq (TeXComm "index" _) x) = needsSpace x
 needsSpace (TeXSeq x _) = needsSpace x
+needsSpace (TeXComm "link" [FixArg x, _]) = needsSpace x
 needsSpace (TeXComm "texttt" _) = True
 needsSpace (TeXComm "mathsf" [FixArg x]) = needsSpace x
 needsSpace (TeXComm "mathscr" [FixArg x]) = needsSpace x

@@ -38,7 +38,7 @@ import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex, Regex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
-import Util ((.), (++), mapLast, mapHead, stripInfix)
+import Util ((.), (++), mapLast, mapHead, stripInfix, dropTrailingWs)
 import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix, isCodeblock)
 import LaTeXParser (Macros(..), Command, Environment, Signature(..))
 
@@ -185,8 +185,8 @@ isJunk (TeXComment _) = True
 isJunk _ = False
 
 isItem :: LaTeX -> Bool
-isItem (TeXCommS "item") = True
-isItem (TeXComm "item" _) = True
+isItem (TeXCommS (dropTrailingWs -> "item")) = True
+isItem (TeXComm (dropTrailingWs -> "item") _) = True
 isItem _ = False
 
 parseItems :: [LaTeX] -> [RawElements]
