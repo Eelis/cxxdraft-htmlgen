@@ -410,7 +410,7 @@ initialContext = Parser.defaultContext
 			"tabular longtable enumeratea emph link linkx deflinkx indexedspan"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
-			"itcorr", "hfill", "space", "nocorr", "small", "kill", "lstset",
+			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
 			"footnotesize", "rmfamily", "microtypesetup", "@", "ungap", "gramSec", "newcolumntype"]
 	, Parser.signatures = signatures }
 
