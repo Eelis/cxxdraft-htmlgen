@@ -162,11 +162,6 @@ asId (TeXMath Dollar x) = asId x
 asId (TeXComm "texorpdfstring" [_, FixArg x]) = asId x
 asId x = error $ "asId: unexpected: " ++ show x
 
-addBreaks :: Text -> Text
-addBreaks =
-	replace "::" (zwsp ++ "::" ++ zwsp) . -- The LaTeX sources very often neglect to use \colcol.
-	replace "_" "_&shy;"
-
 instance Render Anchor where
 	render Anchor{..} _ = xml "a" ([("class", aClass) | aClass /= "" ] ++
 	                             [("href" , aHref ) | aHref  /= "" ] ++
@@ -209,6 +204,11 @@ instance Render LaTeX where
 	                                     (if rawHyphens ctx then id
 	                                         else replace "--" "–" . replace "---" "—")
 	                                   $ (if rawTilde ctx then id else replace "~" " ")
+	                                   $ (if insertBreaks ctx then
+	                                         replace "::" (zwsp ++ "::" ++ zwsp) .
+	                                           -- The LaTeX sources very often neglect to use \colcol.
+	                                         replace "_" "_&shy;"
+	                                      else id)
 	                                   $ replace ">" "&gt;"
 	                                   $ replace "<" "&lt;"
 	                                   $ replace "&" "&amp;"
@@ -255,11 +255,11 @@ instance Render LaTeX where
 	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
 		\sec ->
 		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
-	render (TeXComm "texttt" [FixArg x]) = \ctx ->
-		spanTag "texttt" $ addBreaks $ render x ctx{rawHyphens=True}
+	render (TeXComm "texttt" [FixArg x]) = \ctx -> spanTag "texttt" $
+		render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [FixArg x]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
-			addBreaks $ render x ctx{rawHyphens=True}
+			render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, kind))])
 		= if kind == Just IndexClose then const "" else
@@ -506,6 +506,7 @@ data RenderContext = RenderContext
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
+	, insertBreaks :: Bool
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
@@ -518,6 +519,7 @@ defaultRenderContext = RenderContext
 	, rawHyphens = False
 	, rawTilde = False
 	, rawSpace = False
+	, insertBreaks = False
 	, inCodeBlock = False
 	, extraIndentation = 0
 	, idPrefix = "" }
