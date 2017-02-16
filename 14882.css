@@ -4,7 +4,7 @@ body {
 		/* Necessary because operators such as 'xor' and 'lshift' stand out
 		   from surrounding text by virtue of being sans serif. */
 	hyphens: auto;
-	line-height: 135%;
+	line-height: 1.35;
 }
 
 div.wrapper {
