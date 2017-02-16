@@ -44,11 +44,6 @@ ul > li:before {
 
 :target { background-color: #C9FBC9; }
 
-.tocHeader { text-align: center; }
-
-div.tocChapter { display: none; }
-:target > div.tocChapter { display: block; }
-
 .abbr_ref { float: right; }
 
 .folded_abbr_ref { float: right; }

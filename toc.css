@@ -1,3 +1,7 @@
-h4 { margin-top: 0.1em; margin-bottom: 0.1em; }
-h3 { margin-bottom: 0.1em; }
-
+h2 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; }
+h3 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; }
+h4 { margin: 0.1em 5pt 0.1em 5pt; border-bottom: 1px dashed #00000033; }
+:target h2 { border-bottom: none; }
+.tocHeader { text-align: center; }
+div.tocChapter { display: none; }
+:target > div.tocChapter { display: block; }
