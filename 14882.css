@@ -36,6 +36,11 @@ p {
 	margin-bottom: 0.6em;
 }
 
+h1 { line-height: 1; }
+h2 { line-height: 1; }
+h3 { line-height: 1; }
+h4 { line-height: 1; }
+
 ul > li:before {
 	content: "\2014";
 	position: absolute;

@@ -1,6 +1,7 @@
-h2 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; }
-h3 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; }
-h4 { margin: 0.1em 5pt 0.1em 5pt; border-bottom: 1px dashed #00000033; }
+h1 { margin: 0.2em 5pt 0.2em 5pt; line-height: 1.35; }
+h2 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; line-height: 1.35; }
+h3 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed #00000033; line-height: 1.35; }
+h4 { margin: 0.1em 5pt 0.1em 5pt; border-bottom: 1px dashed #00000033; line-height: 1.35; }
 :target h2 { border-bottom: none; }
 .tocHeader { text-align: center; }
 div.tocChapter { display: none; }
