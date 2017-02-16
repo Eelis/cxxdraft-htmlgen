@@ -330,6 +330,7 @@ instance Render LaTeX where
 	    | x `elem` makeSpan            = spanTag (Text.pack x) . render (map texFromArg s)
 	    | otherwise                    = error $ "render: unexpected: " ++ show t
 	render (TeXCommS " ")              = return "&nbsp;"
+	render (TeXCommS "\n")             = return "\n"
 	render (TeXCommS (dropTrailingWs -> s))
 	    | s `elem` literal             = return $ Text.pack s
 	    | Just x <-
