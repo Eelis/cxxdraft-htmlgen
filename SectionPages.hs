@@ -200,7 +200,10 @@ writeCssFile = do
 				".MJXc-TeX-main-R {}" .
 			Text.replace
 				".MJXc-TeX-math-I {font-family: MJXc-TeX-math-I,MJXc-TeX-math-Ix,MJXc-TeX-math-Iw}"
-				".MJXc-TeX-math-I {font-style: italic}"
+				".MJXc-TeX-math-I {font-style: italic}" .
+			Text.replace
+				".MJXc-TeX-main-I {font-family: MJXc-TeX-main-I,MJXc-TeX-main-Ix,MJXc-TeX-main-Iw}"
+				".MJXc-TeX-main-I {font-style: italic}"
 		-- Replace fonts to make sure code in formulas matches code in code blocks, etc.
 	mjx <- replaceFonts . Text.pack .
 		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" ["--css", ""] ""
