@@ -37,7 +37,7 @@ import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs)
-import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg, isMath, isCodeblock)
+import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg, isMath, isCodeblock, texStripPrefix)
 
 kill, literal :: [String]
 kill = words $
@@ -194,7 +194,31 @@ rmClause (TeXSeq (TeXRaw "Table~") x) = x
 rmClause (TeXSeq (TeXRaw "Annex~") x) = x
 rmClause x = x
 
+redundantOpen :: Text -> Bool
+redundantOpen (Text.unpack -> (c:'(':s))
+	= (c `elem` ("~ \n" :: String))
+	&& (s `elem` ["", "Clause ", "Clause~"])
+redundantOpen _ = False
+
 instance Render LaTeX where
+
+	render (TeXSeq gt@(TeXComm "grammarterm_" [FixArg (TeXRaw termSec),  _])
+	       (TeXSeq ps@(TeXComm "textit" [FixArg (TeXRaw "s")])
+	       (TeXSeq (TeXRaw openParen)
+	       (TeXSeq (TeXComm "ref" [FixArg (TeXRaw refSec)])
+	       (texStripPrefix ")" -> Just rest)))))
+		| refSec == termSec
+		, redundantOpen openParen
+		= render (TeXSeq gt (TeXSeq ps rest))
+
+	render (TeXSeq gt@(TeXComm "grammarterm_" [FixArg (TeXRaw termSec),  _])
+	       (TeXSeq (TeXRaw openParen)
+	       (TeXSeq (TeXComm "ref" [FixArg (TeXRaw refSec)])
+	       (texStripPrefix ")" -> Just rest))))
+		| refSec == termSec
+		, redundantOpen openParen
+		= render (TeXSeq gt rest)
+
 	render (TeXSeq (TeXCommS "xspace") x) = (if needsSpace x then (" " ++) else id) . render x
 	render (TeXSeq (TeXCommS "textbackslash") y)
 		| TeXSeq (TeXRaw s) rest <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
@@ -257,9 +281,8 @@ instance Render LaTeX where
 			{ aText = render txt ctx
 			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def:" ++ indexPathHref p
 			} ctx
-	render (TeXComm "grammarterm_" ((FixArg (TeXRaw section)) : (FixArg (TeXRaw name)) : otherArgs)) =
-		\sec ->
-		xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name ++ render otherArgs sec} sec
+	render (TeXComm "grammarterm_" [FixArg (TeXRaw section), FixArg (TeXRaw name)]) =
+		\sec -> xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name} sec
 	render (TeXComm "texttt" [FixArg x]) = \ctx -> spanTag "texttt" $
 		render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [FixArg x]) = \ctx ->

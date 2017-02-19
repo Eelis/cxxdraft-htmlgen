@@ -103,16 +103,6 @@ renderSection context specific parasEmitted s@Section{..}
 			or $ map (snd . renderSection context specific True)
 			   $ subsections
 
-removeRedundantLinks :: Text -> Text
-	-- Unlike the PDF, we linkify grammarterms. But the source text occasionally
-	-- has a subsequent \ref to the same section, which becomes redundant.
-removeRedundantLinks t = Text.pack $ subRegex (mkRegex r) (Text.unpack t) subst
- 	where
- 		r = "<i ><a href='([^'#]+)#nt:([^']+)'>\\2</a></i>(s?)[[:space:]]*\\((Clause )?<a href='\\1'>\\[\\1\\]</a>\\)"
- 		subst = "<i><a href=\"\\1#nt:\\2\">\\2</a></i>\\3"
-	-- Todo: Do this as an earlier pass.
-
-
 writeSectionFile :: FilePath -> SectionFileStyle -> Text -> Text -> IO ()
 writeSectionFile n sfs title body = do
 	file <- case sfs of
@@ -121,7 +111,7 @@ writeSectionFile n sfs title body = do
 		InSubdir -> do
 			createDirectoryIfMissing True (outputDir ++ n)
 			return $ n ++ "/index.html"
-	writeFile (outputDir ++ file) $ removeRedundantLinks $ applySectionFileStyle sfs $
+	writeFile (outputDir ++ file) $ applySectionFileStyle sfs $
 		fileContent (if sfs == InSubdir then "../" else "") title "" body
 
 sectionHeader :: Int -> Section -> Text -> Anchor -> Text
