@@ -71,7 +71,7 @@ signatures =
 			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
 			"phantom sqrt ln emph lstset"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
-			"binom infannex normannex parbox definitionx link indexedspan"
+			"binom infannex normannex parbox definitionx link weblink indexedspan"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx"
 
 data RawElement
@@ -407,7 +407,7 @@ initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
 			"drawing definition definitionx importgraphic bottomline capsep itemdescr " ++
 			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented " ++
-			"tabular longtable enumeratea emph link linkx deflinkx indexedspan"
+			"tabular longtable enumeratea emph link linkx weblink deflinkx indexedspan"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",

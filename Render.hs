@@ -263,6 +263,10 @@ instance Render LaTeX where
 		{ aId    = "nt:" ++ s
 		, aText  = s ++ ":"
 		, aClass = "nontermdef" }
+	render (TeXComm "weblink" [FixArg text, FixArg href])
+		= render anchor
+			{ aText = simpleRender text
+			, aHref = simpleRender href}
 	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx} ctx
 	render (TeXComm "linkx"
