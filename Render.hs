@@ -298,8 +298,10 @@ instance Render LaTeX where
 			render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, kind))])
-		= if kind == Just IndexClose then const "" else
-			spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
+		= case kind of
+			Just IndexClose -> const ""
+			Just (See _ _) -> const ""
+			_ -> spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
 	render (TeXComm "defnx" (FixArg x : FixArg (parseIndex -> (p, _)) : y))
 		= \sec -> render anchor
 			{ aText  = "<i>" ++ render x sec ++ "</i>"
