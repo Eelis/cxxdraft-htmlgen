@@ -64,7 +64,6 @@ data Element
 	| Tabbing LaTeX
 	| FigureElement Figure
 	| FootnoteElement Footnote
-	| Minipage [Element]
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -217,7 +216,6 @@ allElements p = paraElems p >>= f
 			Enumerated {..} -> enumItems >>= itemContent >>= f
 			TableElement Table{..} -> tableBody >>= cells >>= content >>= f
 			FootnoteElement Footnote{..} -> footnoteContent >>= f
-			Minipage x -> x >>= f
 			_ -> []
 
 tables :: Sections a => a -> [(Paragraph, Table)]
@@ -235,7 +233,6 @@ elemTex :: Element -> [LaTeX]
 elemTex (LatexElements l) = l
 elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
 elemTex (Bnf _ l) = [l]
-elemTex (Minipage l) = l >>= elemTex
 elemTex (FootnoteElement (Footnote _ c)) = c >>= elemTex
 elemTex (Tabbing t) = [t]
 elemTex (TableElement t) = tableBody t >>= rowTex

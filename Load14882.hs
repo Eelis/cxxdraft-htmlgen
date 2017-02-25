@@ -69,7 +69,7 @@ signatures =
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
-			"phantom sqrt ln emph lstset"
+			"phantom sqrt ln emph lstset minipage"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox definitionx link weblink indexedspan"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx"
@@ -86,7 +86,6 @@ data RawElement
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
 	| RawFootnote RawElements
-	| RawMinipage RawElements
 	deriving Show
 
 assignItemNumbers :: Paragraph -> Paragraph
@@ -340,9 +339,8 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
 			| isBnf e = RawBnf k stuff
-			| isMinipage e = RawMinipage $ parsePara $ rmseqs stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
-			| k == "itemdecl" || isCodeblock e = RawLatexElements [e]
+			| k == "itemdecl" || isCodeblock e || k == "minipage" = RawLatexElements [e]
 		go other = error $ "parsePara: unexpected " ++ show other
 
 		(e', fnotes) = extractFootnotes env
@@ -530,7 +528,6 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s (filter (/= TeXRaw "") x)
 	assignNumbers _ (RawBnf x y) = return $ Bnf x y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
-	assignNumbers s (RawMinipage x) = Minipage . assignNumbers s x
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l

@@ -101,8 +101,8 @@ rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
 rmseqs x = [x]
 
 dropWhile :: (Char -> Bool) -> LaTeX -> LaTeX
-dropWhile p (TeXSeq x y) = TeXSeq (dropWhile p x) y
-dropWhile p (TeXRaw x) = TeXRaw (Text.dropWhile p x)
+dropWhile p (TeXSeq x y) = dropWhile p x ++ y
+dropWhile p (TeXRaw x) = case Text.dropWhile p x of "" -> TeXEmpty; a -> TeXRaw a
 dropWhile _ x = x
 
 invisible :: LaTeX -> Bool
@@ -113,9 +113,9 @@ invisible _ = False
 
 dropWhileEnd :: (Char -> Bool) -> LaTeX -> LaTeX
 dropWhileEnd p (TeXSeq x y)
-	| invisible y = TeXSeq (dropWhileEnd p x) y
-	| otherwise = TeXSeq x (dropWhileEnd p y)
-dropWhileEnd p (TeXRaw x) = TeXRaw (Text.dropWhileEnd p x)
+	| invisible y = dropWhileEnd p x ++ y
+	| otherwise = x ++ dropWhileEnd p y
+dropWhileEnd p (TeXRaw x) = case Text.dropWhileEnd p x of "" -> TeXEmpty; a -> TeXRaw a
 dropWhileEnd _ x = x
 
 -- These dropWhile and dropWhileEnd only make a half-hearted effort, in that

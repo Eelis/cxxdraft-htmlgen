@@ -200,6 +200,10 @@ redundantOpen (Text.unpack -> (c:'(':s))
 	&& (s `elem` ["", "Clause ", "Clause~"])
 redundantOpen _ = False
 
+renderCodeblock :: LaTeX -> RenderContext -> Text
+renderCodeblock env@(TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
+	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
+
 instance Render LaTeX where
 
 	render (TeXSeq gt@(TeXComm "grammarterm_" [FixArg (TeXRaw termSec),  _])
@@ -371,8 +375,7 @@ instance Render LaTeX where
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath env = return $ renderComplexMath env
-	    | isCodeblock env              = \c -> xml "pre" [("class", "codeblock")]
-	        (render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
+	    | isCodeblock env              = renderCodeblock env
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
 instance Render Int where render = return . Text.pack . show
@@ -491,6 +494,10 @@ instance Render Footnote where
 				, aClass = "marginalized" }
 
 instance Render Element where
+	render (LatexElements [env@(TeXEnv "indexed" _ _)]) = render env
+	render (LatexElements [TeXEnv "minipage" [_] (trim -> cb@(TeXEnv "codeblock" [] t))]) =
+		xml "div" [("class", "minipage")] . renderCodeblock cb
+	render (LatexElements [env]) | isCodeblock env = render env
 	render (LatexElements t) = \sec ->
 		case Text.stripStart (render (mconcat t) sec) of "" -> ""; x -> xml "p" [] x
 	render (Bnf e t)
@@ -511,7 +518,6 @@ instance Render Element where
 				"description" -> "ul"
 				_ -> undefined
 	render (FootnoteElement e) = render e
-	render (Minipage content) = xml "div" [("class", "minipage")] . render content
 
 allText :: LaTeX -> [Text]
 allText (TeXRaw x) = [x]
