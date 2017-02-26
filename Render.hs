@@ -272,13 +272,13 @@ instance Render LaTeX where
 			{ aText = simpleRender text
 			, aHref = simpleRender href}
 	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
-		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx} ctx
+		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm "linkx"
 				[ FixArg txt
 				, FixArg (parseIndex -> (p, _))
 				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor
-			{ aText = render txt ctx
+			{ aText = render txt ctx{inLink=True}
 			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#" ++ indexPathHref p
 			} ctx
 	render (TeXComm "deflinkx"
@@ -286,11 +286,13 @@ instance Render LaTeX where
 				, FixArg (parseIndex -> (p, _))
 				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor
-			{ aText = render txt ctx
+			{ aText = render txt ctx{inLink=True}
 			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def:" ++ indexPathHref p
 			} ctx
 	render (TeXComm "grammarterm_" [FixArg (TeXRaw section), FixArg (TeXRaw name)]) =
-		\sec -> xml "i" [] $ render anchor{aHref=grammarNameRef section name, aText=name} sec
+		\sec -> xml "i" [] $ if inLink sec
+			then name
+			else render anchor{aHref=grammarNameRef section name, aText=name} sec
 	render (TeXComm "texttt" [FixArg x]) = \ctx -> spanTag "texttt" $
 		render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [FixArg x]) = \ctx ->
@@ -304,7 +306,7 @@ instance Render LaTeX where
 			_ -> spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
 	render (TeXComm "defnx" (FixArg x : FixArg (parseIndex -> (p, _)) : y))
 		= \sec -> render anchor
-			{ aText  = "<i>" ++ render x sec ++ "</i>"
+			{ aText  = "<i>" ++ render x sec{inLink=True} ++ "</i>"
 			, aId    = "def:" ++ indexPathId p
 			, aHref  = "#def:" ++ indexPathHref p
 			, aClass = "hidden_link" } sec
@@ -548,6 +550,7 @@ data RenderContext = RenderContext
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
 	, insertBreaks :: Bool
+	, inLink :: Bool -- so as not to linkify grammarterms that appear as part of a defined/linkified term/phrase
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
@@ -561,6 +564,7 @@ defaultRenderContext = RenderContext
 	, rawTilde = False
 	, rawSpace = False
 	, insertBreaks = False
+	, inLink = False
 	, inCodeBlock = False
 	, extraIndentation = 0
 	, idPrefix = "" }
