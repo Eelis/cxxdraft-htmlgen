@@ -291,22 +291,20 @@ instance Render LaTeX where
 			, aHref = simpleRender href}
 	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
-	render (TeXComm "linkx"
+	render (TeXComm comm
 				[ FixArg txt
 				, FixArg (parseIndex -> (p, _))
 				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
+		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
-			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#" ++ indexPathHref p
+			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr
+				++ "#" ++ cat comm ++ indexPathHref p
 			} ctx
-	render (TeXComm "deflinkx"
-				[ FixArg txt
-				, FixArg (parseIndex -> (p, _))
-				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
-		= \ctx -> render anchor
-			{ aText = render txt ctx{inLink=True}
-			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def" ++ indexPathHref p
-			} ctx
+		where
+			cat "linkx" = ""
+			cat "deflinkx" = "def"
+			cat "liblinkx" = "lib"
 	render (TeXComm "grammarterm_" [FixArg (TeXRaw section), FixArg (TeXRaw name)]) =
 		\sec -> xml "i" [] $ if inLink sec
 			then name

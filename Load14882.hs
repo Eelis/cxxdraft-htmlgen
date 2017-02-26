@@ -75,7 +75,7 @@ signatures =
 			"phantom sqrt ln emph lstset minipage"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox definitionx link weblink indexedspan"
-		a 3 = "multicolumn discretionary definecolor deflinkx linkx"
+		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx"
 
 data RawElement
 	= RawLatexElements [LaTeX]
@@ -408,7 +408,7 @@ initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
 			"drawing definition definitionx importgraphic bottomline capsep itemdescr " ++
 			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented " ++
-			"tabular longtable enumeratea emph link linkx weblink deflinkx indexedspan"
+			"tabular longtable enumeratea emph link linkx liblinkx weblink deflinkx indexedspan"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
