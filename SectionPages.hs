@@ -72,7 +72,7 @@ parentLink parent child
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (Text, Bool)
 renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
-		xml "div" [("id", secOnPage)] $ header ++
+		idDiv $ header ++
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosingPara=p,idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
 			paragraphs) ++
@@ -83,6 +83,9 @@ renderSection context specific parasEmitted s@Section{..}
 		  mconcat (fst . renderSection context specific False . subsections)
 		, anysubcontent )
 	where
+		idDiv
+			| specific == Just s = id
+			| otherwise = xml "div" [("id", secOnPage)]
 		secOnPage :: Text
 		secOnPage = case page context of
 			Just parent -> parentLink parent s
