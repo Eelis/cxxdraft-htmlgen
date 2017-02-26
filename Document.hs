@@ -4,7 +4,8 @@
 module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
-	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..), IndexEntry(..), IndexKind(..),
+	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
+	IndexEntry(..), IndexKind(..), RawIndexEntry(..),
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -13,6 +14,7 @@ import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(Dollar))
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import qualified Data.List as List
+import Data.IntMap (IntMap)
 import Data.Function (on)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (ord, isAlphaNum, toLower)
@@ -101,6 +103,7 @@ data Section = Section
 	, chapter :: Chapter
 	, parents :: [Section] -- if empty, this is the chapter
 	, sectionKind :: SectionKind
+	, secRawIndexEntries :: IntMap RawIndexEntry
 	}
 	deriving Show
 
@@ -110,7 +113,10 @@ instance Eq Section where
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters  :: [Section]
-	, index     :: Index }
+	, index     :: Index
+	, rawIndexEntries :: IntMap RawIndexEntry }
+
+-- (The raw index entry maps are derivable but stored for efficiency.)
 
 -- Indices:
 
@@ -126,10 +132,27 @@ type IndexCategory = Text
 
 type Index = Map IndexCategory IndexTree
 
+data RawIndexEntry = RawIndexEntry
+	{ indexSection :: Section
+	, indexCategory :: Text
+	, rawIndexPath :: IndexPath
+	, rawIndexKind :: Maybe IndexKind
+	, rawIndexEntryNr :: Maybe Int }
+
+instance Show RawIndexEntry where
+	show RawIndexEntry{..} =
+		"RawIndexEntry"
+		++ "{indexSection=" ++ show (sectionName indexSection)
+		++ ",indexCategory=" ++ show indexCategory
+		++ ",rawIndexPath=" ++ show rawIndexPath
+		++ "}"
+
 data IndexEntry = IndexEntry
 	{ indexEntrySection :: Section
 	, indexEntryKind :: Maybe IndexKind
-	, indexPath :: IndexPath }
+	, indexPath :: IndexPath
+	, indexEntryNr :: Maybe Int
+	}
 
 type IndexTree = Map IndexComponent IndexNode
 

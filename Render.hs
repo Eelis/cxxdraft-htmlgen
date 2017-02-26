@@ -17,11 +17,12 @@ module Render (
 
 import Load14882 (parseIndex) -- todo: bad
 import Document (
-	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft, Footnote(..),
+	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
-	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..))
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), RawIndexEntry(..))
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, lookForCommand)
+import qualified Data.IntMap as IntMap
 import qualified Text.LaTeX.Base.Render as TeXRender
 import Data.Text (isPrefixOf)
 import qualified Data.Text as Text
@@ -204,6 +205,21 @@ renderCodeblock :: LaTeX -> RenderContext -> Text
 renderCodeblock env@(TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
 	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 
+indexOccurrenceSuffix :: RenderContext -> Int -> Text
+	-- Returns the _ that distinguishes expr#def:object_expression from
+	-- expr#def:object_expression_ ([expr] has two definitions of 'object expression',
+	-- one for E1.E2 and one for E1.*E2.)
+indexOccurrenceSuffix c indexNum
+	| Nothing <- page c, Nothing <- draft c = ""
+	| otherwise = Text.pack $ replicate numPre '_'
+	where
+		m	| Just s <- page c = secRawIndexEntries s
+			| Just d <- draft c = rawIndexEntries d
+		(pre, Just theEntry, post) = IntMap.splitLookup indexNum m
+		thePath = rawIndexPath theEntry
+		p e = rawIndexPath e == thePath
+		numPre = IntMap.size $ IntMap.filter p pre
+
 instance Render LaTeX where
 
 	render (TeXSeq gt@(TeXComm "grammarterm_" [FixArg (TeXRaw termSec),  _])
@@ -261,7 +277,7 @@ instance Render LaTeX where
 			linkText :: LaTeX -> RenderContext -> Text
 			linkText abbr RenderContext{..}
 				| "tab:" `isPrefixOf` simpleRender abbr
-				, Just Table{..} <- tableByAbbr draft abbr = Text.pack (show tableNumber)
+				, Just Table{..} <- tableByAbbr (fromJust draft) abbr = Text.pack (show tableNumber)
 				| otherwise = squareAbbr abbr
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor
 		{ aId    = "nt:" ++ s
@@ -299,18 +315,26 @@ instance Render LaTeX where
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
-	render (TeXComm "index" [OptArg _, FixArg (parseIndex -> (p, kind))])
+	render (TeXComm "index" [FixArg (TeXRaw (Text.unpack -> read -> entryNr)), OptArg _, FixArg (parseIndex -> (p, kind))])
 		= case kind of
 			Just IndexClose -> const ""
 			Just (See _ _) -> const ""
-			_ -> spanTag "indexparent" . render anchor{aId=indexPathId p, aClass="index"}
-	render (TeXComm "defnx" (FixArg x : FixArg (parseIndex -> (p, _)) : y))
-		= \sec -> render anchor
-			{ aText  = "<i>" ++ render x sec{inLink=True} ++ "</i>"
-			, aId    = "def:" ++ indexPathId p
-			, aHref  = "#def:" ++ indexPathHref p
-			, aClass = "hidden_link" } sec
-			++ render y sec
+			_ -> \ctx ->
+				let
+					idSuffix :: Text
+					idSuffix = indexOccurrenceSuffix ctx entryNr
+				in
+					spanTag "indexparent" $ render anchor{aId=indexPathId p++idSuffix, aClass="index"} ctx
+	render (TeXComm "defnx"
+		[ FixArg (TeXRaw (Text.unpack -> read -> entryNr))
+		, FixArg txt
+		, FixArg (parseIndex -> (p, _)) ])
+		= \ctx -> let suffix = indexOccurrenceSuffix ctx entryNr in
+			render anchor
+				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
+				, aId    = "def:" ++ indexPathId p ++ suffix
+				, aHref  = "#def:" ++ indexPathHref p ++ suffix
+				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" [FixArg text, FixArg indices])
 		= \ctx -> foldl f (render text ctx) indexPaths
 		where
@@ -544,7 +568,7 @@ isComplexMath t =
 
 data RenderContext = RenderContext
 	{ page :: Maybe Section
-	, draft :: Draft
+	, draft :: Maybe Draft
 	, nearestEnclosingPara :: Paragraph
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
@@ -558,7 +582,7 @@ data RenderContext = RenderContext
 defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
 	{ page = Nothing
-	, draft = error "no draft"
+	, draft = Nothing
 	, nearestEnclosingPara = error "no para"
 	, rawHyphens = False
 	, rawTilde = False
@@ -590,9 +614,9 @@ abbrHref :: LaTeX -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
 	| "fig:" `isPrefixOf` simpleRender abbr =
 		if abbr `elem` (figureAbbr . figures page) then "#" ++ url abbr
-		else remoteFigureHref (figureByAbbr draft abbr)
+		else remoteFigureHref (figureByAbbr (fromJust draft) abbr)
 	| "tab:" `isPrefixOf` simpleRender abbr =
-		case tableByAbbr draft abbr of
+		case tableByAbbr (fromJust draft) abbr of
 			Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
 			_ -> "#" ++ url abbr
 	| otherwise = linkToSectionHref SectionToSection abbr

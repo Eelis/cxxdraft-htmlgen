@@ -25,7 +25,7 @@ import Document
 import Util
 
 renderParagraph :: RenderContext -> Text
-renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Draft{..}} =
+renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Just Draft{..}} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)
@@ -145,7 +145,7 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosingPara=p}
+			++ renderTab True t defaultRenderContext{draft=Just draft, nearestEnclosingPara=p}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
@@ -160,7 +160,7 @@ writeFullFile sfs draft = do
 	putStrLn "  full"
 	writeSectionFile "full" sfs "14882" $
 		mconcat $ applySectionFileStyle sfs . fst .
-			renderSection defaultRenderContext{draft=draft} Nothing True . chapters draft
+			renderSection defaultRenderContext{draft=Just draft} Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
@@ -169,7 +169,7 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=Just section}) (Just section) False . chapters draft)
+			(mconcat $ fst . renderSection (defaultRenderContext{draft=Just draft,page=Just section}) (Just section) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()
