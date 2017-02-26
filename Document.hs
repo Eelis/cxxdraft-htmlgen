@@ -5,7 +5,7 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
-	IndexEntry(..), IndexKind(..), RawIndexEntry(..),
+	IndexEntry(..), IndexKind(..),
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -103,7 +103,7 @@ data Section = Section
 	, chapter :: Chapter
 	, parents :: [Section] -- if empty, this is the chapter
 	, sectionKind :: SectionKind
-	, secRawIndexEntries :: IntMap RawIndexEntry
+	, secIndexEntries :: IntMap IndexEntry
 	}
 	deriving Show
 
@@ -114,13 +114,13 @@ data Draft = Draft
 	{ commitUrl :: Text
 	, chapters  :: [Section]
 	, index     :: Index
-	, rawIndexEntries :: IntMap RawIndexEntry }
+	, indexEntryMap :: IntMap IndexEntry }
 
--- (The raw index entry maps are derivable but stored for efficiency.)
+-- (The index entry maps are derivable but stored for efficiency.)
 
 -- Indices:
 
-data IndexComponent = IndexComponent { indexKey, indexFormatting :: LaTeX }
+data IndexComponent = IndexComponent { indexSortKey, indexKey :: LaTeX }
 	deriving (Eq, Show)
 
 type IndexPath = [IndexComponent]
@@ -132,19 +132,12 @@ type IndexCategory = Text
 
 type Index = Map IndexCategory IndexTree
 
-data RawIndexEntry = RawIndexEntry
-	{ indexSection :: Section
-	, indexCategory :: Text
-	, rawIndexPath :: IndexPath
-	, rawIndexKind :: Maybe IndexKind
-	, rawIndexEntryNr :: Maybe Int }
-
-instance Show RawIndexEntry where
-	show RawIndexEntry{..} =
-		"RawIndexEntry"
-		++ "{indexSection=" ++ show (sectionName indexSection)
+instance Show IndexEntry where
+	show IndexEntry{..} =
+		"IndexEntry"
+		++ "{indexSection=" ++ show (sectionName indexEntrySection)
 		++ ",indexCategory=" ++ show indexCategory
-		++ ",rawIndexPath=" ++ show rawIndexPath
+		++ ",indexPath=" ++ show indexPath
 		++ "}"
 
 data IndexEntry = IndexEntry
@@ -152,6 +145,7 @@ data IndexEntry = IndexEntry
 	, indexEntryKind :: Maybe IndexKind
 	, indexPath :: IndexPath
 	, indexEntryNr :: Maybe Int
+	, indexCategory :: Text
 	}
 
 type IndexTree = Map IndexComponent IndexNode
@@ -161,7 +155,7 @@ data IndexNode = IndexNode
 	, indexSubnodes :: IndexTree }
 
 instance Ord IndexComponent where
-	compare = compare `on` (\c -> (f (indexKey c), f (indexFormatting c)))
+	compare = compare `on` (\c -> (f (indexSortKey c), f (indexKey c)))
 		where
 			g :: Char -> Int
 			g c

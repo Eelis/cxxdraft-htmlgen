@@ -481,9 +481,13 @@ data Numbers = Numbers { tableNr, figureNr, footnoteRefNr, footnoteNr, nextIndex
 class AssignNumbers a b | a -> b where
 	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
 
+instance AssignNumbers TeXArg TeXArg where
+	assignNumbers s (FixArg x) = FixArg . assignNumbers s x
+	assignNumbers s (OptArg x) = OptArg . assignNumbers s x
+
 instance AssignNumbers LaTeX LaTeX where
 	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
-	assignNumbers s (TeXEnv x y z) = TeXEnv x y . assignNumbers s z
+	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
 	assignNumbers s (TeXComm x [FixArg y]) = TeXComm x . (:[]) . FixArg . assignNumbers s y
 	assignNumbers s (TeXComm "index" args) = do
 		n <- get
@@ -556,7 +560,7 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> [LinearSection] -> m [Section]
 treeizeChapters _ [] = return []
 treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
-		let newSec = Section{sectionKind=lsectionKind, secRawIndexEntries=rawIndexEntriesForSec newSec, ..}
+		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
@@ -577,15 +581,15 @@ treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 		sectionName = lsectionName
 		(lsubsections, more') = span ((> 0) . lsectionLevel) more
 
-rawIndexEntriesForSec :: Section -> IntMap RawIndexEntry
+rawIndexEntriesForSec :: Section -> IntMap IndexEntry
 rawIndexEntriesForSec s = IntMap.fromList
-	[(n, e) | e@RawIndexEntry{rawIndexEntryNr=Just n} <- sectionIndexEntries s]
+	[(n, e) | e@IndexEntry{indexEntryNr=Just n} <- sectionIndexEntries s]
 
 treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
-		let newSec = Section{sectionKind=lsectionKind, secRawIndexEntries=rawIndexEntriesForSec newSec, ..}
+		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
 			\(paraNumber, RawParagraph{..}) -> do
@@ -695,27 +699,27 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		parseIndexPath :: LaTeX -> IndexPath
 		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
 		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
-		parseIndexPath t = [IndexComponent t TeXEmpty]
+		parseIndexPath t = [IndexComponent TeXEmpty t]
 
-sectionIndexEntries :: Section -> [RawIndexEntry]
+sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
-	[ RawIndexEntry{..}
-	| indexSection <- sections s
-	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> rawIndexEntryNr)), OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (rawIndexPath, rawIndexKind))]
-		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
-	[ RawIndexEntry
+	[ IndexEntry{..}
+	| indexEntrySection <- sections s
+	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)), OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (indexPath, indexEntryKind))]
+		<- paragraphs indexEntrySection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
+	[ IndexEntry
 		{ indexCategory = "generalindex"
-		, rawIndexKind = Just DefinitionIndex
+		, indexEntryKind = Just DefinitionIndex
 		, ..}
-	| indexSection <- sections s
-	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> rawIndexEntryNr)), FixArg _, FixArg (parseIndex -> (rawIndexPath, Nothing))]
-		<- paragraphs indexSection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
+	| indexEntrySection <- sections s
+	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)), FixArg _, FixArg (parseIndex -> (indexPath, Nothing))]
+		<- paragraphs indexEntrySection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
 
-toIndex :: RawIndexEntry -> Index
-toIndex RawIndexEntry{..} = Map.singleton indexCategory $ go rawIndexPath
+toIndex :: IndexEntry -> Index
+toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
 	where
 		go :: [IndexComponent] -> IndexTree
-		go [c] = Map.singleton c (IndexNode [IndexEntry indexSection rawIndexKind rawIndexPath rawIndexEntryNr] Map.empty)
+		go [c] = Map.singleton c (IndexNode [IndexEntry indexEntrySection indexEntryKind indexPath indexEntryNr indexCategory] Map.empty)
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
 		go _ = error "toIndex"
 
@@ -783,9 +787,9 @@ load14882 = do
 			chapters = evalState (treeizeChapters 1 $ mconcat secs) (Numbers 1 1 1 1 0)
 			ntdefs = Map.unions $ map nontermdefsInSection chapters
 			chapters' = map (resolveGrammarterms ntdefs) chapters
-			allEntries :: [RawIndexEntry]
+			allEntries :: [IndexEntry]
 			allEntries = chapters' >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries
-			rawIndexEntries = IntMap.fromList [(n, e) | e@RawIndexEntry{rawIndexEntryNr=Just n} <- allEntries]
+			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
 
 		return Draft{chapters=chapters', ..}

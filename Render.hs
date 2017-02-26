@@ -20,7 +20,7 @@ import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
-	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), RawIndexEntry(..))
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..))
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(..), matchCommand, matchEnv, lookForCommand)
 import qualified Data.IntMap as IntMap
 import qualified Text.LaTeX.Base.Render as TeXRender
@@ -145,8 +145,9 @@ urlChars =
 	replace " "  "%20" .
 	replace "%"  "%25"
 
-indexPathId :: IndexPath -> Text
-indexPathId =
+indexPathId :: Text -> IndexPath -> Text
+indexPathId category =
+	(if category == "libraryindex" then ("lib" ++) else id) .
 	(":" ++) .
 	replace " "  "%20" .
 	replace "'" "&#39;" .
@@ -214,11 +215,11 @@ indexOccurrenceSuffix c indexNum
 	| Nothing <- page c, Nothing <- draft c = ""
 	| otherwise = Text.pack $ replicate numPre '_'
 	where
-		m	| Just s <- page c = secRawIndexEntries s
-			| Just d <- draft c = rawIndexEntries d
+		m	| Just s <- page c = secIndexEntries s
+			| Just d <- draft c = indexEntryMap d
 		(pre, Just theEntry, post) = IntMap.splitLookup indexNum m
-		thePath = rawIndexPath theEntry
-		p e = rawIndexPath e == thePath
+		thePath = indexPath theEntry
+		p e = indexPath e == thePath && indexCategory e == indexCategory theEntry
 		numPre = IntMap.size $ IntMap.filter p pre
 
 instance Render LaTeX where
@@ -316,7 +317,11 @@ instance Render LaTeX where
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "textbf" [FixArg x]) = ("<b>" ++) . (++ "</b>") . render x
-	render (TeXComm "index" [FixArg (TeXRaw (Text.unpack -> read -> entryNr)), OptArg _, FixArg (parseIndex -> (p, kind))])
+	render (TeXComm "index"
+			[ FixArg (TeXRaw (Text.unpack -> read -> entryNr))
+			, OptArg (TeXRaw category)
+			, FixArg (parseIndex -> (p, kind))
+			])
 		= case kind of
 			Just IndexClose -> const ""
 			Just (See _ _) -> const ""
@@ -325,7 +330,9 @@ instance Render LaTeX where
 					idSuffix :: Text
 					idSuffix = indexOccurrenceSuffix ctx entryNr
 				in
-					spanTag "indexparent" $ render anchor{aId=indexPathId p++idSuffix, aClass="index"} ctx
+					spanTag "indexparent" $ render anchor
+						{ aId = indexPathId category p ++ idSuffix
+						, aClass = "index"} ctx
 	render (TeXComm "defnx"
 		[ FixArg (TeXRaw (Text.unpack -> read -> entryNr))
 		, FixArg txt
@@ -333,23 +340,24 @@ instance Render LaTeX where
 		= \ctx -> let suffix = indexOccurrenceSuffix ctx entryNr in
 			render anchor
 				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
-				, aId    = "def" ++ indexPathId p ++ suffix
+				, aId    = "def" ++ indexPathId "generalindex" p ++ suffix
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" [FixArg text, FixArg indices])
 		= \ctx -> foldl f (render text ctx) indexPaths
 		where
-			f t p = xml "span" [("id", indexPathId p)] t
-			indexPaths :: [IndexPath]
+			f t p = xml "span" [("id", uncurry indexPathId p)] t
+			indexPaths :: [(Text {- category -}, IndexPath)]
 			indexPaths =
-				[ p | [OptArg _, FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
+				[ (cat, p)
+				| [OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
 	render (TeXEnv "indexed" [FixArg indices] content)
 		= \ctx -> foldl f (render content ctx) indexPaths
 		where
-			f t p = xml "div" [("id", indexPathId p)] t
-			indexPaths :: [IndexPath]
+			f t p = xml "div" [("id", uncurry indexPathId p)] t
+			indexPaths :: [(Text, IndexPath)]
 			indexPaths =
-				[ p | [OptArg _, FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
+				[ (cat, p) | [OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
 	render (TeXComm "discretionary" _) = const zwsp
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
@@ -410,8 +418,7 @@ instance Render LaTeX where
 instance Render Int where render = return . Text.pack . show
 
 instance Render IndexComponent where
-	render IndexComponent{..} =
-		render (if indexFormatting == TeXEmpty then indexKey else indexFormatting)
+	render IndexComponent{..} = render indexKey
 
 instance Render IndexEntry where
 	render IndexEntry{indexEntryKind=Just (See also x), ..} = \ctx ->
@@ -432,7 +439,10 @@ instance Render IndexEntry where
 				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
 			, aText = squareAbbr abbr }
 		where
-			extraIdPrefix = if indexEntryKind == Just DefinitionIndex then "def" else ""
+			extraIdPrefix
+				| indexEntryKind == Just DefinitionIndex = "def"
+				| indexCategory == "libraryindex" = "lib"
+				| otherwise = ""
 			abbr = abbreviation indexEntrySection
 
 instance Render IndexTree where
@@ -446,7 +456,7 @@ instance Render IndexTree where
 				let
 					up' = up ++ [comp]
 				in
-					xml "div" [("id", indexPathId up')] $
+					xml "div" [("id", indexPathId "" up')] $
 					xml "div" [("class", "indexitems")] $
 					Text.intercalate ", " (nub $ filter (/= "") $ render comp sec : flip render sec . indexEntries) ++
 					go up' indexSubnodes
