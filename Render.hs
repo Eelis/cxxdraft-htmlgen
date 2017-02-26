@@ -147,12 +147,13 @@ urlChars =
 
 indexPathId :: IndexPath -> Text
 indexPathId =
+	(":" ++) .
 	replace " "  "%20" .
 	replace "'" "&#39;" .
 	indexPathString
 
 indexPathHref :: IndexPath -> Text
-indexPathHref = urlChars . indexPathString
+indexPathHref = (":" ++) . urlChars . indexPathString
 
 asId :: LaTeX -> Text
 asId (TeXRaw t) = replace "\n" "_" $ replace " " "_" t
@@ -303,7 +304,7 @@ instance Render LaTeX where
 				, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
-			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def:" ++ indexPathHref p
+			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr ++ "#def" ++ indexPathHref p
 			} ctx
 	render (TeXComm "grammarterm_" [FixArg (TeXRaw section), FixArg (TeXRaw name)]) =
 		\sec -> xml "i" [] $ if inLink sec
@@ -332,8 +333,8 @@ instance Render LaTeX where
 		= \ctx -> let suffix = indexOccurrenceSuffix ctx entryNr in
 			render anchor
 				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
-				, aId    = "def:" ++ indexPathId p ++ suffix
-				, aHref  = "#def:" ++ indexPathHref p ++ suffix
+				, aId    = "def" ++ indexPathId p ++ suffix
+				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" [FixArg text, FixArg indices])
 		= \ctx -> foldl f (render text ctx) indexPaths
@@ -417,7 +418,7 @@ instance Render IndexEntry where
 		"<i>" ++ (if also then "see also" else "see") ++ "</i> " ++
 		Text.intercalate "; " (map (\y ->
 			 render (anchor
-				 { aHref = "#" ++
+				 { aHref = "#:" ++
 				 (replace "'" "&#39;" $
 				  replace " " "_" $
 				  replace "~" " " $
@@ -425,15 +426,14 @@ instance Render IndexEntry where
 				  indexKeyContent y)
 				 , aText = render y ctx}) ctx) x)
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
-	render IndexEntry{indexEntryKind=Just DefinitionIndex, ..} =
+	render IndexEntry{..} =
 		return $ simpleRender anchor
-			{ aHref = "SectionToSection/" ++ url abbr ++ "#def:" ++ indexPathHref indexPath
+			{ aHref = "SectionToSection/" ++ url abbr
+				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
 			, aText = squareAbbr abbr }
-			where abbr = abbreviation indexEntrySection
-	render IndexEntry{..} = return $ simpleRender anchor
-		{ aHref = "SectionToSection/" ++ url abbr ++ "#" ++ indexPathHref indexPath
-		, aText = squareAbbr abbr }
-		where abbr = abbreviation indexEntrySection
+		where
+			extraIdPrefix = if indexEntryKind == Just DefinitionIndex then "def" else ""
+			abbr = abbreviation indexEntrySection
 
 instance Render IndexTree where
 	render y sec = go [] y
