@@ -155,7 +155,7 @@ indexPathHref :: IndexPath -> Text
 indexPathHref = urlChars . indexPathString
 
 asId :: LaTeX -> Text
-asId (TeXRaw t) = replace " " "_" t
+asId (TeXRaw t) = replace "\n" "_" $ replace " " "_" t
 asId (TeXSeq x y) = asId x ++ asId y
 asId TeXEmpty = ""
 asId (TeXComm "tcode" [FixArg x]) = asId x
