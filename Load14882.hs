@@ -557,9 +557,9 @@ paraNumbers = f 1
 		f i (False : x) = Nothing : f i x
 
 treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
-	Int -> [LinearSection] -> m [Section]
-treeizeChapters _ [] = return []
-treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
+	Bool -> Int -> [LinearSection] -> m [Section]
+treeizeChapters _ _ [] = return []
+treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
@@ -569,9 +569,11 @@ treeizeChapters sectionNumber (LinearSection{..} : more) = mdo
 				let paraSourceLoc = rawParaSourceLoc
 				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
-		more'' <- treeizeChapters (sectionNumber + 1) more'
+		more'' <- treeizeChapters annexes' (sectionNumber + 1) more'
 		return $ newSec : more''
 	where
+		sectionNumber = if annexes' /= annexes then 0 else secNumber
+		annexes' = chapter /= NormalChapter
 		parents = []
 		chapter
 			| lsectionKind == InformativeAnnexSection = InformativeAnnex
@@ -784,7 +786,7 @@ load14882 = do
 	if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let
-			chapters = evalState (treeizeChapters 1 $ mconcat secs) (Numbers 1 1 1 1 0)
+			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0)
 			ntdefs = Map.unions $ map nontermdefsInSection chapters
 			chapters' = map (resolveGrammarterms ntdefs) chapters
 			allEntries :: [IndexEntry]
