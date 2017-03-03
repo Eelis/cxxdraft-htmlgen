@@ -218,7 +218,9 @@ indexOccurrenceSuffix c indexNum
 			| Just d <- draft c = indexEntryMap d
 		(pre, Just theEntry, post) = IntMap.splitLookup indexNum m
 		thePath = indexPath theEntry
-		p e = indexPath e == thePath && indexCategory e == indexCategory theEntry
+		p e = indexPath e == indexPath theEntry &&
+			indexCategory e == indexCategory theEntry &&
+			indexEntryKind e == indexEntryKind theEntry
 		numPre = IntMap.size $ IntMap.filter p pre
 
 instance Render LaTeX where
