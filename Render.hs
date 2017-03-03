@@ -358,7 +358,7 @@ instance Render LaTeX where
 			f t p = xml "div" [("id", uncurry indexPathId p)] t
 			indexPaths :: [(Text, IndexPath)]
 			indexPaths =
-				[ (cat, p) | [OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
+				[ (cat, p) | [FixArg _num, OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
 	render (TeXComm "discretionary" _) = const zwsp
 	render (TeXComm "multicolumn" [FixArg (TeXRaw n), _, FixArg content]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [FixArg content]) =
