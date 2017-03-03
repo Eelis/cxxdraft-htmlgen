@@ -127,7 +127,6 @@ makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
 indexPathString :: IndexPath -> Text
 indexPathString =
 	replace " " "_" . -- HTML forbids space.
-	replace "~" " " . -- The LaTeX uses ~ erratically, e.g. "\indextext{ambiguity!declaration~versus cast}"
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
 
