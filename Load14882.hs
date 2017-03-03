@@ -401,7 +401,9 @@ parseSections
 		_ -> error $ "not a section command: " ++ show c
 	= LinearSection{..} : moreSections
 parseSections [] = []
-parseSections (x:_) = error $ "parseSections: " ++ show x
+parseSections (x:xx)
+	| TeXRaw t <- x, all isSpace (Text.unpack t) = parseSections xx
+	| otherwise = error $ "parseSections: " ++ show x
 
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
