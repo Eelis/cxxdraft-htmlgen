@@ -422,14 +422,13 @@ instance Render IndexComponent where
 instance Render IndexEntry where
 	render IndexEntry{indexEntryKind=Just (See also x), ..} = \ctx ->
 		"<i>" ++ (if also then "see also" else "see") ++ "</i> " ++
-		Text.intercalate "; " (map (\y ->
 			 render (anchor
 				 { aHref = "#:" ++
 				 (urlChars $
 				  replace " " "_" $
 				  replace ", " "," $
-				  indexKeyContent y)
-				 , aText = render y ctx}) ctx) x)
+				  indexKeyContent x)
+				 , aText = render x ctx}) ctx
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} =
 		return $ simpleRender anchor

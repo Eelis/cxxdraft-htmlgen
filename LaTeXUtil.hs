@@ -99,12 +99,6 @@ texStripInfix t = go
 		h x (TeXRaw "") = x
 		h x y = x ++ y
 
-texSplitOn :: Text -> LaTeX -> [LaTeX]
-texSplitOn delim = go
-	where
-		go (texStripInfix delim -> Just (x, y)) = x : go y
-		go t = [t]
-
 rmseqs :: LaTeX -> [LaTeX]
 rmseqs (TeXSeq x y) = rmseqs x ++ rmseqs y
 rmseqs x = [x]

@@ -42,7 +42,7 @@ import Text.Regex (mkRegex, subRegex, Regex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix, dropTrailingWs)
-import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix, texSplitOn, isCodeblock)
+import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix, isCodeblock)
 import LaTeXParser (Macros(..), Command, Environment, Signature(..))
 
 
@@ -676,9 +676,9 @@ bnfGrammarterms links = go links . mapTeX wordify
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
 parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 	where
-		go (texStripInfix "|seealso" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See True (texSplitOn "; " y))
-		go (texStripInfix "|see " -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False (texSplitOn "; " y))
-		go (texStripInfix "|see" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False (texSplitOn "; " y))
+		go (texStripInfix "|seealso" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See True y)
+		go (texStripInfix "|see " -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False y)
+		go (texStripInfix "|see" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
 		go t = (parseIndexPath t, Nothing)
