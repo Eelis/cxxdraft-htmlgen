@@ -140,6 +140,8 @@ urlChars =
 	replace "{"  "%7b" .
 	replace "|"  "%7c" .
 	replace "}"  "%7d" .
+	replace "["  "%5b" .
+	replace "]"  "%5d" .
 	replace "^"  "%5e" .
 	replace " "  "%20" .
 	replace "%"  "%25"
