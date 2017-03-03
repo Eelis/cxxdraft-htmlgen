@@ -120,7 +120,7 @@ data Draft = Draft
 
 -- Indices:
 
-data IndexComponent = IndexComponent { indexSortKey, indexKey :: LaTeX }
+data IndexComponent = IndexComponent { distinctIndexSortKey, indexKey :: LaTeX }
 	deriving (Eq, Show)
 
 type IndexPath = [IndexComponent]
@@ -139,6 +139,11 @@ instance Show IndexEntry where
 		++ ",indexCategory=" ++ show indexCategory
 		++ ",indexPath=" ++ show indexPath
 		++ "}"
+
+indexSortKey :: IndexComponent -> LaTeX
+indexSortKey IndexComponent{..}
+	| distinctIndexSortKey /= TeXEmpty = distinctIndexSortKey
+	| otherwise = indexKey
 
 data IndexEntry = IndexEntry
 	{ indexEntrySection :: Section
