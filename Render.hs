@@ -425,9 +425,8 @@ instance Render IndexEntry where
 		Text.intercalate "; " (map (\y ->
 			 render (anchor
 				 { aHref = "#:" ++
-				 (replace "'" "&#39;" $
+				 (urlChars $
 				  replace " " "_" $
-				  replace "~" " " $
 				  replace ", " "," $
 				  indexKeyContent y)
 				 , aText = render y ctx}) ctx) x)
