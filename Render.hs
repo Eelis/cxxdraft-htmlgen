@@ -37,7 +37,7 @@ import Data.MemoTrie (memo2)
 import Data.List (find, nub)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs)
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars)
 import LaTeXUtil (texFromArg, trim, trimr, needsSpace, mapTeXArg, isMath, isCodeblock, texStripPrefix)
 
 kill, literal :: [String]
@@ -129,22 +129,6 @@ indexPathString =
 	replace " " "_" . -- HTML forbids space.
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
-
-urlChars :: Text -> Text
-urlChars =
-	replace "'"  "&#39;" .
-	replace "<"  "%3c" .
-	replace ">"  "%3e" .
-	replace "\"" "%22" .
-	replace "#"  "%23" .
-	replace "{"  "%7b" .
-	replace "|"  "%7c" .
-	replace "}"  "%7d" .
-	replace "["  "%5b" .
-	replace "]"  "%5d" .
-	replace "^"  "%5e" .
-	replace " "  "%20" .
-	replace "%"  "%25"
 
 indexPathId :: Text -> IndexPath -> Text
 indexPathId category =
@@ -263,9 +247,11 @@ instance Render LaTeX where
 	                                           -- The LaTeX sources very often neglect to use \colcol.
 	                                         replace "_" "_&shy;"
 	                                      else id)
-	                                   $ replace ">" "&gt;"
-	                                   $ replace "<" "&lt;"
-	                                   $ replace "&" "&amp;"
+	                                   $ (if replXmlChars ctx then
+	                                         replace ">" "&gt;" .
+	                                         replace "<" "&lt;" .
+	                                         replace "&" "&amp;"
+	                                      else id)
 	                                   $ x
 	render (TeXComment _             ) = return ""
 	render (TeXCommS "br"            ) = return "<br/>"
@@ -586,6 +572,7 @@ data RenderContext = RenderContext
 	, insertBreaks :: Bool
 	, inLink :: Bool -- so as not to linkify grammarterms that appear as part of a defined/linkified term/phrase
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
+	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
 
@@ -600,6 +587,7 @@ defaultRenderContext = RenderContext
 	, insertBreaks = False
 	, inLink = False
 	, inCodeBlock = False
+	, replXmlChars = True
 	, extraIndentation = 0
 	, idPrefix = "" }
 
@@ -851,9 +839,7 @@ linkToSection :: Link -> LaTeX -> Anchor
 linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr abbr }
 
 url :: LaTeX -> Text
-url = replace "&lt;" "%3c"
-    . replace "&gt;" "%3e"
-    . simpleRender
+url = urlChars . flip render defaultRenderContext{replXmlChars = False}
 
 simpleRender :: Render a => a -> Text
 simpleRender = flip render defaultRenderContext
@@ -893,10 +879,7 @@ fileContent pathHome title extraHead body =
 	"</html>"
 
 abbrAsPath :: LaTeX -> Text
-abbrAsPath
-	= replace "&lt;" "<"
-	. replace "&gt;" ">"
-	. simpleRender
+abbrAsPath = flip render defaultRenderContext{replXmlChars = False}
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)

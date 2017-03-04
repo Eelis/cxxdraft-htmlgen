@@ -2,7 +2,7 @@
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 
 module Util (
-	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith,
+	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs
 	) where
 
@@ -79,3 +79,20 @@ startsWith p t = p (Text.head t)
 
 dropTrailingWs :: String -> String
 dropTrailingWs = reverse . dropWhile isSpace . reverse
+
+urlChars :: Text -> Text
+urlChars =
+	replace "'"  "&#39;" .
+	replace "<"  "%3c" .
+	replace ">"  "%3e" .
+	replace "\"" "%22" .
+	replace "#"  "%23" .
+	replace "{"  "%7b" .
+	replace "|"  "%7c" .
+	replace "}"  "%7d" .
+	replace "["  "%5b" .
+	replace "\\" "%5c" .
+	replace "]"  "%5d" .
+	replace "^"  "%5e" .
+	replace " "  "%20" .
+	replace "%"  "%25"

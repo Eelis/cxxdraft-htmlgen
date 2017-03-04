@@ -20,9 +20,12 @@ import Data.Maybe (isJust)
 import Text.Regex (mkRegex, subRegex)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Render
+import Render (render, abbrAsPath, simpleRender, outputDir, flatRender, url, renderFig,
+	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..),
+	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
+	secnum, Link(..))
 import Document
-import Util
+import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
 
 renderParagraph :: RenderContext -> Text
 renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Just Draft{..}} =
@@ -52,7 +55,7 @@ renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Just
 					{ aClass = "marginalized"
 					, aHref  =
 						if isJust (page ctx)
-							then "#" ++ idPrefix ctx ++ n
+							then "#" ++ urlChars (idPrefix ctx) ++ n
 							else "SectionToSection/" ++ url (abbreviation paraSection) ++ "#" ++ n
 					, aText  = n }
 			in
@@ -64,10 +67,11 @@ renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Just
 
 parentLink :: Section -> Section -> Text
 parentLink parent child
-	| Just sub <- Text.stripPrefix (simpleRender (abbreviation parent) ++ ".") secname = sub
+	| Just sub <- Text.stripPrefix (r (abbreviation parent) ++ ".") secname = sub
 	| otherwise = secname
 	where
-		secname = simpleRender (abbreviation child)
+		secname = r (abbreviation child)
+		r = flip render defaultRenderContext{replXmlChars=False}
 
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (Text, Bool)
 renderSection context specific parasEmitted s@Section{..}
@@ -89,10 +93,10 @@ renderSection context specific parasEmitted s@Section{..}
 		secOnPage :: Text
 		secOnPage = case page context of
 			Just parent -> parentLink parent s
-			Nothing -> simpleRender (Document.abbreviation s)
+			Nothing -> render (Document.abbreviation s) defaultRenderContext{replXmlChars=False}
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
-			(if specific == Nothing && isJust (page context) then "#" ++ secOnPage else "")
+			(if specific == Nothing && isJust (page context) then "#" ++ urlChars secOnPage else "")
 			abbr
 		abbr
 			| specific == Just s && not (null parents)
