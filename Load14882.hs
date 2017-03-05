@@ -490,7 +490,6 @@ instance AssignNumbers TeXArg TeXArg where
 instance AssignNumbers LaTeX LaTeX where
 	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
-	assignNumbers s (TeXComm x [FixArg y]) = TeXComm x . (:[]) . FixArg . assignNumbers s y
 	assignNumbers s (TeXComm "index" args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
@@ -503,6 +502,7 @@ instance AssignNumbers LaTeX LaTeX where
 		Numbers{..} <- get
 		put Numbers{footnoteRefNr = footnoteRefNr+1, ..}
 		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteRefNr]
+	assignNumbers s (TeXComm x args) = TeXComm x . assignNumbers s args
 	assignNumbers _ x = return x
 
 instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
