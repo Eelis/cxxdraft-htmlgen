@@ -337,7 +337,7 @@ instance Render LaTeX where
 			indexPaths :: [(Text {- category -}, IndexPath)]
 			indexPaths =
 				[ (cat, p)
-				| [OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
+				| [FixArg _num, OptArg (TeXRaw cat), FixArg (parseIndex -> (p, _))] <- lookForCommand "index" indices]
 	render (TeXEnv "indexed" [FixArg indices] content)
 		= \ctx -> foldl f (render content ctx) indexPaths
 		where
