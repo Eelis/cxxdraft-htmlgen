@@ -192,6 +192,11 @@ renderCodeblock :: LaTeX -> RenderContext -> Text
 renderCodeblock env@(TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
 	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 
+sameIdNamespace :: Maybe IndexKind -> Maybe IndexKind -> Bool
+sameIdNamespace Nothing (Just IndexOpen) = True
+sameIdNamespace (Just IndexOpen) Nothing = True
+sameIdNamespace x y = x == y
+
 indexOccurrenceSuffix :: RenderContext -> Int -> Text
 	-- Returns the _ that distinguishes expr#def:object_expression from
 	-- expr#def:object_expression_ ([expr] has two definitions of 'object expression',
@@ -206,7 +211,7 @@ indexOccurrenceSuffix c indexNum
 		thePath = indexPath theEntry
 		p e = indexPath e == indexPath theEntry &&
 			indexCategory e == indexCategory theEntry &&
-			indexEntryKind e == indexEntryKind theEntry
+			sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
 		numPre = IntMap.size $ IntMap.filter p pre
 
 instance Render LaTeX where
