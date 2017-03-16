@@ -20,7 +20,7 @@ import Data.Maybe (isJust)
 import Text.Regex (mkRegex, subRegex)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Render (render, abbrAsPath, simpleRender, outputDir, flatRender, url, renderFig,
+import Render (render, abbrAsPath, simpleRender, outputDir, url, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
 	secnum, Link(..))
