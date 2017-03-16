@@ -211,6 +211,7 @@ indexKeyContent = ikc
 		ikc (TeXBraces x) = ikc x
 		ikc (TeXMath Dollar x) = ikc x
 		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x
+		ikc (TeXComm "grammarterm" [FixArg x]) = ikc x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
 indexCatName :: (Eq b , IsString a, IsString b) => b -> a
