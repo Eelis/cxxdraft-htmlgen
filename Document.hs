@@ -121,7 +121,12 @@ data Draft = Draft
 -- Indices:
 
 data IndexComponent = IndexComponent { distinctIndexSortKey, indexKey :: LaTeX }
-	deriving (Eq, Show)
+	deriving Show
+
+instance Eq IndexComponent where
+	x == y =
+		distinctIndexSortKey x == distinctIndexSortKey y &&
+		indexKeyContent (indexKey x) == indexKeyContent (indexKey y)
 
 type IndexPath = [IndexComponent]
 
