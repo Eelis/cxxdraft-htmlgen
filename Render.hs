@@ -283,6 +283,10 @@ instance Render LaTeX where
 		= render anchor
 			{ aText = simpleRender text
 			, aHref = simpleRender href}
+	render (TeXComm "url" [FixArg url])
+		= render anchor
+			{ aText = simpleRender url
+			, aHref = simpleRender url }
 	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm comm

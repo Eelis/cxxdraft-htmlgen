@@ -72,7 +72,7 @@ signatures =
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
-			"phantom sqrt ln emph lstset minipage"
+			"phantom sqrt ln emph lstset minipage url"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox definitionx link weblink indexedspan"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx"
