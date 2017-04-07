@@ -74,7 +74,7 @@ signatures =
 			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
 			"phantom sqrt ln emph lstset minipage url"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
-			"binom infannex normannex parbox definitionx link weblink indexedspan"
+			"binom infannex normannex parbox link weblink indexedspan"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx"
 
 data RawElement
@@ -174,7 +174,6 @@ isParaEnd x = isParasEnd x
 
 isParasEnd :: LaTeX -> Bool
 isParasEnd (TeXComm "definition" _) = True
-isParasEnd (TeXComm "definitionx" _) = True
 isParasEnd (TeXComm "rSec" _) = True
 isParasEnd (TeXComm "infannex" _) = True
 isParasEnd (TeXComm "normannex" _) = True
@@ -380,35 +379,26 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 				ps = collectParas more
 				(p, more) = break isParaEnd x
 
-parseSections :: [LaTeX] -> [LinearSection]
-parseSections
-	(TeXComm c args
-	: ( parseParas ->
-		( lsectionParagraphs
-		, parseSections -> moreSections
-	)))
-	| (lsectionAbbreviation, lsectionName, lsectionKind) <- case (c, args) of
-		("normannex", [FixArg abbr, FixArg name]) ->
-			(abbr, name, NormativeAnnexSection)
-		("infannex", [FixArg abbr, FixArg name]) ->
-			(abbr, name, InformativeAnnexSection)
-		("rSec", [FixArg (TeXRaw level), FixArg abbr, FixArg name]) ->
-			(abbr, name, NormalSection $ read $ Text.unpack level)
-		("definition", [FixArg name, FixArg abbr]) ->
-			(abbr, name, DefinitionSection 2)
-		("definitionx", [FixArg name, FixArg abbr]) ->
-			(abbr, name, DefinitionSection 3)
-		_ -> error $ "not a section command: " ++ show c
-	= LinearSection{..} : moreSections
-parseSections [] = []
-parseSections (x:xx)
-	| TeXRaw t <- x, all isSpace (Text.unpack t) = parseSections xx
+parseSections :: Int -> [LaTeX] -> [LinearSection]
+parseSections level
+	(TeXComm c args : (parseParas -> (lsectionParagraphs, more)))
+	| (FixArg lsectionAbbreviation, FixArg lsectionName, lsectionKind, level') <- case (c, args) of
+		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
+		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
+		("definition", [name, abbr]) -> (abbr, name, DefinitionSection (level + 1), level)
+		("rSec", [FixArg (TeXRaw (Text.unpack -> read -> l)), abbr, name]) ->
+			(abbr, name, NormalSection l, l)
+		_ -> error $ "not a section command: " ++ show (c, args)
+	= LinearSection{..} : parseSections level' more
+parseSections _ [] = []
+parseSections l (x:xx)
+	| TeXRaw t <- x, all isSpace (Text.unpack t) = parseSections l xx
 	| otherwise = error $ "parseSections: " ++ show x
 
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition definitionx importgraphic bottomline capsep itemdescr " ++
+			"drawing definition importgraphic bottomline capsep itemdescr " ++
 			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented " ++
 			"tabular longtable enumeratea emph link linkx liblinkx weblink deflinkx indexedspan"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
@@ -425,7 +415,7 @@ doParse m t = (x, y)
 
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros =
-	parseSections
+	parseSections 0
 	. filter (not . isComment)
 	. rmseqs . fst
 	. doParse macros
