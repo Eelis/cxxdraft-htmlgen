@@ -127,7 +127,7 @@ parseNewCmd c@Context{..} (Token ('\\' : name) : Token "}" : rest) =
 		(sig, rest') = parseSignature rest
 		Just (body, rest'') = balanced ('{', '}') rest'
 		m = Macros (Map.singleton name (Command sig body)) mempty mempty
-		ParseResult p mm r = parse c{macros=macros++m} rest''
+		ParseResult p mm r = parse c{macros = macros ++ m} rest''
 	in
 		ParseResult p (m ++ mm) r
 parseNewCmd _ x = error $ "parseNewCmd: unexpected: " ++ take 100 (show x)
@@ -311,7 +311,17 @@ parseCmd c@Context{..} cmd ws rest
 				++ [FixArg $ fullParse c a2]
 		in
 			prependContent (TeXComm "raisebox" args) (parse c rest''')
+
+	| cmd == "def"
+	, (Token ('\\' : name) : rest') <- rest
+	, Just (body, rest'') <- balanced ('{', '}') rest' =
+		let
+			m = Macros (Map.singleton name (Command (Signature 0 Nothing) body)) mempty mempty
+			ParseResult p mm r = parse c{macros=macros++m} rest''
+		in
+			ParseResult p (m ++ mm) r
 	| cmd == "def" = parse c $ snd $ fromJust $ balanced ('{', '}') $ dropWhile (/= Token "{") rest
+
 	| Just signature <- lookup cmd signatures =
 		let
 			(args, rest') = parseArgs2 c signature rest
