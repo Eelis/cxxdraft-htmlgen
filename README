@@ -12,7 +12,7 @@ Prerequisites
   - The Haskell Platform (https://www.haskell.org/platform/)
   - Graphviz
   - Node.js
-  - mathjax-node (npm package)
+  - mathjax-node-cli (https://github.com/mathjax/mathjax-node-cli/)
 
 Usage
 

@@ -732,7 +732,7 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 		. Text.pack
 		. kill " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
 		. kill " style=\"\""
-		. readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" args ""
+		. readProcess "tex2html" args ""
 	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
 	where
 		kill r s = subRegex (mkRegex r) s ""

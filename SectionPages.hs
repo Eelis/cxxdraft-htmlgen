@@ -203,5 +203,5 @@ writeCssFile = do
 				".MJXc-TeX-main-I {font-style: italic}"
 		-- Replace fonts to make sure code in formulas matches code in code blocks, etc.
 	mjx <- replaceFonts . Text.pack .
-		readProcess "/usr/lib/node_modules/mathjax-node/bin/tex2html" ["--css", ""] ""
+		readProcess "tex2html" ["--css", ""] ""
 	writeFile (outputDir ++ "/14882.css") (base ++ mjx)
