@@ -19,9 +19,10 @@ Usage
   First, follow the draft package instructions to build the pdf.
   As a side effect, this generates std-gram.ext, which we need.
 
-  Then, do:
+  Then, in the cxxdraft-htmlgen dir, do:
 
-    runhaskell genhtml.hs path/to/draft [sectionfilestyle]
+    cabal build
+    dist/build/cxxdraft-htmlgen/cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
   where sectionfilestyle is one of:
 
