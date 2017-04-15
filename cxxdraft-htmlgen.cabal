@@ -24,7 +24,7 @@ executable cxxdraft-htmlgen
                , mtl >=2.2
                , time >=1.4
                , MemoTrie
-               , regex-compat
+               , regex-compat-tdfa
                , temporary
   hs-source-dirs:      .
   default-language:    Haskell2010
