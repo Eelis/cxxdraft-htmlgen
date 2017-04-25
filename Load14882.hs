@@ -20,9 +20,11 @@ import Document
 import qualified LaTeXParser as Parser
 import qualified Data.IntMap as IntMap
 import Data.IntMap (IntMap)
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>))
+import LaTeXBase (LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand, matchEnv, allUnits,
+	matchCommand, mapTeX, mapTeXRaw, concatRaws, texStripInfix, isCodeblock)
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
+import Data.Monoid ((<>))
 import qualified Data.Text as Text
 import Control.Monad (forM)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
@@ -39,9 +41,7 @@ import Text.Regex (mkRegex, subRegex, Regex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix, dropTrailingWs)
-import LaTeXUtil (texFromArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripInfix, isCodeblock)
 import LaTeXParser (Macros(..), Signature(..))
-
 
 signatures :: [(String, Signature)]
 signatures =
@@ -77,7 +77,7 @@ signatures =
 		a _ = undefined
 
 data RawElement
-	= RawLatexElements [LaTeX]
+	= RawLatexElements LaTeX
 	| RawEnumerated String [RawElements]
 	| RawBnf String LaTeX
 	| RawTable
@@ -131,7 +131,7 @@ data LinearSection = LinearSection
 	, lsectionParagraphs :: [RawParagraph] }
 	deriving Show
 
-isEnumerate :: LaTeX -> Maybe String
+isEnumerate :: LaTeXUnit -> Maybe String
 isEnumerate (TeXEnv s _ _)
 	| s `elem` ["enumeratea", "enumerate", "itemize", "description"] = Just s
 isEnumerate _ = Nothing
@@ -139,57 +139,51 @@ isEnumerate _ = Nothing
 bnfEnvs :: [String]
 bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "bnftab", "ncbnftab", "simplebnf", "ncsimplebnf"]
 
-isBnf :: LaTeX -> Bool
+isBnf :: LaTeXUnit -> Bool
 isBnf (TeXEnv s _ _)
 	| s `elem` bnfEnvs = True
 isBnf _ = False
 
-isTable :: LaTeX -> Bool
+isTable :: LaTeXUnit -> Bool
 isTable (TeXEnv "TableBase" _ _) = True
 isTable _ = False
 
-isTabbing :: LaTeX -> Bool
+isTabbing :: LaTeXUnit -> Bool
 isTabbing (TeXEnv "tabbing" _ _) = True
 isTabbing _ = False
 
-isFigure :: LaTeX -> Bool
+isFigure :: LaTeXUnit -> Bool
 isFigure (TeXEnv "importgraphic" _ _) = True
 isFigure _ = False
 
-isMinipage :: LaTeX -> Bool
+isMinipage :: LaTeXUnit -> Bool
 isMinipage (TeXEnv "minipage" _ _) = True
 isMinipage _ = False
 
-isComment :: LaTeX -> Bool
-isComment (TeXComment _) = True
-isComment _ = False
-
-isParaEnd :: LaTeX -> Bool
-isParaEnd (TeXEnv "indexed" _ x) = isParaEnd x
+isParaEnd :: LaTeXUnit -> Bool
+isParaEnd (TeXEnv "indexed" _ (x:_)) = isParaEnd x
 isParaEnd (TeXEnv "itemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True
 isParaEnd (TeXComm "pnum" _) = True
 isParaEnd x = isParasEnd x
 
-isParasEnd :: LaTeX -> Bool
+isParasEnd :: LaTeXUnit -> Bool
 isParasEnd (TeXComm "definition" _) = True
 isParasEnd (TeXComm "rSec" _) = True
 isParasEnd (TeXComm "infannex" _) = True
 isParasEnd (TeXComm "normannex" _) = True
 isParasEnd _ = False
 
-isJunk :: LaTeX -> Bool
+isJunk :: LaTeXUnit -> Bool
 isJunk (TeXRaw x) = all isSpace (Text.unpack x)
 isJunk (TeXComm "index" _) = True
-isJunk (TeXComment _) = True
 isJunk _ = False
 
-isItem :: LaTeX -> Bool
-isItem (TeXCommS (dropTrailingWs -> "item")) = True
+isItem :: LaTeXUnit -> Bool
 isItem (TeXComm (dropTrailingWs -> "item") _) = True
 isItem _ = False
 
-parseItems :: [LaTeX] -> [RawElements]
+parseItems :: [LaTeXUnit] -> [RawElements]
 parseItems [] = []
 parseItems (x : (span isJunk -> (junk, rest)))
 	| isJunk x = mapHead (RawLatexElements (x : junk) :) (parseItems rest)
@@ -197,8 +191,8 @@ parseItems (x : (break isItem -> (item, rest)))
 	| isItem x = parsePara item : parseItems rest
 parseItems _ = error "need items or nothing"
 
-isElementsEnd :: LaTeX -> Bool
-isElementsEnd (TeXEnv "indexed" _ x) = isElementsEnd x
+isElementsEnd :: LaTeXUnit -> Bool
+isElementsEnd (TeXEnv "indexed" _ (x:_)) = isElementsEnd x
 isElementsEnd l =
 	isEnumerate l /= Nothing || isBnf l || isTable l
 	|| isTabbing l || isFigure l || isCodeblock l || isMinipage l
@@ -206,39 +200,24 @@ isElementsEnd l =
 isTableEnv :: String -> Bool
 isTableEnv = (`elem` ["tabular", "longtable"])
 
-texBreak :: (LaTeX -> Bool) -> LaTeX -> (LaTeX, LaTeX)
-texBreak p t@(TeXSeq x y)
-	| p x = (TeXEmpty, t)
-	| (a, b) <- texBreak p x, b /= TeXEmpty = (a, TeXSeq b y)
-	| otherwise = first (TeXSeq x) (texBreak p y)
-texBreak p t
-	| p t = (TeXEmpty, t)
-	| otherwise = (t, TeXEmpty)
-
 rowHas :: (String -> Bool) -> LaTeX -> Bool
 rowHas f = not . null . matchCommand f
 
 parseTable :: LaTeX -> [Row RawElements]
-parseTable TeXEmpty = []
-parseTable latex@(TeXSeq _ _)
-	| TeXEmpty <- row = parseTable $ texTail rest
+parseTable [] = []
+parseTable latex
+	| row == [] = parseTable $ tail rest
 	| rowHas (== "endfirsthead") row = parseTable $ findEndHead rest
 	| rowHas (`elem` ["caption", "bottomline"]) row = parseTable rest
 	| otherwise = makeRow row : parseTable rest
 	where
-		breakRow = texBreak isRowEnd
-		(row, rest) = breakRow latex
-		isRowEnd (TeXLineBreak _ _) = True
-		isRowEnd _ = False
-
-		findEndHead TeXEmpty = error "Table ended before end of head"
+		(row, rest) = break (== TeXLineBreak) latex
 		findEndHead l
-			| TeXEmpty <- row' = findEndHead $ texTail rest'
+			| row' == [] = findEndHead $ tail rest'
 			| rowHas (== "endhead") row' = l
 			| otherwise = findEndHead rest'
 			where
-				(row', rest') = breakRow l
-parseTable latex = [makeRow latex]
+				(row', rest') = break (== TeXLineBreak) l
 
 makeRow :: LaTeX -> Row RawElements
 makeRow l = Row sep $ makeRowCells l
@@ -250,7 +229,7 @@ makeRow l = Row sep $ makeRowCells l
 			| otherwise = NoSep
 
 		clines [] = []
-		clines (([FixArg (TeXRaw c)]) : rest) = (begin, end) : clines rest
+		clines (([(FixArg, [TeXRaw c])]) : rest) = (begin, end) : clines rest
 			where
 				(begin', end') = Text.breakOn "-" c
 				begin = read $ Text.unpack begin' :: Int
@@ -258,30 +237,29 @@ makeRow l = Row sep $ makeRowCells l
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
 makeRowCells :: LaTeX -> [Cell RawElements]
-makeRowCells TeXEmpty = []
+makeRowCells [] = []
 makeRowCells latex =
 	case rest of
-		TeXEmpty -> [makeCell cell]
-		TeXSeq _ r ->
-			(makeCell $ cell <> (TeXRaw cell')) : makeRowCells (TeXSeq (TeXRaw rest'') r)
-		TeXRaw r ->
-			[(makeCell $ cell <> (TeXRaw cell')), makeCell $ TeXRaw (rest'' ++ r)]
-		_ -> error $ "makeRowCells: unexpected " ++ show rest
+		[] -> [makeCell cell]
+		_ : r ->
+			(makeCell $ cell <> [TeXRaw cell']) : makeRowCells (TeXRaw rest'' : r)
+--		[TeXRaw r] ->
+--			[(makeCell $ cell <> [TeXRaw cell']), makeCell [TeXRaw (rest'' ++ r)]]
+--		_ -> error $ "makeRowCells: unexpected " ++ show rest
 	where
-		(cell, rest) = texBreak isColEnd latex
+		(cell, rest) = break isColEnd latex
 		isColEnd (TeXRaw c) = isJust $ Text.find (== '&') c
 		isColEnd _ = False
 
 		(cell', rest') = Text.break (== '&') $ getText rest
 		rest'' = Text.drop 1 rest'
-		getText (TeXRaw s) = s
-		getText (TeXSeq (TeXRaw s) _) = s
+		getText (TeXRaw s : _) = s
 		getText other = error $ "Didn't expect " ++ show other
 
-		getContent = parsePara . rmseqs
+		getContent = parsePara
 
 		makeCell content
-			| [[FixArg (TeXRaw w), FixArg cs, FixArg content']] <- lookForCommand "multicolumn" content =
+			| [[(FixArg, [TeXRaw w]), (FixArg, cs), (FixArg, content')]] <- lookForCommand "multicolumn" content =
 				Cell (Multicolumn (read $ Text.unpack w) cs) $ getContent content'
 			| otherwise =
 				Cell Normal $ getContent content
@@ -302,45 +280,44 @@ loadFigure f =
 
 class ExtractFootnotes a where extractFootnotes :: a -> (a, [RawElements])
 
-instance (Monoid a, ExtractFootnotes a) => ExtractFootnotes [a] where
+instance ExtractFootnotes a => ExtractFootnotes [a] where
 	extractFootnotes l = (map fst x, x >>= snd)
 		where x = extractFootnotes . l
 
-instance ExtractFootnotes LaTeX where
-	extractFootnotes (TeXComm "footnote" [FixArg content]) =
-		(TeXCommS "footnoteref", [parsePara $ rmseqs content])
-	extractFootnotes (TeXCommS "footnotemark") =
-		(TeXCommS "footnoteref", [])
-	extractFootnotes (TeXComm "footnotetext" [FixArg content]) =
-		(TeXEmpty, [parsePara $ rmseqs content])
-	extractFootnotes (TeXComm a [FixArg content]) =
-		first (\c -> TeXComm a [FixArg c]) (extractFootnotes content)
-	extractFootnotes (TeXSeq a b) = extractFootnotes a ++ extractFootnotes b
+instance ExtractFootnotes LaTeXUnit where
+	extractFootnotes (TeXComm "footnote" [(_, content)]) =
+		(TeXComm "footnoteref" [], [parsePara content])
+	extractFootnotes (TeXComm "footnotemark" []) =
+		(TeXComm "footnoteref" [], [])
+	extractFootnotes (TeXComm "footnotetext" [(_, content)]) =
+		(TeXRaw "" {- todo.. -}, [parsePara content])
+	extractFootnotes (TeXComm a [(FixArg, content)]) =
+		first (\c -> TeXComm a [(FixArg, c)]) (extractFootnotes content)
 	extractFootnotes (TeXEnv env args content) = first (TeXEnv env args) (extractFootnotes content)
 	extractFootnotes other = (other, [])
 
-parsePara :: [LaTeX] -> RawElements
+parsePara :: LaTeX -> RawElements
 parsePara [] = []
 parsePara (env@(TeXEnv _ _ _) : more) =
 	go e' : parsePara more ++ (RawFootnote . fnotes)
 	where
-		go :: LaTeX -> RawElement
+		go :: LaTeXUnit -> RawElement
 		go e@(TeXEnv k a stuff)
 			| isFigure e
-			, [FixArg rawFigureName, FixArg rawFigureAbbr, FixArg (TeXRaw figureFile)] <- a
+			, [(FixArg, rawFigureName), (FixArg, rawFigureAbbr), (FixArg, [TeXRaw figureFile])] <- a
 			= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
-			, (_, (FixArg y : _), content) : _todo <- matchEnv isTableEnv stuff
+			, (_, ((FixArg, y) : _), content) : _todo <- matchEnv isTableEnv stuff
 			= RawTable
-				{ rawTableCaption = texFromArg x
+				{ rawTableCaption = snd x
 				, rawColumnSpec = y
-				, rawTableAbbrs = map (texFromArg . head) (lookForCommand "label" stuff)
+				, rawTableAbbrs = map (snd . head) (lookForCommand "label" stuff)
 				, rawTableBody = parseTable content }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
 			| isBnf e = RawBnf k stuff
-			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems $ rmseqs stuff)
+			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| k == "itemdecl" || isCodeblock e || k == "minipage" = RawLatexElements [e]
 		go other = error $ "parsePara: unexpected " ++ show other
 
@@ -349,7 +326,7 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 parsePara (elems -> (extractFootnotes -> (e, fnotes), more))
 	= RawLatexElements e : parsePara more ++ (RawFootnote . fnotes)
 
-elems :: [LaTeX] -> ([LaTeX], [LaTeX])
+elems :: LaTeX -> (LaTeX, LaTeX)
 elems [] = ([], [])
 elems y@(x:xs)
 	| isElementsEnd x = ([], y)
@@ -357,19 +334,19 @@ elems y@(x:xs)
 	, b /= "" = ([TeXRaw a], TeXRaw (Text.drop 2 b) : xs)
 	| otherwise = first (x :) (elems xs)
 
-parseParas :: [LaTeX] -> ([RawParagraph], [LaTeX] {- rest -})
+parseParas :: LaTeX -> ([RawParagraph], LaTeX {- rest -})
 parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 		= (collectParas stuff ++ [RawParagraph False False (RawFootnote . fs) Nothing], rest)
 	where
-		collectParas :: [LaTeX] -> [RawParagraph]
+		collectParas :: LaTeX -> [RawParagraph]
 		collectParas (t@(TeXEnv "itemdecl" _ _) : more) =
 			RawParagraph False False (parsePara [t]) Nothing : collectParas more
 		collectParas (TeXEnv "itemdescr" _ desc : more) =
-			map (\p -> p{rawParaInItemdescr=True}) (collectParas $ rmseqs desc)
+			map (\p -> p{rawParaInItemdescr=True}) (collectParas desc)
 			++ collectParas more
 		collectParas (TeXComm "pnum"
-			[ FixArg (TeXRaw (Text.unpack -> file))
-			, FixArg (TeXRaw (Text.unpack -> read -> lineNr))] : more) =
+			[ (FixArg, [TeXRaw (Text.unpack -> file)])
+			, (FixArg, [TeXRaw (Text.unpack -> read -> lineNr)])] : more) =
 				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Just (SourceLocation file lineNr)} : x)
 				(collectParas more)
 		collectParas [] = []
@@ -378,14 +355,14 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 				ps = collectParas more
 				(p, more) = break isParaEnd x
 
-parseSections :: Int -> [LaTeX] -> [LinearSection]
+parseSections :: Int -> LaTeX -> [LinearSection]
 parseSections level
 	(TeXComm c args : (parseParas -> (lsectionParagraphs, more)))
-	| (FixArg lsectionAbbreviation, FixArg lsectionName, lsectionKind, level') <- case (c, args) of
+	| ((FixArg, lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
 		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
 		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
 		("definition", [name, abbr]) -> (abbr, name, DefinitionSection (level + 1), level)
-		("rSec", [FixArg (TeXRaw (Text.unpack -> read -> l)), abbr, name]) ->
+		("rSec", [(FixArg, [TeXRaw (Text.unpack -> read -> l)]), abbr, name]) ->
 			(abbr, name, NormalSection l, l)
 		_ -> error $ "not a section command: " ++ show (c, args)
 	= LinearSection{..} : parseSections level' more
@@ -415,8 +392,7 @@ doParse m t = (x, y)
 parseFile :: Macros -> Text -> [LinearSection]
 parseFile macros =
 	parseSections 0
-	. filter (not . isComment)
-	. rmseqs . fst
+	. fst
 	. doParse macros
 	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
@@ -473,25 +449,22 @@ class AssignNumbers a b | a -> b where
 	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
 
 instance AssignNumbers TeXArg TeXArg where
-	assignNumbers s (FixArg x) = FixArg . assignNumbers s x
-	assignNumbers s (OptArg x) = OptArg . assignNumbers s x
-	assignNumbers _ _ = error "unimplemented"
+	assignNumbers s (y, x) = (y, ) . assignNumbers s x
 
-instance AssignNumbers LaTeX LaTeX where
-	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
+instance AssignNumbers LaTeXUnit LaTeXUnit where
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
 	assignNumbers _ (TeXComm "index" args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
-		return $ TeXComm "index" $ FixArg (TeXRaw $ Text.pack $ show $ nextIndexEntryNr n) : args
+		return $ TeXComm "index" $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
 	assignNumbers _ (TeXComm "defnx" args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
-		return $ TeXComm "defnx" $ FixArg (TeXRaw $ Text.pack $ show $ nextIndexEntryNr n) : args
-	assignNumbers _ (TeXCommS "footnoteref") = do
+		return $ TeXComm "defnx" $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
+	assignNumbers _ (TeXComm "footnoteref" []) = do
 		Numbers{..} <- get
 		put Numbers{footnoteRefNr = footnoteRefNr+1, ..}
-		return $ TeXComm "footnoteref" [FixArg $ TeXRaw $ Text.pack $ show footnoteRefNr]
+		return $ TeXComm "footnoteref" [(FixArg, [TeXRaw $ Text.pack $ show footnoteRefNr])]
 	assignNumbers s (TeXComm x args) = TeXComm x . assignNumbers s args
 	assignNumbers _ x = return x
 
@@ -612,16 +585,12 @@ nontermdefsInSection s@Section{..} =
 	: map nontermdefsInSection subsections)
 
 nontermdefsInElement :: Element -> [Text]
-nontermdefsInElement (LatexElements e) = concatMap nontermdefs e
+nontermdefsInElement (LatexElements e) = nontermdefs e
 nontermdefsInElement (Bnf _ e) = nontermdefs e
 nontermdefsInElement _ = []
 
 nontermdefs :: LaTeX -> [Text]
-nontermdefs (TeXSeq a b) = (nontermdefs a) ++ (nontermdefs b)
-nontermdefs (TeXEnv _ _ x) = nontermdefs x
-nontermdefs (TeXBraces x) = nontermdefs x
-nontermdefs (TeXComm "nontermdef" [FixArg (TeXRaw name)]) = [name]
-nontermdefs _ = []
+nontermdefs t = [name | TeXComm "nontermdef" [(FixArg, [TeXRaw name])] <- allUnits t]
 
 resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
@@ -631,7 +600,7 @@ resolveGrammarterms links Section{..} =
 		..}
 	where
 		resolve :: GrammarLinks -> Element -> Element
-		resolve g (LatexElements e) = LatexElements $ map (grammarterms g) e
+		resolve g (LatexElements e) = LatexElements $ grammarterms g e
 		resolve g (Enumerated s ps) = Enumerated s $ map f ps
 			where f i@Item{..} = i{itemContent=map (resolve g) itemContent}
 		resolve g (Bnf n b) = Bnf n $ grammarterms g $ bnfGrammarterms g b
@@ -641,16 +610,16 @@ resolveGrammarterms links Section{..} =
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
 grammarterms links = mapTeX (go links)
 	where
-		go g (TeXComm "grammarterm" args@((FixArg (TeXRaw name)) : _))
+		go g (TeXComm "grammarterm" args@((FixArg, [TeXRaw name]) : _))
 			| Just Section{..} <- Map.lookup (Text.toLower name) g =
-			Just $ TeXComm "grammarterm_" ((FixArg abbreviation) : args)
+				Just [TeXComm "grammarterm_" ((FixArg, abbreviation) : args)]
 		go _ _ = Nothing
 
 bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
-bnfGrammarterms links = go links . mapTeX wordify
+bnfGrammarterms links = (>>= go) . mapTeX wordify
 	where
-		wordify :: LaTeX -> Maybe LaTeX
-		wordify (TeXRaw stuff) = Just $ mconcat $ map TeXRaw $ unfoldr f stuff
+		wordify :: LaTeXUnit -> Maybe LaTeX
+		wordify (TeXRaw stuff) = Just $ map TeXRaw $ unfoldr f stuff
 			where
 				f s | Text.null s = Nothing
 				f s | isName $ Text.head s = Just $ Text.span isName s
@@ -659,23 +628,23 @@ bnfGrammarterms links = go links . mapTeX wordify
 				isName c = isAlpha c || c `elem` ['-', '_']
 		wordify _ = Nothing
 
-		go g n@(TeXRaw name)
-			| Just Section{..} <- Map.lookup name g =
-				TeXComm "grammarterm_" [(FixArg abbreviation), (FixArg n)]
-		go g (TeXSeq a b) = TeXSeq (go g a) (go g b)
-		go _ other = other
+		go :: LaTeXUnit -> LaTeX
+		go n@(TeXRaw name)
+			| Just Section{..} <- Map.lookup name links =
+				[TeXComm "grammarterm_" [(FixArg, abbreviation), (FixArg, [n])]]
+		go x = [x]
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
 parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 	where
-		go (texStripInfix "|seealso" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See True y)
-		go (texStripInfix "|see " -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False y)
-		go (texStripInfix "|see" -> Just (x, TeXBraces y)) = (parseIndexPath x, Just $ See False y)
+		go (texStripInfix "|seealso" -> Just (x, [TeXBraces y])) = (parseIndexPath x, Just $ See True y)
+		go (texStripInfix "|see " -> Just (x, [TeXBraces y])) = (parseIndexPath x, Just $ See False y)
+		go (texStripInfix "|see" -> Just (x, [TeXBraces y])) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
 		go t = (parseIndexPath t, Nothing)
 
-		unescapeIndexPath :: Text -> LaTeX
+		unescapeIndexPath :: Text -> LaTeXUnit
 		unescapeIndexPath = TeXRaw
 			. replace "\5" "\""
 
@@ -693,21 +662,21 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		parseIndexPath :: LaTeX -> IndexPath
 		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
 		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
-		parseIndexPath t = [IndexComponent TeXEmpty t]
+		parseIndexPath t = [IndexComponent [] t]
 
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
 	[ IndexEntry{..}
 	| indexEntrySection <- sections s
-	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)), OptArg (TeXRaw indexCategory), FixArg (parseIndex -> (indexPath, indexEntryKind))]
-		<- paragraphs indexEntrySection >>= paraElems >>= elemTex >>= lookForCommand "index" ] ++
+	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
+		<- lookForCommand "index" (paragraphs indexEntrySection >>= paraElems >>= elemTex)] ++
 	[ IndexEntry
 		{ indexCategory = "generalindex"
 		, indexEntryKind = Just DefinitionIndex
 		, ..}
 	| indexEntrySection <- sections s
-	, [FixArg (TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)), FixArg _, FixArg (parseIndex -> (indexPath, Nothing))]
-		<- paragraphs indexEntrySection >>= paraElems >>= elemTex >>= lookForCommand "defnx" ]
+	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (FixArg, _), (FixArg, (parseIndex -> (indexPath, Nothing)))]
+		<- lookForCommand "defnx" (paragraphs indexEntrySection >>= paraElems >>= elemTex)]
 
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath

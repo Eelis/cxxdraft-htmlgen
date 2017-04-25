@@ -15,7 +15,6 @@ executable cxxdraft-htmlgen
   other-modules:       Load14882, Render, Util, SectionPages, Toc
   other-extensions:    OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns
   build-depends: base >=4.6
-               , HaTeX >=3.16
                , text >=1.2
                , process >=1.1
                , directory >=1.2

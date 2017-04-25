@@ -3,14 +3,12 @@
 
 module LaTeXParser (parseString, Context(..), defaultContext, Signature(..), Macros(..), Command(..), Environment(..)) where
 
-import LaTeXUtil (mapTeXRaw, concatRaws)
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), texmap, MathType(..))
+import LaTeXBase (LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), MathType(..), concatRaws)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Char (isAlphaNum, isSpace, isAlpha)
 import Data.Maybe (fromJust)
 import Control.Arrow (first)
-import Data.List (stripPrefix)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Prelude hiding ((++), (.))
@@ -66,6 +64,7 @@ prependContent t p = p{content = t ++ content p}
 addMacros :: Macros -> ParseResult -> ParseResult
 addMacros m p = p{newMacros = m ++ newMacros p}
 
+defaultContext :: Context
 defaultContext = Context
 	{ commentsEnabled = True
 	, parsingOptArg = False
@@ -101,17 +100,12 @@ parseFixArg :: Context -> [Token] -> Maybe (LaTeX, [Token])
 parseFixArg ctx (Token [c] : more) | isSpace c = parseFixArg ctx more
 parseFixArg ctx (Token "{" : more) =
 	let ParseResult t _macros s = parse ctx more in Just (t, s)
-parseFixArg ctx _ = Nothing
+parseFixArg _ _ = Nothing
 
-parseFixArgs :: Context -> [Token] -> ([LaTeX], [Token])
-parseFixArgs c s
-	| Just (r, s') <- parseFixArg c s = first (r:) (parseFixArgs c s')
-	| otherwise = ([], s)
-
-parseFixArgsm :: Context -> Int -> [Token] -> ([LaTeX], [Token])
-parseFixArgsm c max s
-	| max == 0 = ([], s)
-	| Just (r, s') <- parseFixArg c s = first (r:) (parseFixArgsm c (max-1) s')
+parseFixArgs :: Context -> Int -> [Token] -> ([LaTeX], [Token])
+parseFixArgs c mx s
+	| mx == 0 = ([], s)
+	| Just (r, s') <- parseFixArg c s = first (r:) (parseFixArgs c (mx-1) s')
 	| otherwise = ([], s)
 
 parseSignature :: [Token] -> (Signature, [Token])
@@ -119,6 +113,7 @@ parseSignature t = case optArgs of
 	[] -> (Signature 0 Nothing, t')
 	[[Token a]] -> (Signature (read a) Nothing, t')
 	[[Token a], deflt] -> (Signature (read a) (Just deflt), t')
+	_ -> error "unrecognized signature"
 	where (optArgs, t') = parseOptArgs t
 
 parseNewCmd :: Context -> [Token] -> ParseResult
@@ -142,7 +137,7 @@ balanced (open, close) (dropWhile (all isSpace . tokenChars) -> (Token [o] : s))
 		go n (Token "}" : x) = first (Token "}" :) (go (n-1) x)
 		go n (Token "{" : x) = first (Token "{" :) (go (n+1) x)
 		go n (x:y) = first (x :) (go n y)
-		go n s = error $ "\n\nbalanced: " ++ show (n, s)
+		go n x = error $ "\n\nbalanced: " ++ show (n, x)
 balanced oc (dropWhile (all isSpace. tokenChars) -> (Token "%" : x)) = balanced oc (dropWhile (/= Token "\n") x)
 balanced _ _ = Nothing
 
@@ -167,16 +162,16 @@ parseArgs Signature{..} s = case defaultArg of
 			first (optArg :) (n_balanced ('{', '}') (nrFixArgs - 1) s')
 
 parseArgs2 :: Context -> Signature -> [Token] -> ([TeXArg], [Token])
-parseArgs2 c Signature{..} s = case defaultArg of
-	Nothing -> first (map fa) (n_balanced ('{', '}') nrFixArgs s)
-	Just dfl -> case parseOptArg s of
-		Nothing ->
-			first (map fa) (n_balanced ('{', '}') (nrFixArgs - 1) s)
-		Just (optArg, s') ->
-			first (\a -> OptArg (fullParse c optArg) : map fa a)
+parseArgs2 c Signature{..} s
+	| defaultArg == Nothing = first (map fa) (n_balanced ('{', '}') nrFixArgs s)
+	| Just (optArg, s') <- parseOptArg s =
+			first (\a -> (OptArg, fullParse c optArg) : map fa a)
 			(n_balanced ('{', '}') (nrFixArgs - 1) s')
+	| otherwise = first (map fa) (n_balanced ('{', '}') (nrFixArgs - 1) s)
 	where
-		fa = FixArg . fullParse c
+		fa = (FixArg, ) . fullParse c
+
+-- todo: clean up parseArgs/parseArgs2 above
 
 n_balanced :: (Char, Char) -> Int -> [Token] -> ([[Token]], [Token])
 n_balanced oc n s
@@ -206,32 +201,34 @@ parseCode :: Context -> [Token] -> LaTeX
 parseCode c = concatRaws . go False
 	where
 		go :: Bool {- in string literal -} -> [Token] -> LaTeX
-		go _ [] = TeXEmpty
+		go _ [] = []
 		go b (Token "@" : rest) =
 				fullParse c cmd ++ go b rest'
 			where (cmd, Token "@" : rest') = break (== Token "@") rest
-		go True (Token "\"" : rest) = "\"" ++ go False rest
-		go False (Token "\"" : rest) = "\"" ++ go True lit ++ go False rest'
+		go True (Token "\"" : rest) = TeXRaw "\"" : go False rest
+		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
 			where (lit, rest') = stringLiteral rest
 		go False (Token "/" : Token "/" : rest)
-			= TeXComm "comment" [FixArg (TeXRaw "//" ++ fullParse c comment)] ++ go False rest'
+			= TeXComm "comment" [(FixArg, TeXRaw "//" : fullParse c comment)] : go False rest'
 			where (comment, rest') = breakLineComment rest
-		go b (Token "/" : rest) = "/" ++ go b rest
-		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) ++ go b rest
+		go b (Token "/" : rest) = TeXRaw "/" : go b rest
+		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) : go b rest
 			where (code, rest) = break (`elem` [Token "@", Token "/", Token "\""]) s
 		breakLineComment s = case break (== Token "\n") s of
 			(comment, Token "\n" : rest) -> (comment ++ [Token "\n"], rest)
 			(x, y) -> (x, y)
+		{-
 		breakComment s = f s []
 			where
 				f [] a = (reverse a, [])
 				f (Token "*" : Token "/" : rest) a = (reverse $ Token "/" : Token "*" : a, rest)
 				f (x : rest) a = f rest (x : a)
+		-}
 		stringLiteral :: [Token] -> ([Token], [Token])
 		stringLiteral (Token "\\" : Token "\"" : x) = first (Token "\\\"" :) (stringLiteral x)
 		stringLiteral (Token "\\" : Token "\\" : x) = first (Token "\\\\" :) (stringLiteral x)
 		stringLiteral (Token "\"" : x) = ([Token "\""], x)
-		stringLiteral (c : x) = first (c :) (stringLiteral x)
+		stringLiteral (y : x) = first (y :) (stringLiteral x)
 		stringLiteral [] = ([], [])
 
 tokenize :: String -> [Token]
@@ -266,7 +263,7 @@ parseBegin :: Context -> String -> [Token] -> ParseResult
 parseBegin c env t
     | env `elem` ["codeblock", "itemdecl", "codeblockdigitsep"]
 	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t
-	= prependContent (TeXEnv env [] (parseCode c code)) (parse c rest)
+	= prependContent [TeXEnv env [] (parseCode c code)] (parse c rest)
 parseBegin c@Context{..} envname rest'
 	| Just Environment{..} <- Map.lookup (Text.pack envname) (environments macros)
 	, not (envname `elem` dontEval) =
@@ -275,7 +272,7 @@ parseBegin c@Context{..} envname rest'
 				(body, after_end) = balanced_body envname bodyAndOnwards
 				together = replArgs args begin ++ body ++ end
 				f
-					| Just _ <- lookup envname makeEnv = TeXEnv envname (map (FixArg . fullParse c) args)
+					| Just _ <- lookup envname makeEnv = (:[]) . TeXEnv envname (map ((FixArg, ) . fullParse c) args)
 					| otherwise = id
 				content = f $ fullParse c together
 			in
@@ -285,16 +282,16 @@ parseBegin c@Context{..} envname rest'
 				arity
 					| Just a <- lookup envname makeEnv = a
 					| otherwise = 0
-				(arguments, rest'') = parseFixArgsm c arity rest'
+				(arguments, rest'') = parseFixArgs c arity rest'
 				ParseResult body _ afterend = parse c rest''
-				env = TeXEnv envname (map FixArg arguments) (concatRaws body)
+				env = TeXEnv envname (map (FixArg, ) arguments) (concatRaws body)
 			in
-				prependContent env (parse c afterend)
+				prependContent [env] (parse c afterend)
 
 parseCmd :: Context -> String -> String -> [Token] -> ParseResult
 parseCmd c@Context{..} cmd ws rest
 	| cmd == "begin", Just (arg, rest') <- parseFixArg c rest =
-		let TeXRaw envname = concatRaws arg in parseBegin c (Text.unpack envname) rest'
+		let [TeXRaw envname] = concatRaws arg in parseBegin c (Text.unpack envname) rest'
 	| cmd == "end"
 		, Just (_, rest') <- parseFixArg c rest = ParseResult mempty mempty rest'
 	| cmd == "raisebox"
@@ -304,13 +301,13 @@ parseCmd c@Context{..} cmd ws rest
 		Just (x, y) -> (Just x, y)
 	, Just (a2, rest''') <- balanced ('{', '}') rest'' =
 		let
-			args = [FixArg $ fullParse c a0]
+			args = [(FixArg, fullParse c a0)]
 				++ case a1 of
 					Nothing -> []
-					Just x -> [OptArg (fullParse c x)]
-				++ [FixArg $ fullParse c a2]
+					Just x -> [(OptArg, fullParse c x)]
+				++ [(FixArg, fullParse c a2)]
 		in
-			prependContent (TeXComm "raisebox" args) (parse c rest''')
+			prependContent [TeXComm "raisebox" args] (parse c rest''')
 
 	| cmd == "def"
 	, (Token ('\\' : name) : rest') <- rest
@@ -325,9 +322,9 @@ parseCmd c@Context{..} cmd ws rest
 	| Just signature <- lookup cmd signatures =
 		let
 			(args, rest') = parseArgs2 c signature rest
-			content = if null args then TeXCommS (cmd ++ ws) else TeXComm (cmd ++ ws) args
+			content = TeXComm (cmd ++ ws) args
 		in
-			(if cmd `elem` kill then id else prependContent content)
+			(if cmd `elem` kill then id else prependContent [content])
 			(parse c rest')
 	| otherwise = case Map.lookup cmd (commands macros) of
 		Nothing -> error $
@@ -343,43 +340,43 @@ parseCmd c@Context{..} cmd ws rest
 
 parse :: Context -> [Token] -> ParseResult
 parse c (d@(Token "$") : (span (/= d) -> (math, Token "$" : rest))) =
-	prependContent (TeXMath Dollar (fullParse c math)) (parse c rest)
+	prependContent [TeXMath Dollar (fullParse c math)] (parse c rest)
 parse c (Token "\\[" : (span (/= Token "\\]") -> (math, Token "\\]" : rest))) =
-	prependContent (TeXMath Square (fullParse c math)) (parse c rest)
+	prependContent [TeXMath Square (fullParse c math)] (parse c rest)
 parse c (Token "]" : x)
 	| parsingOptArg c = ParseResult mempty mempty x
-parse c (Token "}" : x) = ParseResult mempty mempty x
+parse _ (Token "}" : x) = ParseResult mempty mempty x
 parse c (Token "{" : x) =
 	let ParseResult y _ rest = parse c x
-	in prependContent (TeXBraces y) $ parse c rest
+	in prependContent [TeXBraces y] $ parse c rest
 parse c (Token "%" : x)
 	| commentsEnabled c = parse c (rmLine x)
 parse _ [] = ParseResult mempty mempty mempty
-parse c (Token "\\\\" : x) = prependContent (TeXLineBreak Nothing False) (parse c x)
+parse c (Token "\\\\" : x) = prependContent [TeXLineBreak] (parse c x)
 parse c (Token ['\\', ch] : x)
-	| ch `elem` literal = prependContent (TeXCommS [ch]) (parse c x)
+	| ch `elem` literal = prependContent [TeXComm [ch] []] (parse c x)
 parse c (Token ('\\':'v':'e':'r':'b':':':arg) : rest) =
-	prependContent (TeXComm "verb" [FixArg (TeXRaw $ Text.pack arg)]) (parse c rest)
+	prependContent [TeXComm "verb" [(FixArg, [TeXRaw $ Text.pack arg])]] (parse c rest)
 parse c (Token "\\let" : _ : _ : s) = parse c s -- todo
 parse c (Token "\\newcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\renewcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\newenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\lstnewenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\rSec" : Token [getDigit -> Just i] : s)
-		= prependContent (TeXComm "rSec" args) $ parse c s''
+		= prependContent [TeXComm "rSec" args] $ parse c s''
 	where
 		Just (a, s') = parseOptArg s
 		Just (b, s'') = parseFixArg c s'
-		args = map FixArg [TeXRaw $ Text.pack $ show i, fullParse c a, b]
+		args = [(FixArg, [TeXRaw $ Text.pack $ show i]), (FixArg, fullParse c a), (FixArg, b)]
 parse c (Token ('\\' : cmd : ws) : rest)
 	| all isSpace ws = parseCmd c [cmd] ws rest
 parse c (Token ('\\' : (span (not . isSpace) -> (cmd, ws))) : rest) = parseCmd c cmd ws rest
 parse ctx (Token c : rest)
 	| all isAlphaNum c
-		= prependContent (TeXRaw $ Text.pack c) $ parse ctx rest
+		= prependContent [TeXRaw $ Text.pack c] $ parse ctx rest
 parse ctx (Token [c] : rest)
 	| isAlphaNum c || isSpace c || (c `elem` (".^|,[]':@-+=()!/;*~\"“”_<>&$?#" :: String))
-		= prependContent (TeXRaw $ Text.pack [c]) $ parse ctx rest
+		= prependContent [TeXRaw $ Text.pack [c]] $ parse ctx rest
 parse _ s = error $ "parse: unexpected: " ++ take 100 (concatMap tokenChars s)
 
 fullParse :: Context -> [Token] -> LaTeX

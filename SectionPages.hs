@@ -19,7 +19,7 @@ import System.Process (readProcess)
 import Data.Maybe (isJust, fromJust)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Render (render, abbrAsPath, simpleRender, outputDir, url, renderFig,
+import Render (render, concatRender, abbrAsPath, simpleRender, outputDir, url, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
 	secnum, Link(..))
@@ -33,7 +33,7 @@ renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=(fro
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (sourceLink
-		  ++ render paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
+		  ++ concatRender paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
 		urlBase = Text.replace "/commit/" "/tree/" commitUrl ++ "/source/"
 		sourceLink :: Text

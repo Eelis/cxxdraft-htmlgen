@@ -7,6 +7,7 @@ import qualified Data.Text as Text
 import Data.Time.Format (formatTime, defaultTimeLocale)
 import Data.Time.Clock (getCurrentTime, UTCTime)
 import Prelude hiding ((.), (++), writeFile)
+import LaTeXBase (LaTeXUnit(..))
 import Render (
 	secnum, Link(..), linkToSection, simpleRender, squareAbbr,
 	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
@@ -19,7 +20,7 @@ tocSection s@Section{..} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		simpleRender (sectionName ++ " ", (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
+		simpleRender (sectionName ++ [TeXRaw " "], (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
 	mconcat (tocSection . subsections)
 
 tocChapter :: Section -> Text
@@ -27,7 +28,7 @@ tocChapter s@Section{..} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		simpleRender (sectionName ++ " ", anchor{
+		simpleRender (sectionName ++ [TeXRaw " "], anchor{
 			aClass = "folded_abbr_ref",
 			aText  = "[" ++ simpleRender abbreviation ++ "]",
 			aHref  = "#" ++ simpleRender abbreviation}) ++

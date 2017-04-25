@@ -10,7 +10,7 @@ module Document (
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
 
-import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), MathType(Dollar))
+import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import qualified Data.List as List
@@ -59,7 +59,7 @@ data Footnote = Footnote
 	deriving Show
 
 data Element
-	= LatexElements [LaTeX]
+	= LatexElements LaTeX
 	| Enumerated { enumCmd :: String, enumItems :: [Item] }
 	| Bnf String LaTeX
 	| TableElement Table
@@ -147,7 +147,7 @@ instance Show IndexEntry where
 
 indexSortKey :: IndexComponent -> LaTeX
 indexSortKey IndexComponent{..}
-	| distinctIndexSortKey /= TeXEmpty = distinctIndexSortKey
+	| distinctIndexSortKey /= [] = distinctIndexSortKey
 	| otherwise = indexKey
 
 data IndexEntry = IndexEntry
@@ -182,41 +182,40 @@ mergeIndexNodes x y = IndexNode
 	, indexSubnodes = Map.unionWith mergeIndexNodes (indexSubnodes x) (indexSubnodes y) }
 
 indexKeyContent :: LaTeX -> Text
-indexKeyContent = ikc
+indexKeyContent txt = mconcat (map ikc txt)
 	where
+		ikc :: LaTeXUnit -> Text
 		ikc (TeXRaw t) = replace "\n" " " t
-		ikc (TeXSeq x y) = ikc x ++ ikc y
-		ikc TeXEmpty = ""
-		ikc (TeXComm "tcode" [FixArg x]) = ikc x
-		ikc (TeXComm "texttt" [FixArg x]) = ikc x
-		ikc (TeXComm "textit" [FixArg x]) = ikc x
-		ikc (TeXComm "mathsf" [FixArg x]) = ikc x
-		ikc (TeXCommS "xspace") = "_"
-		ikc (TeXCommS "Cpp") = "C++"
-		ikc (TeXCommS "&") = "&"
-		ikc (TeXCommS "%") = "%"
-		ikc (TeXCommS "-") = ""
-		ikc (TeXCommS "ell") = "ℓ"
-		ikc (TeXCommS "~") = "~"
-		ikc (TeXCommS "#") = "#"
-		ikc (TeXCommS "{") = "{"
-		ikc (TeXCommS "}") = "}"
-		ikc (TeXCommS "caret") = "^"
-		ikc (TeXCommS s)
-			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
-		ikc (TeXCommS "tilde") = "~"
-		ikc (TeXCommS "^") = "^"
-		ikc (TeXCommS "\"") = "\""
-		ikc (TeXCommS "") = ""
-		ikc (TeXCommS "x") = "TODO"
-		ikc (TeXCommS "textbackslash") = "\\";
-		ikc (TeXCommS "textunderscore") = "_";
+		ikc (TeXComm "tcode" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "texttt" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "textit" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "mathsf" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "xspace" []) = "_"
+		ikc (TeXComm "Cpp" []) = "C++"
+		ikc (TeXComm "&" []) = "&"
+		ikc (TeXComm "%" []) = "%"
+		ikc (TeXComm "-" []) = ""
+		ikc (TeXComm "ell" []) = "ℓ"
+		ikc (TeXComm "~" []) = "~"
+		ikc (TeXComm "#" []) = "#"
+		ikc (TeXComm "{" []) = "{"
+		ikc (TeXComm "}" []) = "}"
+		ikc (TeXComm "caret" []) = "^"
+		ikc (TeXComm "tilde" []) = "~"
+		ikc (TeXComm "^" []) = "^"
+		ikc (TeXComm "\"" []) = "\""
+		ikc (TeXComm "" []) = ""
+		ikc (TeXComm "x" []) = "TODO"
+		ikc (TeXComm "textbackslash" []) = "\\"
+		ikc (TeXComm "textunderscore" []) = "_"
 		ikc (TeXComm "discretionary" _) = ""
-		ikc (TeXComm "texorpdfstring" [_, FixArg x]) = ikc x
-		ikc (TeXBraces x) = ikc x
-		ikc (TeXMath Dollar x) = ikc x
-		ikc (TeXComm "grammarterm_" [_, FixArg x]) = ikc x
-		ikc (TeXComm "grammarterm" [FixArg x]) = ikc x
+		ikc (TeXComm "texorpdfstring" [_, (_, x)]) = indexKeyContent x
+		ikc (TeXComm s [])
+			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
+		ikc (TeXBraces x) = indexKeyContent x
+		ikc (TeXMath Dollar x) = indexKeyContent x
+		ikc (TeXComm "grammarterm_" [_, (_, x)]) = indexKeyContent x
+		ikc (TeXComm "grammarterm" [(_, x)]) = indexKeyContent x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
 indexCatName :: (Eq b , IsString a, IsString b) => b -> a
@@ -257,15 +256,15 @@ footnotes x = [(p, f) | p <- allParagraphs x, FootnoteElement f <- allElements p
 
 -- Misc:
 
-elemTex :: Element -> [LaTeX]
+elemTex :: Element -> LaTeX
 elemTex (LatexElements l) = l
 elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
-elemTex (Bnf _ l) = [l]
+elemTex (Bnf _ l) = l
 elemTex (FootnoteElement (Footnote _ c)) = c >>= elemTex
-elemTex (Tabbing t) = [t]
+elemTex (Tabbing t) = t
 elemTex (TableElement t) = tableBody t >>= rowTex
 	where
-		rowTex :: Row [Element] -> [LaTeX]
+		rowTex :: Row [Element] -> LaTeX
 		rowTex r = content . cells r >>= (>>= elemTex)
 elemTex (FigureElement _) = []
 
@@ -279,7 +278,7 @@ figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of
 	_ -> error $ "figureByAbbr: " ++ show a
 
 splitChapters :: Draft -> ([Section], [Section])
-splitChapters = span ((/= "library") . abbreviation) . chapters
+splitChapters = span ((/= [TeXRaw "library"]) . abbreviation) . chapters
 
 coreChapters, libChapters :: Draft -> [Section]
 coreChapters = fst . splitChapters
