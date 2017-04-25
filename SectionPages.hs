@@ -16,8 +16,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
 import System.Process (readProcess)
-import Data.Maybe (isJust)
-import Text.Regex (mkRegex, subRegex)
+import Data.Maybe (isJust, fromJust)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render (render, abbrAsPath, simpleRender, outputDir, url, renderFig,
@@ -28,7 +27,7 @@ import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
 
 renderParagraph :: RenderContext -> Text
-renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=Just Draft{..}} =
+renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=(fromJust -> Draft{..})} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)

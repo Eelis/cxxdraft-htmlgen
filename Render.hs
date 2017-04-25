@@ -189,8 +189,9 @@ redundantOpen (Text.unpack -> (c:'(':s))
 redundantOpen _ = False
 
 renderCodeblock :: LaTeX -> RenderContext -> Text
-renderCodeblock env@(TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
+renderCodeblock (TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
 	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
+renderCodeblock _ = undefined
 
 sameIdNamespace :: Maybe IndexKind -> Maybe IndexKind -> Bool
 sameIdNamespace Nothing (Just IndexOpen) = True
@@ -206,9 +207,8 @@ indexOccurrenceSuffix c indexNum
 	| otherwise = Text.pack $ replicate numPre '_'
 	where
 		m	| Just s <- page c = secIndexEntries s
-			| Just d <- draft c = indexEntryMap d
-		(pre, Just theEntry, post) = IntMap.splitLookup indexNum m
-		thePath = indexPath theEntry
+			| otherwise = indexEntryMap (fromJust (draft c))
+		(pre, Just theEntry, _post) = IntMap.splitLookup indexNum m
 		p e = indexPath e == indexPath theEntry &&
 			indexCategory e == indexCategory theEntry &&
 			sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
@@ -267,14 +267,15 @@ instance Render LaTeX where
 	render m@(TeXMath _ _            ) = renderMath m
 	render (TeXComm "comment" [FixArg comment]) = \c -> spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
 	render (TeXComm "ensuremath" [FixArg x]) = renderMath x
-	render (TeXComm "ref" [FixArg abbr]) = \ctx ->
-		simpleRender anchor{aHref = abbrHref abbr ctx, aText = linkText abbr ctx}
-		where
-			linkText :: LaTeX -> RenderContext -> Text
-			linkText abbr RenderContext{..}
+	render (TeXComm "ref" [FixArg abbr]) = \ctx@RenderContext{..} ->
+		let
+			linkText :: Text
+			linkText
 				| "tab:" `isPrefixOf` simpleRender abbr
 				, Just Table{..} <- tableByAbbr (fromJust draft) abbr = Text.pack (show tableNumber)
 				| otherwise = squareAbbr abbr
+		in
+			simpleRender anchor{aHref = abbrHref abbr ctx, aText = linkText}
 	render (TeXComm "nontermdef" [FixArg (TeXRaw s)]) = render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = s ++ ":"
@@ -283,10 +284,10 @@ instance Render LaTeX where
 		= render anchor
 			{ aText = simpleRender text
 			, aHref = simpleRender href}
-	render (TeXComm "url" [FixArg url])
+	render (TeXComm "url" [FixArg u])
 		= render anchor
-			{ aText = simpleRender url
-			, aHref = simpleRender url }
+			{ aText = simpleRender u
+			, aHref = simpleRender u }
 	render (TeXComm "link" [FixArg txt, FixArg (rmClause -> TeXComm "ref" [FixArg abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm comm
@@ -303,6 +304,7 @@ instance Render LaTeX where
 			cat "linkx" = ""
 			cat "deflinkx" = "def"
 			cat "liblinkx" = "lib"
+			cat _ = undefined
 	render (TeXComm "grammarterm_" [FixArg (TeXRaw section), FixArg (TeXRaw name)]) =
 		\sec -> xml "i" [] $ if inLink sec
 			then name
@@ -528,7 +530,7 @@ instance Render Footnote where
 
 instance Render Element where
 	render (LatexElements [env@(TeXEnv "indexed" _ _)]) = render env
-	render (LatexElements [TeXEnv "minipage" [_] (trim -> cb@(TeXEnv "codeblock" [] t))]) =
+	render (LatexElements [TeXEnv "minipage" [_] (trim -> cb@(TeXEnv "codeblock" [] _))]) =
 		xml "div" [("class", "minipage")] . renderCodeblock cb
 	render (LatexElements [env]) | isCodeblock env = render env
 	render (LatexElements t) = \sec ->
@@ -614,8 +616,8 @@ remoteFigureHref Figure{figureSection=Section{..}, ..} =
 linkToRemoteTable :: Table -> Anchor
 linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
 
-linkToRemoteFigure :: Figure -> Anchor
-linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
+--linkToRemoteFigure :: Figure -> Anchor
+--linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
 
 abbrHref :: LaTeX -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
@@ -695,10 +697,10 @@ renderSimpleMath (TeXMath _ m) sec = renderSimpleMath m sec
 renderSimpleMath other sec = render other sec
 
 renderComplexMath :: LaTeX -> Text
-renderComplexMath x = case x of
+renderComplexMath m = case m of
 		TeXMath kind t -> memodRenderMath (prepMath t) (kind == Dollar)
-		TeXEnv "eqnarray*" [] _ -> memodRenderMath (prepMath x) False
-		_ -> memodRenderMath (prepMath x) True
+		TeXEnv "eqnarray*" [] _ -> memodRenderMath (prepMath m) False
+		_ -> memodRenderMath (prepMath m) True
 	where
 		prepMath = Text.unpack . TeXRender.render . cleanup
 		cleanup :: LaTeX -> LaTeX
@@ -730,12 +732,12 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 	formula <- Text.replace " focusable=\"false\"" "" 
 		. rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
 		. Text.pack
-		. kill " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
-		. kill " style=\"\""
+		. rm " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
+		. rm " style=\"\""
 		. readProcess "tex2html" args ""
 	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
 	where
-		kill r s = subRegex (mkRegex r) s ""
+		rm r s = subRegex (mkRegex r) s ""
 
 
 renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text

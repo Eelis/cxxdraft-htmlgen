@@ -17,12 +17,9 @@
 module Load14882 (parseIndex, load14882) where
 
 import Document
-import qualified Text.LaTeX.Base.Render as TeXRender
 import qualified LaTeXParser as Parser
-import qualified Data.List as List
 import qualified Data.IntMap as IntMap
 import Data.IntMap (IntMap)
-import Text.LaTeX.Base (protectString)
 import Text.LaTeX.Base.Syntax (LaTeX(..), TeXArg(..), lookForCommand, matchEnv, matchCommand, (<>))
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
@@ -34,16 +31,16 @@ import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import Data.List (sort, unfoldr, take)
-import Data.Maybe (isJust, fromJust)
+import Data.List (sort, unfoldr)
+import Data.Maybe (isJust)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex, Regex)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
 import Util ((.), (++), mapLast, mapHead, stripInfix, dropTrailingWs)
-import LaTeXUtil (texFromArg, mapTeXArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripPrefix, texStripInfix, isCodeblock)
-import LaTeXParser (Macros(..), Command, Environment, Signature(..))
+import LaTeXUtil (texFromArg, mapTeXRaw, texTail, concatRaws, mapTeX, rmseqs, texStripInfix, isCodeblock)
+import LaTeXParser (Macros(..), Signature(..))
 
 
 signatures :: [(String, Signature)]
@@ -77,6 +74,7 @@ signatures =
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx"
+		a _ = undefined
 
 data RawElement
 	= RawLatexElements [LaTeX]
@@ -477,15 +475,16 @@ class AssignNumbers a b | a -> b where
 instance AssignNumbers TeXArg TeXArg where
 	assignNumbers s (FixArg x) = FixArg . assignNumbers s x
 	assignNumbers s (OptArg x) = OptArg . assignNumbers s x
+	assignNumbers _ _ = error "unimplemented"
 
 instance AssignNumbers LaTeX LaTeX where
 	assignNumbers s (TeXSeq x y) = liftM2 TeXSeq (assignNumbers s x) (assignNumbers s y)
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
-	assignNumbers s (TeXComm "index" args) = do
+	assignNumbers _ (TeXComm "index" args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
 		return $ TeXComm "index" $ FixArg (TeXRaw $ Text.pack $ show $ nextIndexEntryNr n) : args
-	assignNumbers s (TeXComm "defnx" args) = do
+	assignNumbers _ (TeXComm "defnx" args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
 		return $ TeXComm "defnx" $ FixArg (TeXRaw $ Text.pack $ show $ nextIndexEntryNr n) : args
