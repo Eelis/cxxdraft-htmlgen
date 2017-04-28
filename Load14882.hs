@@ -246,9 +246,6 @@ makeRowCells latex =
 		[] -> [makeCell cell]
 		_ : r ->
 			(makeCell $ cell <> [TeXRaw cell']) : makeRowCells (TeXRaw rest'' : r)
---		[TeXRaw r] ->
---			[(makeCell $ cell <> [TeXRaw cell']), makeCell [TeXRaw (rest'' ++ r)]]
---		_ -> error $ "makeRowCells: unexpected " ++ show rest
 	where
 		(cell, rest) = break isColEnd latex
 		isColEnd (TeXRaw c) = isJust $ Text.find (== '&') c
@@ -527,15 +524,9 @@ treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
-		paragraphs <- forM (zip pn lsectionParagraphs) $
-			\(paraNumber, RawParagraph{..}) -> do
-				paraElems <- assignNumbers newSec rawParaElems
-				let paraSection = newSec
-				let paraSourceLoc = rawParaSourceLoc
-				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
+		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
-		more'' <- treeizeChapters annexes' (sectionNumber + 1) more'
-		return $ newSec : more''
+		(newSec :) . treeizeChapters annexes' (sectionNumber + 1) more'
 	where
 		sectionNumber = if annexes' /= annexes then 0 else secNumber
 		annexes' = chapter /= NormalChapter
@@ -552,27 +543,30 @@ rawIndexEntriesForSec :: Section -> IntMap IndexEntry
 rawIndexEntriesForSec s = IntMap.fromList
 	[(n, e) | e@IndexEntry{indexEntryNr=Just n} <- sectionIndexEntries s]
 
+instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
+	assignNumbers paraSection (paraNumber, RawParagraph{..}) = do
+		paraElems <- assignNumbers paraSection rawParaElems
+		return $ assignItemNumbers Paragraph
+		  { paraInItemdescr = rawParaInItemdescr
+		  , paraSourceLoc = rawParaSourceLoc
+		  , .. }
+
 treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
 treeizeSections _ _ _ [] = return []
-treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
-		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
-		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
+treeizeSections sectionNumber chapter parents
+	(s@LinearSection{..} : (span ((> lsectionLevel s) . lsectionLevel) -> (lsubsections, more'))) = mdo
+		let newSec = Section
+			{ sectionKind = lsectionKind
+			, secIndexEntries = rawIndexEntriesForSec newSec
+			, sectionName = lsectionName
+			, abbreviation = lsectionAbbreviation
+			, .. }
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
-		paragraphs <- forM (zip pn lsectionParagraphs) $
-			\(paraNumber, RawParagraph{..}) -> do
-				paraElems <- assignNumbers newSec rawParaElems
-				let paraSection = newSec
-				let paraSourceLoc = rawParaSourceLoc
-				return $ assignItemNumbers $ Paragraph{paraInItemdescr = rawParaInItemdescr, ..}
+		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
+		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
-		more'' <- treeizeSections (sectionNumber + 1) chapter parents more'
-		return $ newSec : more''
-	where
-		abbreviation = lsectionAbbreviation
-		sectionName = lsectionName
-		n = lsectionLevel s
-		(lsubsections, more') = span ((> n) . lsectionLevel) more
+		(newSec :) . treeizeSections (sectionNumber + 1) chapter parents more'
 
 instance AssignNumbers a b => AssignNumbers [a] [b] where
 	assignNumbers s = mapM (assignNumbers s)
