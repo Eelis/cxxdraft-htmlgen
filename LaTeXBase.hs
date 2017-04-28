@@ -8,7 +8,7 @@ module LaTeXBase
 import Data.Monoid ((<>))
 import Data.String (fromString)
 import Prelude hiding ((.), (++), writeFile, dropWhile)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, pack)
 import qualified Data.Text as Text
 import qualified Util
 import Data.Char (isSpace, isAlphaNum)
@@ -119,13 +119,18 @@ texStripPrefix t (TeXRaw s : y) = case Text.stripPrefix t s of
 	Nothing -> Nothing
 texStripPrefix _ _ = Nothing
 
+textStripInfix :: Text -> Text -> Maybe (Text, Text)
+textStripInfix inf (Text.breakOn inf -> (a, b))
+	| b == "" = Nothing
+	| otherwise = Just (a, Text.drop (Text.length inf) b)
+
 texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
 texStripInfix t = go
 	where
 		go [] = Nothing
 		go (x : rest)
 			| TeXRaw s <- x
-			, Just ((pack -> y), (pack -> z)) <- stripInfix (unpack t) (unpack s)
+			, Just (y, z) <- textStripInfix t s
 				= Just (h y, h z ++ rest)
 			| otherwise = first (x :) . go rest
 		h "" = []
