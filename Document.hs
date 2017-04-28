@@ -65,7 +65,6 @@ data Element
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
-	| FootnoteElement Footnote
 	deriving Show
 
 -- We don't represent examples as elements with nested content
@@ -98,6 +97,7 @@ data Section = Section
 	{ abbreviation :: LaTeX
 	, sectionName :: LaTeX
 	, paragraphs :: [Paragraph]
+	, sectionFootnotes :: [Footnote]
 	, subsections :: [Section]
 	, sectionNumber :: Int
 	, chapter :: Chapter
@@ -242,7 +242,6 @@ allElements p = paraElems p >>= f
 		f e = e : case e of
 			Enumerated {..} -> enumItems >>= itemContent >>= f
 			TableElement Table{..} -> tableBody >>= cells >>= content >>= f
-			FootnoteElement Footnote{..} -> footnoteContent >>= f
 			_ -> []
 
 tables :: Sections a => a -> [(Paragraph, Table)]
@@ -251,8 +250,8 @@ tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allElements p]
 figures :: Sections a => a -> [Figure]
 figures x = [f | p <- allParagraphs x, FigureElement f <- allElements p]
 
-footnotes :: Sections a => a -> [(Paragraph, Footnote)]
-footnotes x = [(p, f) | p <- allParagraphs x, FootnoteElement f <- allElements p]
+footnotes :: Sections a => a -> [(Section, Footnote)]
+footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
 
 -- Misc:
 
@@ -260,7 +259,6 @@ elemTex :: Element -> LaTeX
 elemTex (LatexElements l) = l
 elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
 elemTex (Bnf _ l) = l
-elemTex (FootnoteElement (Footnote _ c)) = c >>= elemTex
 elemTex (Tabbing t) = t
 elemTex (TableElement t) = tableBody t >>= rowTex
 	where

@@ -27,7 +27,7 @@ import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
 
 renderParagraph :: RenderContext -> Text
-renderParagraph ctx@RenderContext{nearestEnclosingPara=Paragraph{..}, draft=(fromJust -> Draft{..})} =
+renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fromJust -> Draft{..})} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)
@@ -77,8 +77,9 @@ renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		idDiv $ header ++
 		mconcat (map
-			(\p -> renderParagraph (context{nearestEnclosingPara=p,idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
+			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
 			paragraphs) ++
+		concatRender sectionFootnotes context{nearestEnclosing=Right s} ++
 		mconcat (fst . renderSection context Nothing True . subsections)
 	| not anysubcontent = ("", False)
 	| otherwise =
@@ -148,15 +149,15 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t defaultRenderContext{draft=Just draft, nearestEnclosingPara=p}
+			++ renderTab True t defaultRenderContext{draft=Just draft, nearestEnclosing=Left p}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
 	"<h1>List of Footnotes</h1>"
 	++ mconcat (uncurry r . footnotes draft)
 	where
-		r :: Paragraph -> Footnote -> Text
-		r p fn = render fn defaultRenderContext{nearestEnclosingPara=p}
+		r :: Section -> Footnote -> Text
+		r s fn = render fn defaultRenderContext{nearestEnclosing = Right s}
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = do

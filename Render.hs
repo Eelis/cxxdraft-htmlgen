@@ -503,7 +503,9 @@ instance Render RenderItem where
 					, aText  = linkText }
 
 paraUrl :: RenderContext -> Text
-paraUrl = url . abbreviation . paraSection . nearestEnclosingPara
+paraUrl RenderContext{..} = url $ abbreviation $ case nearestEnclosing of
+	Left p -> paraSection p
+	Right s -> s
 
 instance Render Footnote where
 	render (Footnote n content) ctx =
@@ -544,7 +546,6 @@ instance Render Element where
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined
-	render (FootnoteElement e) = render e
 
 allText :: LaTeXUnit -> [Text]
 allText (TeXRaw x) = [x]
@@ -567,7 +568,7 @@ isComplexMath t =
 data RenderContext = RenderContext
 	{ page :: Maybe Section
 	, draft :: Maybe Draft
-	, nearestEnclosingPara :: Paragraph
+	, nearestEnclosing :: Either Paragraph Section
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
 	, rawSpace :: Bool
@@ -582,7 +583,7 @@ defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
 	{ page = Nothing
 	, draft = Nothing
-	, nearestEnclosingPara = error "no para"
+	, nearestEnclosing = error "no para/sec"
 	, rawHyphens = False
 	, rawTilde = False
 	, rawSpace = False

@@ -87,7 +87,9 @@ data RawElement
 		, rawTableBody :: [Row RawElements] }
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
-	| RawFootnote RawElements
+	deriving Show
+
+newtype RawFootnote = RawFootnote RawElements
 	deriving Show
 
 assignItemNumbers :: Paragraph -> Paragraph
@@ -128,7 +130,8 @@ data LinearSection = LinearSection
 	{ lsectionAbbreviation :: LaTeX
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
-	, lsectionParagraphs :: [RawParagraph] }
+	, lsectionParagraphs :: [RawParagraph]
+	, lsectionFootnotes :: [RawFootnote] }
 	deriving Show
 
 isEnumerate :: LaTeXUnit -> Maybe String
@@ -278,7 +281,7 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
-class ExtractFootnotes a where extractFootnotes :: a -> (a, [RawElements])
+class ExtractFootnotes a where extractFootnotes :: a -> (a, [RawFootnote])
 
 instance ExtractFootnotes a => ExtractFootnotes [a] where
 	extractFootnotes l = (map fst x, x >>= snd)
@@ -286,11 +289,11 @@ instance ExtractFootnotes a => ExtractFootnotes [a] where
 
 instance ExtractFootnotes LaTeXUnit where
 	extractFootnotes (TeXComm "footnote" [(_, content)]) =
-		(TeXComm "footnoteref" [], [parsePara content])
+		(TeXComm "footnoteref" [], [RawFootnote $ parsePara content])
 	extractFootnotes (TeXComm "footnotemark" []) =
 		(TeXComm "footnoteref" [], [])
 	extractFootnotes (TeXComm "footnotetext" [(_, content)]) =
-		(TeXRaw "" {- todo.. -}, [parsePara content])
+		(TeXRaw "" {- todo.. -}, [RawFootnote $ parsePara content])
 	extractFootnotes (TeXComm a [(FixArg, content)]) =
 		first (\c -> TeXComm a [(FixArg, c)]) (extractFootnotes content)
 	extractFootnotes (TeXEnv env args content) = first (TeXEnv env args) (extractFootnotes content)
@@ -298,12 +301,10 @@ instance ExtractFootnotes LaTeXUnit where
 
 parsePara :: LaTeX -> RawElements
 parsePara [] = []
-parsePara (env@(TeXEnv _ _ _) : more) =
-	go e' : parsePara more ++ (RawFootnote . fnotes)
+parsePara (e@(TeXEnv k a stuff) : more) = r : parsePara more
 	where
-		go :: LaTeXUnit -> RawElement
-		go e@(TeXEnv k a stuff)
-			| isFigure e
+		r :: RawElement
+		r	| isFigure e
 			, [(FixArg, rawFigureName), (FixArg, rawFigureAbbr), (FixArg, [TeXRaw figureFile])] <- a
 			= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
 			| isTable e
@@ -319,12 +320,8 @@ parsePara (env@(TeXEnv _ _ _) : more) =
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| k == "itemdecl" || isCodeblock e || k == "minipage" = RawLatexElements [e]
-		go other = error $ "parsePara: unexpected " ++ show other
-
-		(e', fnotes) = extractFootnotes env
-
-parsePara (elems -> (extractFootnotes -> (e, fnotes), more))
-	= RawLatexElements e : parsePara more ++ (RawFootnote . fnotes)
+			| otherwise = error $ "parsePara: unexpected " ++ show e
+parsePara (elems -> (e, more)) = RawLatexElements e : parsePara more
 
 elems :: LaTeX -> (LaTeX, LaTeX)
 elems [] = ([], [])
@@ -334,9 +331,9 @@ elems y@(x:xs)
 	, b /= "" = ([TeXRaw a], TeXRaw (Text.drop 2 b) : xs)
 	| otherwise = first (x :) (elems xs)
 
-parseParas :: LaTeX -> ([RawParagraph], LaTeX {- rest -})
+parseParas :: LaTeX -> ([RawParagraph], [RawFootnote], LaTeX {- rest -})
 parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
-		= (collectParas stuff ++ [RawParagraph False False (RawFootnote . fs) Nothing], rest)
+		= (collectParas stuff, fs, rest)
 	where
 		collectParas :: LaTeX -> [RawParagraph]
 		collectParas (t@(TeXEnv "itemdecl" _ _) : more) =
@@ -357,7 +354,7 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 
 parseSections :: Int -> LaTeX -> [LinearSection]
 parseSections level
-	(TeXComm c args : (parseParas -> (lsectionParagraphs, more)))
+	(TeXComm c args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
 	| ((FixArg, lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
 		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
 		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
@@ -499,15 +496,17 @@ instance AssignNumbers RawElement Element where
 			, tableCaption = rawTableCaption
 			, tableSection = s
 			, .. }
-	assignNumbers s (RawFootnote t) = do
-		Numbers{..} <- get
-		put Numbers{footnoteNr = footnoteNr+1, ..}
-		t' <- assignNumbers s t
-		return $ FootnoteElement Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 	assignNumbers s (RawEnumerated x p) = Enumerated x . (Item Nothing .) . assignNumbers s p
 	assignNumbers s (RawLatexElements x) = LatexElements . assignNumbers s (filter (/= TeXRaw "") x)
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
+
+instance AssignNumbers RawFootnote Footnote where
+	assignNumbers s (RawFootnote t) = do
+		Numbers{..} <- get
+		put Numbers{footnoteNr = footnoteNr+1, ..}
+		t' <- assignNumbers s t
+		return $ Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
@@ -525,6 +524,7 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Bool -> Int -> [LinearSection] -> m [Section]
 treeizeChapters _ _ [] = return []
 treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
+		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
@@ -556,6 +556,7 @@ treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Int -> Chapter -> [Section] -> [LinearSection] -> m [Section]
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents (s@LinearSection{..} : more) = mdo
+		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $
@@ -595,17 +596,19 @@ nontermdefs t = [name | TeXComm "nontermdef" [(FixArg, [TeXRaw name])] <- allUni
 resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
 	Section{
-		paragraphs  = map (\p -> p{paraElems = map (resolve links) (paraElems p)}) paragraphs,
+		paragraphs  = map (\p -> p{paraElems = map resolve (paraElems p)}) paragraphs,
 		subsections = map (resolveGrammarterms links) subsections,
+		sectionFootnotes = map resolveFN sectionFootnotes,
 		..}
 	where
-		resolve :: GrammarLinks -> Element -> Element
-		resolve g (LatexElements e) = LatexElements $ grammarterms g e
-		resolve g (Enumerated s ps) = Enumerated s $ map f ps
-			where f i@Item{..} = i{itemContent=map (resolve g) itemContent}
-		resolve g (Bnf n b) = Bnf n $ grammarterms g $ bnfGrammarterms g b
-		resolve g (FootnoteElement (Footnote n c)) = FootnoteElement (Footnote n $ map (resolve g) c)
-		resolve _ other = other
+		resolveFN :: Footnote -> Footnote
+		resolveFN fn@Footnote{..} = fn{footnoteContent = map resolve footnoteContent}
+		resolve :: Element -> Element
+		resolve (LatexElements e) = LatexElements $ grammarterms links e
+		resolve (Enumerated s ps) = Enumerated s $ map f ps
+			where f i@Item{..} = i{itemContent=map resolve itemContent}
+		resolve (Bnf n b) = Bnf n $ grammarterms links $ bnfGrammarterms links b
+		resolve other = other
 
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
 grammarterms links = mapTeX (go links)
@@ -664,19 +667,23 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
 		parseIndexPath t = [IndexComponent [] t]
 
+sectionTex :: Section -> LaTeX
+sectionTex s =
+	((paragraphs s >>= paraElems) ++ (sectionFootnotes s >>= footnoteContent)) >>= elemTex
+
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
 	[ IndexEntry{..}
 	| indexEntrySection <- sections s
 	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
-		<- lookForCommand "index" (paragraphs indexEntrySection >>= paraElems >>= elemTex)] ++
+		<- lookForCommand "index" (sectionTex indexEntrySection)] ++
 	[ IndexEntry
 		{ indexCategory = "generalindex"
 		, indexEntryKind = Just DefinitionIndex
 		, ..}
 	| indexEntrySection <- sections s
 	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (FixArg, _), (FixArg, (parseIndex -> (indexPath, Nothing)))]
-		<- lookForCommand "defnx" (paragraphs indexEntrySection >>= paraElems >>= elemTex)]
+		<- lookForCommand "defnx" (sectionTex indexEntrySection)]
 
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
