@@ -22,7 +22,7 @@ import qualified Data.Text as Text
 import Render (render, concatRender, abbrAsPath, simpleRender, outputDir, url, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
-	secnum, Link(..))
+	secnum, Link(..), renderLatexParas)
 import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
 
@@ -33,7 +33,7 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fr
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (sourceLink
-		  ++ concatRender paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
+		  ++ renderLatexParas paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
 		urlBase = Text.replace "/commit/" "/tree/" commitUrl ++ "/source/"
 		sourceLink :: Text
@@ -63,6 +63,7 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fr
 		ctx' = case paraNumber of
 			Just (flip render ctx -> n) -> ctx{ idPrefix = idPrefix ctx ++ n ++ "." }
 			Nothing -> ctx
+renderParagraph _ = undefined
 
 parentLink :: Section -> Section -> Text
 parentLink parent child

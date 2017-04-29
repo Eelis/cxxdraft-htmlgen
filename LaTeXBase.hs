@@ -1,8 +1,8 @@
 {-# LANGUAGE ViewPatterns, OverloadedStrings #-}
 
 module LaTeXBase
- ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws
- , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw
+ ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand
+ , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv
  , trim, trimr, texStripInfix, isCodeblock, isMath, needsSpace, texStripPrefix, allUnits ) where
 
 import Data.Monoid ((<>))
@@ -12,7 +12,7 @@ import Data.Text (Text, pack)
 import qualified Data.Text as Text
 import qualified Util
 import Data.Char (isSpace, isAlphaNum)
-import Util ((.), (++), stripInfix, textStripInfix, dropTrailingWs)
+import Util ((.), (++), textStripInfix, dropTrailingWs)
 import Control.Arrow (first, second)
 
 data MathType = Parentheses | Square | Dollar
@@ -32,6 +32,10 @@ data LaTeXUnit
 	| TeXBraces LaTeX
 	deriving (Eq, Show)
 
+isTeXEnv :: String -> LaTeXUnit -> Bool
+isTeXEnv x (TeXEnv y _ _) = x == y
+isTeXEnv _ _ = False
+
 type LaTeX = [LaTeXUnit]
 
 lookForCommand :: String -> LaTeX -> [[TeXArg]]
@@ -50,6 +54,9 @@ allUnits (x : y) = x : z ++ allUnits y
 
 matchCommand :: (String -> Bool) -> LaTeX -> [(String,[TeXArg])]
 matchCommand f x = [(str, as) | TeXComm str as <- allUnits x, f str]
+
+hasCommand :: (String -> Bool) -> LaTeX -> Bool
+hasCommand f = not . null . matchCommand f
 
 matchEnv :: (String -> Bool) -> LaTeX -> [(String,[TeXArg],LaTeX)]
 matchEnv f x = [(str, as, l) | TeXEnv str as l <- allUnits x, f str]
@@ -118,11 +125,6 @@ texStripPrefix t (TeXRaw s : y) = case Text.stripPrefix t s of
 	Just s' -> Just (TeXRaw s' : y)
 	Nothing -> Nothing
 texStripPrefix _ _ = Nothing
-
-textStripInfix :: Text -> Text -> Maybe (Text, Text)
-textStripInfix inf (Text.breakOn inf -> (a, b))
-	| b == "" = Nothing
-	| otherwise = Just (a, Text.drop (Text.length inf) b)
 
 texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
 texStripInfix t = go

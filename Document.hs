@@ -5,7 +5,7 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
-	IndexEntry(..), IndexKind(..),
+	IndexEntry(..), IndexKind(..), Note(..), Example(..),
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -36,9 +36,11 @@ data Table = Table
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
 	, tableAbbrs :: [LaTeX]
-	, tableBody :: [Row [Element]]
+	, tableBody :: [Row [[Element]]]
 	, tableSection :: Section }
-	deriving Show
+
+instance Show Table where
+	show _ = "<table>"
 
 data Figure = Figure
 	{ figureNumber :: Int
@@ -46,29 +48,37 @@ data Figure = Figure
 	, figureAbbr :: LaTeX
 	, figureSvg :: Text
 	, figureSection :: Section }
-	deriving Show
+
+instance Show Figure where
+	show _ = "<figure>"
 
 data Item = Item
 	{ itemNumber :: Maybe [String]
-	, itemContent :: [Element] }
+	, itemContent :: [[Element]] }
 	deriving Show
 
 data Footnote = Footnote
 	{ footnoteNumber :: Int
-	, footnoteContent :: [Element] }
+	, footnoteContent :: [[Element]] }
+	deriving Show
+
+data Note = Note { noteNumber :: Int, noteContent :: [[Element]] }
+	deriving Show
+
+data Example = Example { exampleNumber :: Int, exampleContent :: [[Element]] }
 	deriving Show
 
 data Element
-	= LatexElements LaTeX
+	= LatexElement LaTeXUnit
 	| Enumerated { enumCmd :: String, enumItems :: [Item] }
 	| Bnf String LaTeX
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
+	| Codeblock LaTeXUnit
+	| NoteElement Note
+	| ExampleElement Example
 	deriving Show
-
--- We don't represent examples as elements with nested content
--- because sometimes they span multiple (numbered) paragraphs.
 
 data SectionKind
 	= NormalSection { _level :: Int }
@@ -88,7 +98,7 @@ data SourceLocation = SourceLocation
 data Paragraph = Paragraph
 	{ paraNumber :: Maybe Int
 	, paraInItemdescr :: Bool
-	, paraElems :: [Element]
+	, paraElems :: [[Element]]
 	, paraSection :: Section
 	, paraSourceLoc :: Maybe SourceLocation }
 	deriving Show
@@ -236,12 +246,14 @@ allParagraphs :: Sections a => a -> [Paragraph]
 allParagraphs = (>>= paragraphs) . sections
 
 allElements :: Paragraph -> [Element]
-allElements p = paraElems p >>= f
+allElements p = paraElems p >>= (>>= f)
 	where
 		f :: Element -> [Element]
 		f e = e : case e of
-			Enumerated {..} -> enumItems >>= itemContent >>= f
-			TableElement Table{..} -> tableBody >>= cells >>= content >>= f
+			Enumerated {..} -> enumItems >>= itemContent >>= (>>= f)
+			TableElement Table{..} -> tableBody >>= cells >>= content >>= (>>= f)
+			NoteElement Note{..} -> noteContent >>= (>>= f)
+			ExampleElement Example{..} -> exampleContent >>= (>>= f)
 			_ -> []
 
 tables :: Sections a => a -> [(Paragraph, Table)]
@@ -256,14 +268,17 @@ footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
 -- Misc:
 
 elemTex :: Element -> LaTeX
-elemTex (LatexElements l) = l
-elemTex (Enumerated _ e) = map itemContent e >>= (>>= elemTex)
+elemTex (NoteElement n) = noteContent n >>= (>>= elemTex)
+elemTex (ExampleElement x) = exampleContent x >>= (>>= elemTex)
+elemTex (LatexElement l) = [l]
+elemTex (Enumerated _ e) = map itemContent e >>= (>>= (>>= elemTex))
 elemTex (Bnf _ l) = l
 elemTex (Tabbing t) = t
+elemTex (Codeblock t) = [t]
 elemTex (TableElement t) = tableBody t >>= rowTex
 	where
-		rowTex :: Row [Element] -> LaTeX
-		rowTex r = content . cells r >>= (>>= elemTex)
+		rowTex :: Row [[Element]] -> LaTeX
+		rowTex r = content . cells r >>= (>>= (>>= elemTex))
 elemTex (FigureElement _) = []
 
 tableByAbbr :: Draft -> LaTeX -> Maybe Table

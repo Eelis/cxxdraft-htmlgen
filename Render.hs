@@ -12,7 +12,7 @@ module Render (
 	Render(render), concatRender, url, renderTab, renderFig, simpleRender, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext,
-	abbrAsPath, abbreviations, RenderContext(..),
+	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
 	) where
 
 import Load14882 (parseIndex) -- todo: bad
@@ -20,7 +20,7 @@ import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
-	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..))
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, needsSpace, isMath, isCodeblock, texStripPrefix)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
@@ -28,7 +28,7 @@ import qualified Data.Text as Text
 import Data.Char (isAlpha, isSpace)
 import Control.Arrow (second)
 import qualified Prelude
-import Prelude hiding (take, last, (.), (++), writeFile)
+import Prelude hiding (take, (.), (++), writeFile)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
@@ -403,6 +403,8 @@ instance Render LaTeXUnit where
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath [env] = return $ renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock env
+		| e == "minipage", [cb@(TeXEnv "codeblock" [] _)] <- trim t =
+			xml "div" [("class", "minipage")] . renderCodeblock cb
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
 instance Render Int where render = return . Text.pack . show
@@ -468,8 +470,8 @@ renderFig stripFig Figure{..} =
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
 instance Render RenderItem where
-	render RenderItem{item=Item Nothing elems} ctx = xml "li" [] $ concatRender elems ctx
-	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ addItemLink $ concatRender elems ctx'
+	render RenderItem{item=Item Nothing elems} ctx = xml "li" [] $ renderLatexParas elems ctx
+	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ addItemLink $ renderLatexParas elems ctx'
 		where
 			left
 				| listOrdered = "-4.5em"
@@ -492,8 +494,7 @@ instance Render RenderItem where
 				| otherwise = "marginalized"
 			addItemLink :: Text -> Text
 			addItemLink x
-				| listOrdered = "<p>" ++ render link ctx' ++ fromJust (Text.stripPrefix "<p >" x)
-					-- The link needs to be in the <p> so that it shares the baseline.
+				| listOrdered = render link ctx' ++ x
 				| otherwise = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx') ++ x
 			link = anchor
 					{ aClass = linkClass
@@ -512,7 +513,7 @@ instance Render Footnote where
 			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
 			xml "div" [("class", "footnoteNumberParent")]
 			(render link ctx) ++
-			concatRender content ctx
+			renderLatexParas content ctx
 		where
 			num = render n ctx
 			link = anchor
@@ -522,13 +523,40 @@ instance Render Footnote where
 					++ "#footnote-" ++ num
 				, aClass = "marginalized" }
 
+noWrapSpace :: Text
+noWrapSpace = "<span style='white-space:nowrap'> </span>"
+
+instance Render Note where
+	render Note{..} ctx =
+			xml "div" [("id", i), ("style", "display:inline")]
+				("[" ++ noWrapSpace ++ render link ctx ++ " "
+				++ renderLatexParas noteContent ctx
+				++ "—" ++ noWrapSpace ++ "<i>end note</i>" ++ noWrapSpace ++ "] ")
+		where
+			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
+			link = anchor{
+				aHref = "#" ++ i,
+				aClass = "hidden_link",
+				aText = "<span class='textit'>Note:</span>" }
+
+instance Render Example where
+	render Example{..} ctx =
+			xml "div" [("id", i), ("style", "display:inline")]
+				("[" ++ noWrapSpace ++ render link ctx ++ " "
+				++ renderLatexParas exampleContent ctx
+				++ "—" ++ noWrapSpace ++ "<i>end example</i>" ++ noWrapSpace ++ "] ")
+		where
+			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
+			link = anchor{
+				aHref = "#" ++ i,
+				aClass = "hidden_link",
+				aText = "<span class='textit'>Example:</span>" }
+
 instance Render Element where
-	render (LatexElements [env@(TeXEnv "indexed" _ _)]) = render env
-	render (LatexElements [TeXEnv "minipage" [_] (trim -> [cb@(TeXEnv "codeblock" [] _)])]) =
-		xml "div" [("class", "minipage")] . renderCodeblock cb
-	render (LatexElements [env]) | isCodeblock env = render env
-	render (LatexElements t) = \sec ->
-		case Text.stripStart (render t sec) of "" -> ""; x -> xml "p" [] x
+	render (LatexElement x) = render x
+	render (Codeblock x) = render x
+	render (NoteElement x) = render x
+	render (ExampleElement x) = render x
 	render (Bnf e t)
 		| e `elem` makeBnfTable = renderBnfTable (Text.pack e) t
 		| e `elem` makeBnfPre = bnfPre (Text.pack e) . render (trimr $ preprocessPre t)
@@ -634,15 +662,15 @@ renderMath m sec
 renderSimpleMath :: LaTeX -> RenderContext -> Text
 renderSimpleMath [] _ = ""
 renderSimpleMath (TeXRaw s : rest) sec
-	| last `elem` ["^", "_"] =
+	| tlast `elem` ["^", "_"] =
 		renderSimpleMathUnit (TeXRaw $ Text.reverse $ Text.drop 1 s') sec
 		++ xml tag [] (renderSimpleMath content sec)
 		++ renderSimpleMath rest' sec
 	| otherwise = renderSimpleMathUnit (TeXRaw s) sec ++ renderSimpleMath rest sec
 	where
 		s' = Text.reverse s
-		last = Text.take 1 s'
-		tag = case last of
+		tlast = Text.take 1 s'
+		tag = case tlast of
 			"^" -> "sup"
 			"_" -> "sub"
 			_ -> error ""
@@ -731,7 +759,7 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 		rm r s = subRegex (mkRegex r) s ""
 
 
-renderTable :: LaTeX -> [Row [Element]] -> RenderContext -> Text
+renderTable :: LaTeX -> [Row [[Element]]] -> RenderContext -> Text
 renderTable colspec a sec =
 	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
@@ -785,10 +813,10 @@ renderTable colspec a sec =
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", render colspan sec), ("class", c')] $ renderCell content sec)
+					(xml "td" [("colspan", render colspan sec), ("class", c')] $ renderLatexParas content sec)
 					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderCell content sec)
+				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderLatexParas content sec)
 				++ renderCols cs (colnum + 1) clines rest
 		renderCols [] _ _ (_ : _) = error "Too many columns"
 
@@ -797,11 +825,27 @@ renderTable colspec a sec =
 				" cline"
 			| otherwise = ""
 
-renderCell :: [Element] -> RenderContext -> Text
-renderCell e sec = mconcat (map renderCell' e)
-	where
-		renderCell' (LatexElements t) = render t sec
-		renderCell' other = render other sec
+renderLatexParas :: [[Element]] -> RenderContext -> Text
+renderLatexParas [] _ = ""
+renderLatexParas ([] : y) c = renderLatexParas y c
+renderLatexParas [x] ctx = concatRender x ctx
+renderLatexParas (x : xs@(y : _)) ctx
+	| LatexElement _ <- last x
+	, not (null y)
+	, needsBreak y
+		= concatRender x ctx
+			++ "<div style='height:0.6em;display:block'></div>"
+			++ renderLatexParas xs ctx
+	| otherwise = concatRender x ctx ++ renderLatexParas xs ctx
+
+needsBreak :: [Element] -> Bool
+needsBreak (LatexElement (TeXComm "index" _) : x) = needsBreak x
+needsBreak (LatexElement (TeXRaw s) : x)
+	| all isSpace (Text.unpack s) = needsBreak x
+needsBreak (LatexElement _ : _) = True
+needsBreak (NoteElement _ : _) = True
+needsBreak (ExampleElement _ : _) = True
+needsBreak _ = False
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX

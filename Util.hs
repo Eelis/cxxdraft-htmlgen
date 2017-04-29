@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# LANGUAGE TupleSections, OverloadedStrings #-}
+{-# LANGUAGE TupleSections, OverloadedStrings, ViewPatterns #-}
 
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
-	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs
+	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
+	textStripInfix, textSubRegex
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -13,6 +14,7 @@ import Data.Char (ord, isDigit, isSpace)
 import Data.Text (Text, replace)
 import Data.Text.IO (writeFile)
 import Control.Arrow (first)
+import Text.Regex (subRegex, Regex)
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -73,6 +75,11 @@ stripInfix p s | Just r <- stripPrefix p s = Just ([], r)
 stripInfix p (hd:t) = first (hd:) . stripInfix p t
 stripInfix _ _  = Nothing
 
+textStripInfix :: Text -> Text -> Maybe (Text, Text)
+textStripInfix inf (Text.breakOn inf -> (a, b))
+	| b == "" = Nothing
+	| otherwise = Just (a, Text.drop (Text.length inf) b)
+
 startsWith :: (Char -> Bool) -> (Text -> Bool)
 startsWith _ "" = False
 startsWith p t = p (Text.head t)
@@ -96,3 +103,6 @@ urlChars =
 	replace "^"  "%5e" .
 	replace " "  "%20" .
 	replace "%"  "%25"
+
+textSubRegex :: Regex -> String -> Text -> Text
+textSubRegex pat repl txt = Text.pack $ subRegex pat (Text.unpack txt) repl

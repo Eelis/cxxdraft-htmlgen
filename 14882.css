@@ -27,8 +27,8 @@ a.hidden_link {
 }
 
 li {
-	margin-top: 0.1em;
-	margin-bottom: 0.1em;
+	margin-top: 0.6em;
+	margin-bottom: 0.6em;
 }
 
 p {
@@ -100,7 +100,10 @@ a.enumerated_item_num {
 	width: 3em;
 }
 
-div.para { text-align: justify; }
+div.para { text-align: justify; margin-bottom: 0.6em; margin-top: 0.6em; }
+
+div.example { display: inline; }
+div.note { display: inline; }
 
 span.indexparent {
 	display: inline;
@@ -238,6 +241,7 @@ span.definition {
 .codeblock {
 	margin-left: 1.2em;
 	line-height: 127%;
+	background-color: inherit;
 }
 
 code {
@@ -262,6 +266,8 @@ code.itemdecl {
 	font-size: small;
 	margin-left: 2em;
 	margin-right: 2em;
+	margin-top: 0.6em;
+	margin-bottom: 0.6em;
 }
 
 div.minipage {
