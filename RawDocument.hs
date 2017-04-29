@@ -14,7 +14,7 @@
 	RecursiveDo #-}
 
 module RawDocument
-	( RawElement(..), RawElements, RawFootnote(..), RawParagraph(..), LinearSection(..)
+	( RawElement(..), RawTexPara(..), RawFootnote(..), RawParagraph(..), LinearSection(..)
 	, loadMacros, parseFile) where
 
 import qualified LaTeXParser as Parser
@@ -36,29 +36,30 @@ import LaTeXBase
 
 data RawElement
 	= RawLatexElement LaTeXUnit
-	| RawEnumerated String [[RawElements]]
+	| RawEnumerated String [[RawTexPara]]
 	| RawCodeblock LaTeXUnit
-	| RawExample [RawElements]
-	| RawNote [RawElements]
+	| RawExample [RawTexPara]
+	| RawNote [RawTexPara]
 	| RawBnf String LaTeX
 	| RawTable
 		{ rawTableCaption :: LaTeX
 		, rawColumnSpec :: LaTeX
 		, rawTableAbbrs :: [LaTeX]
-		, rawTableBody :: [Row [RawElements]] }
+		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
 	deriving Show
 
-type RawElements = [RawElement]
+newtype RawTexPara = RawTexPara { rawTexParaElems :: [RawElement] }
+	deriving Show
 
-newtype RawFootnote = RawFootnote [RawElements]
+newtype RawFootnote = RawFootnote [RawTexPara]
 	deriving Show
 
 data RawParagraph = RawParagraph
 	{ paraNumbered :: Bool
 	, rawParaInItemdescr :: Bool
-	, rawParaElems :: [RawElements]
+	, rawParaElems :: [RawTexPara]
 	, rawParaSourceLoc :: Maybe SourceLocation }
 	deriving Show
 
@@ -111,11 +112,14 @@ isItem :: LaTeXUnit -> Bool
 isItem (TeXComm (dropTrailingWs -> "item") _) = True
 isItem _ = False
 
-parseItems :: LaTeX -> [[RawElements]]
+parseItems :: LaTeX -> [[RawTexPara]]
 parseItems [] = []
 parseItems (x : rest)
-	| isJunk x = mapHead (mapHead (RawLatexElement x :)) (parseItems rest)
+	| isJunk x = mapHead (mapHead addJunk) (parseItems rest)
 	| isItem x, (item, rest') <- break isItem rest = parsePara item : parseItems rest'
+	where
+		addJunk :: RawTexPara -> RawTexPara
+		addJunk (RawTexPara z) = RawTexPara (RawLatexElement x : z)
 parseItems _ = error "need items or nothing"
 
 doParse :: Macros -> Text -> (LaTeX, Macros)
@@ -195,8 +199,8 @@ loadFigure f =
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
-parsePara :: LaTeX -> [RawElements]
-parsePara = ((f .) .) . splitElems
+parsePara :: LaTeX -> [RawTexPara]
+parsePara u = RawTexPara . fmap f . splitElems (trim u)
 	where
 		f :: LaTeXUnit -> RawElement
 		f e@(TeXEnv k a stuff)
@@ -286,7 +290,7 @@ parseSections l (x:xx)
 	| TeXRaw t <- x, all isSpace (Text.unpack t) = parseSections l xx
 	| otherwise = error $ "parseSections: " ++ show x
 
-parseTable :: LaTeX -> [Row [RawElements]]
+parseTable :: LaTeX -> [Row [RawTexPara]]
 parseTable [] = []
 parseTable latex
 	| row == [] = parseTable $ tail rest
@@ -302,7 +306,7 @@ parseTable latex
 			where
 				(row', rest') = break (== TeXLineBreak) l
 
-makeRow :: LaTeX -> Row [RawElements]
+makeRow :: LaTeX -> Row [RawTexPara]
 makeRow l = Row sep $ makeRowCells l
 	where
 		sep
@@ -319,7 +323,7 @@ makeRow l = Row sep $ makeRowCells l
 				end = read $ Text.unpack $ Text.tail end' :: Int
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
-makeRowCells :: LaTeX -> [Cell [RawElements]]
+makeRowCells :: LaTeX -> [Cell [RawTexPara]]
 makeRowCells [] = []
 makeRowCells latex =
 	case rest of

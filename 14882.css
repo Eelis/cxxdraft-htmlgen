@@ -31,11 +31,6 @@ li {
 	margin-bottom: 0.6em;
 }
 
-p {
-	margin-top: 0.6em;
-	margin-bottom: 0.6em;
-}
-
 h1 { line-height: 1; }
 h2 { line-height: 1; }
 h3 { line-height: 1; }
@@ -48,6 +43,8 @@ ul > li:before {
 }
 
 :target { background-color: #C9FBC9; }
+:target .codeblock { background-color: #C9FBC9; }
+:target ul { background-color: #C9FBC9; }
 
 .abbr_ref { float: right; }
 
@@ -101,6 +98,7 @@ a.enumerated_item_num {
 }
 
 div.para { text-align: justify; margin-bottom: 0.6em; margin-top: 0.6em; }
+div.sentence { display: inline; }
 
 span.indexparent {
 	display: inline;
@@ -238,7 +236,6 @@ span.definition {
 .codeblock {
 	margin-left: 1.2em;
 	line-height: 127%;
-	background-color: inherit;
 }
 
 code {

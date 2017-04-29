@@ -18,6 +18,7 @@ module Render (
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
+	TeXPara(..), Sentence(..),
 	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -33,7 +34,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
 import Data.MemoTrie (memo2)
-import Data.List (find, nub)
+import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars)
@@ -510,17 +511,17 @@ paraUrl RenderContext{..} = url $ abbreviation $ case nearestEnclosing of
 
 instance Render Footnote where
 	render (Footnote n content) ctx =
-			xml "div" [("class", "footnote"), ("id", "footnote-" ++ num)] $
-			xml "div" [("class", "footnoteNumberParent")]
-			(render link ctx) ++
-			renderLatexParas content ctx
+			xml "div" [("class", "footnote"), ("id", i)] $
+			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
+			renderLatexParas content ctx{idPrefix = i ++ "."}
 		where
 			num = render n ctx
+			i = "footnote-" ++ num
 			link = anchor
 				{ aText  = num ++ ")"
 				, aHref  =
 					(if isJust (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
-					++ "#footnote-" ++ num
+					++ "#" ++ i
 				, aClass = "marginalized" }
 
 noWrapSpace :: Text
@@ -533,14 +534,14 @@ instance Render Note where
 				++ xml "div" [("class", "noteBody")] (
 					"<span class='textit'>:</span> "
 					++ renderLatexParas noteContent ctx
-					++ "—" ++ noWrapSpace ++ "<i>end note</i>")
+					++ " —" ++ noWrapSpace ++ "<i>end note</i>")
 				++ noWrapSpace ++ "]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
 			link = anchor{
 				aHref = "#" ++ i,
-				aClass = "hidden_link",
+				aClass = "note_link",
 				aText = "<span class='textit'>Note</span>" }
 
 instance Render Example where
@@ -550,14 +551,14 @@ instance Render Example where
 				++ xml "div" [("class", "exampleBody")] (
 					"<span class='textit'>:</span> "
 					++ renderLatexParas exampleContent ctx
-					++ "—" ++ noWrapSpace ++ "<i>end example</i>")
+					++ " —" ++ noWrapSpace ++ "<i>end example</i>")
 				++ noWrapSpace ++ "]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
 			link = anchor{
 				aHref = "#" ++ i,
-				aClass = "hidden_link",
+				aClass = "example_link",
 				aText = "<span class='textit'>Example</span>" }
 
 instance Render Element where
@@ -767,7 +768,7 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 		rm r s = subRegex (mkRegex r) s ""
 
 
-renderTable :: LaTeX -> [Row [[Element]]] -> RenderContext -> Text
+renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> Text
 renderTable colspec a sec =
 	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
@@ -833,27 +834,53 @@ renderTable colspec a sec =
 				" cline"
 			| otherwise = ""
 
-renderLatexParas :: [[Element]] -> RenderContext -> Text
+instance Render TeXPara where
+	render = (mconcat .) . (intersperse " " .) . mapM render . sentences
+
+instance Render Sentence where
+	render Sentence{..} ctx =
+			xml "div" [("id", i), ("class", "sentence")] $
+				mconcat $ map (\x -> case x of
+					Left y -> render y ctx
+					Right y -> y) $ reverse $ linkifyFullStop $ reverse sentenceElems
+		where
+			i = idPrefix ctx ++ "sentence-" ++ Text.pack (show sentenceNumber)
+			link = anchor{aText = ".", aHref = "#" ++ i, aClass = "hidden_link"}
+			linkifyFullStop :: [Element] -> [Either Element Text]
+			linkifyFullStop [] = []
+			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix "." -> Just s)) : xs)
+				= Right (simpleRender link) : Left (LatexElement $ TeXRaw s) : (Left . xs)
+			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix ".)" -> Just s)) : xs)
+				= Right (simpleRender link ++ ")") : Left (LatexElement $ TeXRaw s) : (Left . xs)
+			linkifyFullStop (fn@(LatexElement (TeXComm "footnoteref" _)) : xs)
+				= Left fn : linkifyFullStop xs
+			linkifyFullStop xs = Left . xs
+
+renderLatexParas :: [TeXPara] -> RenderContext -> Text
 renderLatexParas [] _ = ""
-renderLatexParas ([] : y) c = renderLatexParas y c
-renderLatexParas [x] ctx = concatRender x ctx
-renderLatexParas (x : xs@(y : _)) ctx
-	| LatexElement _ <- last x
-	, not (null y)
-	, needsBreak y
-		= concatRender x ctx
+renderLatexParas (TeXPara [] : y) c = renderLatexParas y c
+renderLatexParas [x] ctx = render x ctx
+renderLatexParas (p@(TeXPara x) : xs@(y : _)) ctx
+	| LatexElement _ <- last (sentenceElems (last x)), needsBreak y
+		= render p ctx
 			++ "<div style='height:0.6em;display:block'></div>"
 			++ renderLatexParas xs ctx
-	| otherwise = concatRender x ctx ++ renderLatexParas xs ctx
+	| otherwise = render p ctx ++ renderLatexParas xs ctx
 
-needsBreak :: [Element] -> Bool
-needsBreak (LatexElement (TeXComm "index" _) : x) = needsBreak x
-needsBreak (LatexElement (TeXRaw s) : x)
-	| all isSpace (Text.unpack s) = needsBreak x
-needsBreak (LatexElement _ : _) = True
-needsBreak (NoteElement _ : _) = True
-needsBreak (ExampleElement _ : _) = True
-needsBreak _ = False
+needsBreak :: TeXPara -> Bool
+needsBreak (TeXPara []) = False
+needsBreak (TeXPara (Sentence _ [] : y)) = needsBreak (TeXPara y)
+needsBreak (TeXPara (Sentence s (x : y) : z))
+	| noise x = needsBreak (TeXPara (Sentence s y : z))
+	| LatexElement _ <- x = True
+	| NoteElement _ <- x = True
+	| ExampleElement _ <- x = True
+	| otherwise = False
+	where
+		noise (LatexElement (TeXComm "index" _)) = True
+		noise (LatexElement (TeXRaw t)) = all isSpace (Text.unpack t)
+		noise _ = False
+
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX

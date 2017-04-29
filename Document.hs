@@ -5,7 +5,8 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
-	IndexEntry(..), IndexKind(..), Note(..), Example(..),
+	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
+	texParaTex, texParaElems,
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -36,7 +37,7 @@ data Table = Table
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
 	, tableAbbrs :: [LaTeX]
-	, tableBody :: [Row [[Element]]]
+	, tableBody :: [Row [TeXPara]]
 	, tableSection :: Section }
 
 instance Show Table where
@@ -54,18 +55,24 @@ instance Show Figure where
 
 data Item = Item
 	{ itemNumber :: Maybe [String]
-	, itemContent :: [[Element]] }
+	, itemContent :: [TeXPara] }
 	deriving Show
 
 data Footnote = Footnote
 	{ footnoteNumber :: Int
-	, footnoteContent :: [[Element]] }
+	, footnoteContent :: [TeXPara] }
 	deriving Show
 
-data Note = Note { noteNumber :: Int, noteContent :: [[Element]] }
+data Note = Note { noteNumber :: Int, noteContent :: [TeXPara] }
 	deriving Show
 
-data Example = Example { exampleNumber :: Int, exampleContent :: [[Element]] }
+data Example = Example { exampleNumber :: Int, exampleContent :: [TeXPara] }
+	deriving Show
+
+data Sentence = Sentence { sentenceNumber :: Int, sentenceElems :: [Element] }
+	deriving Show
+
+newtype TeXPara = TeXPara { sentences :: [Sentence] }
 	deriving Show
 
 data Element
@@ -98,7 +105,7 @@ data SourceLocation = SourceLocation
 data Paragraph = Paragraph
 	{ paraNumber :: Maybe Int
 	, paraInItemdescr :: Bool
-	, paraElems :: [[Element]]
+	, paraElems :: [TeXPara]
 	, paraSection :: Section
 	, paraSourceLoc :: Maybe SourceLocation }
 	deriving Show
@@ -246,15 +253,17 @@ allParagraphs :: Sections a => a -> [Paragraph]
 allParagraphs = (>>= paragraphs) . sections
 
 allElements :: Paragraph -> [Element]
-allElements p = paraElems p >>= (>>= f)
+allElements p = g (paraElems p)
 	where
 		f :: Element -> [Element]
 		f e = e : case e of
-			Enumerated {..} -> enumItems >>= itemContent >>= (>>= f)
-			TableElement Table{..} -> tableBody >>= cells >>= content >>= (>>= f)
-			NoteElement Note{..} -> noteContent >>= (>>= f)
-			ExampleElement Example{..} -> exampleContent >>= (>>= f)
+			Enumerated {..} -> g $ enumItems >>= itemContent
+			TableElement Table{..} -> g $ tableBody >>= cells >>= content
+			NoteElement Note{..} -> g noteContent
+			ExampleElement Example{..} -> g exampleContent
 			_ -> []
+		g x = x >>= sentences >>= sentenceElems >>= f
+
 
 tables :: Sections a => a -> [(Paragraph, Table)]
 tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allElements p]
@@ -267,18 +276,24 @@ footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
 
 -- Misc:
 
+texParaElems :: TeXPara -> [Element]
+texParaElems = (>>= sentenceElems) . sentences
+
+texParaTex :: TeXPara -> LaTeX
+texParaTex = (>>= elemTex) . texParaElems
+
 elemTex :: Element -> LaTeX
-elemTex (NoteElement n) = noteContent n >>= (>>= elemTex)
-elemTex (ExampleElement x) = exampleContent x >>= (>>= elemTex)
+elemTex (NoteElement n) = noteContent n >>= texParaTex
+elemTex (ExampleElement x) = exampleContent x >>= texParaTex
 elemTex (LatexElement l) = [l]
-elemTex (Enumerated _ e) = map itemContent e >>= (>>= (>>= elemTex))
+elemTex (Enumerated _ e) = e >>= itemContent >>= texParaTex
 elemTex (Bnf _ l) = l
 elemTex (Tabbing t) = t
 elemTex (Codeblock t) = [t]
 elemTex (TableElement t) = tableBody t >>= rowTex
 	where
-		rowTex :: Row [[Element]] -> LaTeX
-		rowTex r = content . cells r >>= (>>= (>>= elemTex))
+		rowTex :: Row [TeXPara] -> LaTeX
+		rowTex r = content . cells r >>= (>>= texParaTex)
 elemTex (FigureElement _) = []
 
 tableByAbbr :: Draft -> LaTeX -> Maybe Table

@@ -22,12 +22,12 @@ import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
 	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
-import Data.Text (Text, replace, isPrefixOf)
+import Data.Text (Text, replace, isPrefixOf, isSuffixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import Control.Monad (forM)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, isSpace)
 import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
@@ -36,10 +36,9 @@ import Data.List (sort, unfoldr)
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2)
-import Util ((.), (++), mapLast, stripInfix)
+import Util ((.), (++), mapLast, stripInfix, textStripInfix)
 import RawDocument
 import Document
-
 
 getCommitUrl :: IO Text
 getCommitUrl = do
@@ -80,7 +79,7 @@ moveIndexEntriesIntoDefs = Text.unlines . go . Text.lines
 
 data Numbers = Numbers
 	{ tableNr, figureNr, footnoteRefNr, footnoteNr
-	, nextIndexEntryNr, noteNr, exampleNr :: Int }
+	, nextIndexEntryNr, noteNr, exampleNr, nextSentenceNr :: Int }
 
 class AssignNumbers a b | a -> b where
 	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
@@ -114,6 +113,48 @@ instance AssignNumbers a b => AssignNumbers (Row a) (Row b) where
 	assignNumbers s x@Row{..} = do
 		cells' <- assignNumbers s cells
 		return x{cells=cells'}
+
+splitIntoSentences :: [RawElement] -> [[RawElement]]
+splitIntoSentences = go []
+	where
+		go [] [] = []
+		go [] (RawLatexElement (TeXRaw "\n") : y) = go [] y
+		go [] (x@(RawExample _) : y) = [x] : go [] y
+		go [] (x@(RawNote _) : y) = [x] : go [] y
+		go [] (x@(RawCodeblock _) : y) = [x] : go [] y
+		go x [] = [x]
+		go x z@(e : y)
+			| Just (s, rest) <- breakSentence z = (x ++ s) : go [] rest
+			| otherwise = go (x ++ [e]) y
+		breakSentence :: [RawElement] ->
+			Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
+		breakSentence (RawLatexElement (TeXRaw x) : more)
+			| Just ((++ ".") -> pre, post) <- textStripInfix "." x
+			, not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
+			, not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
+			, not ("e.g." `isSuffixOf` pre)
+			, not ("i.e." `isSuffixOf` pre) =
+				let
+					post' = Text.dropWhile isSpace post
+					(pre', post'') = case Text.stripPrefix ")" post' of
+						Just z -> (pre ++ ")" , Text.dropWhile isSpace z)
+						Nothing -> (pre, post')
+					more' = if post'' == "" then more else RawLatexElement (TeXRaw post'') : more
+					(maybefootnote, more'') = case more' of
+						fn@(RawLatexElement (TeXComm "footnoteref" _)) : z -> ([fn], z)
+						_ -> ([], more')
+					sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
+				in
+					Just (sentence, more'')
+		breakSentence (enum@(RawEnumerated _ (last -> last -> RawTexPara (last -> el))) : more)
+			| Just _ <- breakSentence [el] = Just ([enum], more)
+		breakSentence _ = Nothing
+
+instance AssignNumbers RawTexPara TeXPara where
+	assignNumbers s (RawTexPara (splitIntoSentences -> x)) = do
+		n <- get
+		put n{nextSentenceNr = nextSentenceNr n + length x}
+		TeXPara . (uncurry Sentence .) . zip [nextSentenceNr n..] . assignNumbers s x
 
 instance AssignNumbers RawElement Element where
 	assignNumbers section RawFigure{..} = do
@@ -155,7 +196,7 @@ instance AssignNumbers RawElement Element where
 instance AssignNumbers RawFootnote Footnote where
 	assignNumbers s (RawFootnote t) = do
 		Numbers{..} <- get
-		put Numbers{footnoteNr = footnoteNr+1, ..}
+		put Numbers{footnoteNr = footnoteNr+1, nextSentenceNr = 1, ..}
 		t' <- assignNumbers s t
 		return $ Footnote{footnoteNumber=footnoteNr,footnoteContent=t'}
 
@@ -197,32 +238,52 @@ rawIndexEntriesForSec :: Section -> IntMap IndexEntry
 rawIndexEntriesForSec s = IntMap.fromList
 	[(n, e) | e@IndexEntry{indexEntryNr=Just n} <- sectionIndexEntries s]
 
+mapTexPara :: ([Element] -> [Element]) -> (TeXPara -> TeXPara)
+mapTexPara f (TeXPara x) = TeXPara (map g x)
+	where
+		g :: Sentence -> Sentence
+		g s = s{sentenceElems = f (sentenceElems s)}
+
 assignItemNumbers :: Paragraph -> Paragraph
 assignItemNumbers p
-	| Just n <- paraNumber p = p{ paraElems = map (\x -> fst $ goElems [n,1] x) (paraElems p) }
+	| Just n <- paraNumber p = p{ paraElems = fst $ goParas [n, 1] $ paraElems p }
 	| otherwise = p
 	where
+
+		goParas :: [Int] -> [TeXPara] -> ([TeXPara], [Int])
+		goParas nn [] = ([], nn)
+		goParas nn (TeXPara e : pp) = first (TeXPara e' :) (goParas nn' pp)
+			where (e', nn') = goSentences nn e
+
+		goSentences :: [Int] -> [Sentence] -> ([Sentence], [Int])
+		goSentences nn [] = ([], nn)
+		goSentences nn (Sentence m e : ss) = first (Sentence m e' :) (goSentences nn' ss)
+			where (e', nn') = goElems nn e
+
 		goElems :: [Int] -> [Element] -> ([Element], [Int])
 		goElems nn [] = ([], nn)
-		goElems nn (e:ee) = case e of
-			Enumerated{..} ->
-				let
-					h l
-						| enumCmd == "enumeratea" = map show (init l) ++ [[['a'..] !! (last l - 1)]]
-						| otherwise = map show l
-					items' = map (\(i, Item{..}) ->
-						Item
-							(Just (h $ mapLast (+i) nn))
-							(map (\x -> fst $ goElems (mapLast (+i) nn ++ [1]) x) itemContent)
-						) (zip [0..] enumItems)
-				in
-					first (Enumerated enumCmd items' :) (goElems (mapLast (+ length enumItems) nn) ee)
-			_ -> first (e:) (goElems nn ee)
+		goElems nn (e:ee) = first (e' :) (goElems nn' ee)
+			where (e', nn') = goElem nn e
+
+		goElem :: [Int] -> Element -> (Element, [Int])
+		goElem nn Enumerated{..} = (Enumerated enumCmd items', mapLast (+ length enumItems) nn)
+			where
+				h l
+					| enumCmd == "enumeratea" = map show (init l) ++ [[['a'..] !! (last l - 1)]]
+					| otherwise = map show l
+				items' = map (\(i, Item{..}) ->
+					Item
+						(Just (h $ mapLast (+i) nn))
+						(fst $ goParas (mapLast (+i) nn ++ [1]) itemContent)
+					) (zip [0..] enumItems)
+		goElem nn (NoteElement (Note nr paras)) = (NoteElement (Note nr paras'), nn')
+			where (paras', nn') = goParas nn paras
+		goElem nn x = (x, nn)
 
 instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
 	assignNumbers paraSection (paraNumber, RawParagraph{..}) = do
 		nums <- get
-		put nums{noteNr=1, exampleNr=1}
+		put nums{noteNr=1, exampleNr=1, nextSentenceNr=1}
 		paraElems <- assignNumbers paraSection rawParaElems
 		return $ assignItemNumbers Paragraph
 		  { paraInItemdescr = rawParaInItemdescr
@@ -254,7 +315,7 @@ type GrammarLinks = Map Text Section
 nontermdefsInSection :: Section -> GrammarLinks
 nontermdefsInSection s@Section{..} =
 	Map.unions $
-	((Map.fromList $ map (, s) (paragraphs >>= paraElems >>= (>>= nontermdefsInElement)))
+	((Map.fromList $ map (, s) (paragraphs >>= paraElems >>= texParaElems >>= nontermdefsInElement))
 	: map nontermdefsInSection subsections)
 
 nontermdefsInElement :: Element -> [Text]
@@ -268,17 +329,17 @@ nontermdefs t = [name | TeXComm "nontermdef" [(FixArg, [TeXRaw name])] <- allUni
 resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
 	Section{
-		paragraphs  = map (\p -> p{paraElems = map (map resolve) (paraElems p)}) paragraphs,
+		paragraphs  = map (\p -> p{paraElems = map (mapTexPara (map resolve)) (paraElems p)}) paragraphs,
 		subsections = map (resolveGrammarterms links) subsections,
 		sectionFootnotes = map resolveFN sectionFootnotes,
 		..}
 	where
 		resolveFN :: Footnote -> Footnote
-		resolveFN fn@Footnote{..} = fn{footnoteContent = map (map resolve) footnoteContent}
+		resolveFN fn@Footnote{..} = fn{footnoteContent = map (mapTexPara (map resolve)) footnoteContent}
 		resolve :: Element -> Element
--- TODO		resolve (LatexElement e) = LatexElement $ grammarterms links e
+		resolve (LatexElement e) = LatexElement $ head $ grammarterms links [e]
 		resolve (Enumerated s ps) = Enumerated s $ map f ps
-			where f i@Item{..} = i{itemContent=map (map resolve) itemContent}
+			where f i@Item{..} = i{itemContent=map (mapTexPara (map resolve)) itemContent}
 		resolve (Bnf n b) = Bnf n $ grammarterms links $ bnfGrammarterms links b
 		resolve other = other
 
@@ -339,9 +400,11 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
 		parseIndexPath t = [IndexComponent [] t]
 
+sectionTexParas :: Section -> [TeXPara]
+sectionTexParas s = (paragraphs s >>= paraElems) ++ (sectionFootnotes s >>= footnoteContent)
+
 sectionTex :: Section -> LaTeX
-sectionTex s =
-	((paragraphs s >>= paraElems) ++ (sectionFootnotes s >>= footnoteContent)) >>= (>>= elemTex)
+sectionTex s = sectionTexParas s >>= texParaTex
 
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
@@ -372,7 +435,7 @@ trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Te
 		f :: Integer -> String -> String
 		f lineNr line
 			| Just (pre, post) <- stripInfix "\\pnum" line
-				= pre ++ "\\pnum{" ++ file ++ "}{" ++ show lineNr ++ "}" ++ post
+				= pre ++ "\\pnum{" ++ file ++ "}{" ++ show lineNr ++ "}" ++ (if null post then "%" else post)
 			| otherwise = line
 
 load14882 :: IO Draft
@@ -418,7 +481,7 @@ load14882 = do
 	if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let
-			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 1 1)
+			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 1 1 1)
 			ntdefs = Map.unions $ map nontermdefsInSection chapters
 			chapters' = map (resolveGrammarterms ntdefs) chapters
 			allEntries :: [IndexEntry]
