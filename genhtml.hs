@@ -7,6 +7,7 @@ import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
+import Control.Monad (forM_)
 import Util
 
 import Toc (writeTocFile)
@@ -37,6 +38,8 @@ main = do
 	createDirectoryIfMissing True outputDir
 	copyFile "icon.png" (outputDir ++ "/icon.png")
 	writeCssFile
+	forM_ ["collapsed.css", "expanded.css", "colored.css"] $
+		\f -> copyFile f (outputDir ++ "/" ++ f)
 	writeTocFile sectionFileStyle draft
 	writeIndexFiles sectionFileStyle index
 	writeFiguresFile sectionFileStyle (figures draft)

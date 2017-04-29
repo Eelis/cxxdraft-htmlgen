@@ -102,9 +102,6 @@ a.enumerated_item_num {
 
 div.para { text-align: justify; margin-bottom: 0.6em; margin-top: 0.6em; }
 
-div.example { display: inline; }
-div.note { display: inline; }
-
 span.indexparent {
 	display: inline;
 	position: relative;

@@ -528,29 +528,37 @@ noWrapSpace = "<span style='white-space:nowrap'> </span>"
 
 instance Render Note where
 	render Note{..} ctx =
-			xml "div" [("id", i), ("style", "display:inline")]
-				("[" ++ noWrapSpace ++ render link ctx ++ " "
-				++ renderLatexParas noteContent ctx
-				++ "—" ++ noWrapSpace ++ "<i>end note</i>" ++ noWrapSpace ++ "] ")
+			xml "div" [("id", i), ("class", "note")]
+				("[" ++ noWrapSpace ++ render link ctx
+				++ xml "div" [("class", "noteBody")] (
+					"<span class='textit'>:</span> "
+					++ renderLatexParas noteContent ctx
+					++ "—" ++ noWrapSpace ++ "<i>end note</i>")
+				++ noWrapSpace ++ "]")
+			++ " "
 		where
 			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "hidden_link",
-				aText = "<span class='textit'>Note:</span>" }
+				aText = "<span class='textit'>Note</span>" }
 
 instance Render Example where
 	render Example{..} ctx =
-			xml "div" [("id", i), ("style", "display:inline")]
-				("[" ++ noWrapSpace ++ render link ctx ++ " "
-				++ renderLatexParas exampleContent ctx
-				++ "—" ++ noWrapSpace ++ "<i>end example</i>" ++ noWrapSpace ++ "] ")
+			xml "div" [("id", i), ("class", "example")]
+				("[" ++ noWrapSpace ++ render link ctx
+				++ xml "div" [("class", "exampleBody")] (
+					"<span class='textit'>:</span> "
+					++ renderLatexParas exampleContent ctx
+					++ "—" ++ noWrapSpace ++ "<i>end example</i>")
+				++ noWrapSpace ++ "]")
+			++ " "
 		where
 			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "hidden_link",
-				aText = "<span class='textit'>Example:</span>" }
+				aText = "<span class='textit'>Example</span>" }
 
 instance Render Element where
 	render (LatexElement x) = render x
@@ -921,6 +929,9 @@ fileContent pathHome title extraHead body =
 			"<title>" ++ title ++ "</title>" ++
 			"<meta charset='UTF-8'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
+			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Notes and examples expanded'/>" ++
+			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
+			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "collapsed.css' title='Notes and examples collapsed'/>" ++
 			"<link rel='icon' href='icon.png'/>" ++
 			extraHead ++
 		"</head>" ++

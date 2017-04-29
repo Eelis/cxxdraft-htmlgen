@@ -87,3 +87,5 @@ Todo
     does not support tab stops)
   - don't generate anchors with duplicate ids for index entries with
     the same key
+  - in collapsed stylesheet, figure out how to not hide notes/examples
+    when their sentences are selected
