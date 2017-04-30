@@ -97,7 +97,8 @@ a.enumerated_item_num {
 	width: 3em;
 }
 
-div.para { text-align: justify; margin-bottom: 0.6em; margin-top: 0.6em; }
+div.para { margin-bottom: 0.6em; margin-top: 0.6em; text-align: justify; }
+div.section { text-align: justify; }
 div.sentence { display: inline; }
 
 span.indexparent {

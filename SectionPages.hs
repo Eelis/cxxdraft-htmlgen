@@ -90,7 +90,7 @@ renderSection context specific parasEmitted s@Section{..}
 	where
 		idDiv
 			| specific == Just s = id
-			| otherwise = xml "div" [("id", secOnPage)]
+			| otherwise = xml "div" [("id", secOnPage), ("class", "section")]
 		secOnPage :: Text
 		secOnPage = case page context of
 			Just parent -> parentLink parent s
