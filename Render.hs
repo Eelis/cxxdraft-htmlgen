@@ -840,10 +840,16 @@ instance Render TeXPara where
 instance Render Sentence where
 	render Sentence{..} ctx =
 			xml "div" [("id", i), ("class", "sentence")] $
-				mconcat $ map (\x -> case x of
-					Left y -> render y ctx
-					Right y -> y) $ reverse $ linkifyFullStop $ reverse sentenceElems
+				r $ reverse $ linkifyFullStop $ reverse sentenceElems
 		where
+			r :: [Either Element Text] -> Text
+			r [] = ""
+			r (span (\x -> case x of Left (LatexElement _) -> True; _ -> False) -> (ee@(_:_), rest))
+				= render ((\(Left (LatexElement x)) -> x) . ee) ctx
+				++ r rest
+			r (Right x : xs) = x ++ r xs
+			r (Left x : xs) = render x ctx ++ r xs
+
 			i = idPrefix ctx ++ "sentence-" ++ Text.pack (show sentenceNumber)
 			link = anchor{aText = ".", aHref = "#" ++ i, aClass = "hidden_link"}
 			linkifyFullStop :: [Element] -> [Either Element Text]
