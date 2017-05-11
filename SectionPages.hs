@@ -9,6 +9,7 @@ module SectionPages
 	, writeIndexFiles
 	, writeFootnotesFile
 	, writeCssFile
+	, writeXrefDeltaFiles
 	) where
 
 import Prelude hiding ((++), (.), writeFile)
@@ -206,3 +207,11 @@ writeCssFile = do
 	mjx <- replaceFonts . Text.pack .
 		readProcess "tex2html" ["--css", ""] ""
 	writeFile (outputDir ++ "/14882.css") (base ++ mjx)
+
+writeXrefDeltaFiles :: SectionFileStyle -> Draft -> IO ()
+writeXrefDeltaFiles sfs draft = forM_ (xrefDelta draft) $ \(from, to) ->
+	writeSectionFile (Text.unpack $ abbrAsPath from) sfs (squareAbbr from) $
+		if to == []
+			then "Subclause " ++ squareAbbr from ++ " was removed."
+			else "See " ++ Text.intercalate ", " (flip render ctx . to) ++ "."
+	where ctx = defaultRenderContext{draft=Just draft}

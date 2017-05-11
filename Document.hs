@@ -6,7 +6,7 @@ module Document (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems,
+	texParaTex, texParaElems, XrefDelta,
 	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -127,11 +127,14 @@ data Section = Section
 instance Eq Section where
 	x == y = abbreviation x == abbreviation y
 
+type XrefDelta = [(LaTeX, [LaTeX])]
+
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters  :: [Section]
 	, index     :: Index
-	, indexEntryMap :: IntMap IndexEntry }
+	, indexEntryMap :: IntMap IndexEntry
+	, xrefDelta :: XrefDelta }
 
 -- (The index entry maps are derivable but stored for efficiency.)
 

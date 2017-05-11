@@ -13,7 +13,7 @@ import Util
 import Toc (writeTocFile)
 import SectionPages
 	( writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile
-	, writeIndexFiles, writeFootnotesFile, writeCssFile)
+	, writeIndexFiles, writeFootnotesFile, writeCssFile, writeXrefDeltaFiles)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
@@ -47,3 +47,4 @@ main = do
 	writeFootnotesFile sectionFileStyle draft
 	writeFullFile sectionFileStyle draft
 	writeSectionFiles sectionFileStyle draft
+	writeXrefDeltaFiles sectionFileStyle draft
