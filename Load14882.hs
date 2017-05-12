@@ -438,35 +438,6 @@ trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Te
 				= pre ++ "\\pnum{" ++ file ++ "}{" ++ show lineNr ++ "}" ++ (if null post then "%" else post)
 			| otherwise = line
 
-loadXrefDelta :: IO XrefDelta
-loadXrefDelta = do
-	(tex, _, _) <- Parser.parseString ctx . Text.unpack . readFile "xrefdelta.tex"
-	return $
-		[ (snd from, [snd to]) | [from, to] <- lookForCommand "movedxrefs" tex ] ++
-		[ (snd from, (\to -> [TeXComm "ref" [to]]) . tos) | from : tos <-
-			lookForCommand "movedxref" tex ++
-			lookForCommand "movedxrefii" tex ++
-			lookForCommand "movedxrefiii" tex ] ++
-		[ (abbr, []) | [(_, abbr)] <- lookForCommand "removedxref" tex ] ++
-		[ ([TeXRaw abbr], [[TeXComm "ref" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
-		| [(_, [TeXRaw abbr])] <- lookForCommand "deprxref" tex ]
-	where
-		signatures =
-			[ ("deprxref", Parser.Signature 1 Nothing)
-			, ("removedxref", Parser.Signature 1 Nothing)
-			, ("movedxrefs", Parser.Signature 2 Nothing)
-			, ("movedxref", Parser.Signature 2 Nothing)
-			, ("movedxrefii", Parser.Signature 3 Nothing)
-			, ("movedxrefiii", Parser.Signature 4 Nothing)
-			, ("changeglossnumformat", Parser.Signature 1 Nothing)
-			, ("glossary", Parser.Signature 1 Nothing)
-			, ("indexescape", Parser.Signature 1 Nothing)
-			, ("textit", Parser.Signature 1 Nothing)
-			, ("ref", Parser.Signature 1 Nothing)
-			]
-		ctx :: Parser.Context
-		ctx = Parser.defaultContext{ Parser.dontEval = fst . signatures, Parser.signatures = signatures }
-
 load14882 :: IO Draft
 load14882 = do
 

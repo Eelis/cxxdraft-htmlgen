@@ -15,13 +15,13 @@
 
 module RawDocument
 	( RawElement(..), RawTexPara(..), RawFootnote(..), RawParagraph(..), LinearSection(..)
-	, loadMacros, parseFile) where
+	, loadMacros, parseFile, loadXrefDelta) where
 
 import qualified LaTeXParser as Parser
 import qualified Data.Text as Text
 import Data.Text (Text, replace)
 import Data.Monoid ((<>))
-import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..))
+import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta)
 import Data.Maybe (isJust)
 import LaTeXParser (Macros(..), Signature(..))
 import Data.Text.IO (readFile)
@@ -131,9 +131,8 @@ doParse m t = (x, y)
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition importgraphic bottomline capsep itemdescr " ++
-			"grammarterm nontermdef defnx FlushAndPrintGrammar term caret indented note example " ++
-			"tabular longtable enumeratea emph link linkx liblinkx weblink deflinkx indexedspan"
+			"drawing definition importgraphic itemdescr nontermdef defnx " ++
+			"indented note example tabular longtable enumeratea"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
@@ -142,7 +141,7 @@ initialContext = Parser.defaultContext
 
 signatures :: [(String, Signature)]
 signatures =
-		[(c, Signature i Nothing) | i <- [0..3], c <- words (a i)] ++
+		[(c, Signature i Nothing) | i <- [0..4], c <- words (a i)] ++
 		[ ("\n", Signature 0 Nothing)
 		, ("index", Signature 2 (Just []))
 		, ("caption", Signature 2 (Just []))
@@ -166,11 +165,13 @@ signatures =
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"newcolumntype label newlength uline vspace value newcounter mathscr " ++
-			"phantom sqrt ln emph lstset minipage url"
+			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
+			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
+			"removedxref deprxref"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
-			"binom infannex normannex parbox link weblink indexedspan"
-		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx"
+			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs"
+		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii"
+		a 4 = "movedxrefiii"
 		a _ = undefined
 
 parseFile :: Macros -> Text -> [LinearSection]
@@ -356,3 +357,17 @@ loadMacros =
 	. mconcat
 	. mapM readFile
 	["config.tex", "macros.tex", "tables.tex"]
+
+loadXrefDelta :: IO XrefDelta
+loadXrefDelta = do
+	(tex, _, _) <- Parser.parseString initialContext . Text.unpack . readFile "xrefdelta.tex"
+	let lfc c = lookForCommand c tex
+	return $
+		[ (snd from, [snd to])
+			| [from, to] <- lfc "movedxrefs" ] ++
+		[ (snd from, (:[]) . TeXComm "ref" . (:[]) . tos)
+			| from : tos <- lfc "movedxref" ++ lfc "movedxrefii" ++ lfc "movedxrefiii" ] ++
+		[ (abbr, [])
+			| [(_, abbr)] <- lfc "removedxref" ] ++
+		[ (a, [[TeXComm "ref" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
+			| [(_, a@[TeXRaw abbr])] <- lfc "deprxref" ]
