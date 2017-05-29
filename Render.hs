@@ -839,8 +839,11 @@ instance Render TeXPara where
 
 instance Render Sentence where
 	render Sentence{..} ctx =
-			xml "div" [("id", i), ("class", "sentence")] $
-				r $ reverse $ linkifyFullStop $ reverse sentenceElems
+			case i of
+				Nothing -> r $ map Left $ sentenceElems
+				Just v ->
+					xml "div" [("id", v), ("class", "sentence")] $
+						r $ reverse $ linkifyFullStop $ reverse sentenceElems
 		where
 			r :: [Either Element Text] -> Text
 			r [] = ""
@@ -850,8 +853,10 @@ instance Render Sentence where
 			r (Right x : xs) = x ++ r xs
 			r (Left x : xs) = render x ctx ++ r xs
 
-			i = idPrefix ctx ++ "sentence-" ++ Text.pack (show sentenceNumber)
-			link = anchor{aText = ".", aHref = "#" ++ i, aClass = "hidden_link"}
+			i = case sentenceNumber of
+				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
+				Nothing -> Nothing
+			link = anchor{aText = ".", aHref = "#" ++ fromJust i, aClass = "hidden_link"}
 			linkifyFullStop :: [Element] -> [Either Element Text]
 			linkifyFullStop [] = []
 			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix "." -> Just s)) : xs)

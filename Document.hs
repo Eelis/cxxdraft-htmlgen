@@ -69,7 +69,7 @@ data Note = Note { noteNumber :: Int, noteContent :: [TeXPara] }
 data Example = Example { exampleNumber :: Int, exampleContent :: [TeXPara] }
 	deriving Show
 
-data Sentence = Sentence { sentenceNumber :: Int, sentenceElems :: [Element] }
+data Sentence = Sentence { sentenceNumber :: Maybe Int, sentenceElems :: [Element] }
 	deriving Show
 
 newtype TeXPara = TeXPara { sentences :: [Sentence] }

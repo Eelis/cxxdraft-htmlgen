@@ -150,11 +150,39 @@ splitIntoSentences = go []
 			| Just _ <- breakSentence [el] = Just ([enum], more)
 		breakSentence _ = Nothing
 
+isActualSentence :: [RawElement] -> Bool
+isActualSentence = any p
+	where
+		yes = words $
+			"link tcode textit ref grammarterm indexedspan " ++
+			"defnx textbf textrm textsl textsc deflinkx"
+
+		q :: LaTeXUnit -> Bool
+		q (TeXRaw _) = True
+		q (TeXComm c _) | c `elem` yes = True
+		q (TeXEnv c _ _) | c `elem` yes = True
+		q (TeXEnv "indexed" _ body) = any q body
+		q (TeXBraces body) = any q body
+		q _ = False
+
+		p :: RawElement -> Bool
+		p (RawLatexElement u) = q u
+		p RawEnumerated{} = True
+		p _ = False
+
+indicesForEnabled :: Int -> [Bool] -> ([Maybe Int], Int)
+indicesForEnabled = go
+	where
+		go i [] = ([], i)
+		go i (True : l) = first (Just i :) (go (i + 1) l)
+		go i (False : l) = first (Nothing :) (go i l)
+
 instance AssignNumbers RawTexPara TeXPara where
 	assignNumbers s (RawTexPara (splitIntoSentences -> x)) = do
 		n <- get
-		put n{nextSentenceNr = nextSentenceNr n + length x}
-		TeXPara . (uncurry Sentence .) . zip [nextSentenceNr n..] . assignNumbers s x
+		let (indices, nextNum) = indicesForEnabled (nextSentenceNr n) (isActualSentence . x)
+		put n{nextSentenceNr = nextNum}
+		TeXPara . (uncurry Sentence .) . zip indices . assignNumbers s x
 
 instance AssignNumbers RawElement Element where
 	assignNumbers section RawFigure{..} = do
