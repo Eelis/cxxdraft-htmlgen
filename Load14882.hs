@@ -206,7 +206,15 @@ instance AssignNumbers RawElement Element where
 			, tableCaption = rawTableCaption
 			, tableSection = s
 			, .. }
-	assignNumbers s (RawEnumerated x p) = Enumerated x . (Item Nothing .) . assignNumbers s p
+	assignNumbers s (RawEnumerated x p) = do
+		orig <- get
+		r <- Enumerated x . (Item Nothing .) . mapM (\y -> do
+			n <- get
+			put n{nextSentenceNr = 1}
+			assignNumbers s y) p
+		state' <- get
+		put state'{nextSentenceNr = nextSentenceNr orig}
+		return r
 	assignNumbers s (RawLatexElement x) = LatexElement . assignNumbers s x
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
