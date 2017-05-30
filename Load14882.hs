@@ -130,6 +130,7 @@ splitIntoSentences = go []
 			Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
 		breakSentence (RawLatexElement (TeXRaw x) : more)
 			| Just ((++ ".") -> pre, post) <- textStripInfix "." x
+			, not (("(" `isSuffixOf` pre) && (")" `isPrefixOf` post))
 			, not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
 			, not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
 			, not ("e.g." `isSuffixOf` pre)
