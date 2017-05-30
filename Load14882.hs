@@ -35,7 +35,7 @@ import System.IO (hFlush, stdout)
 import Data.List (sort, unfoldr)
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
-import Control.Monad.State (MonadState, evalState, get, put, liftM2)
+import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
 import Util ((.), (++), mapLast, stripInfix, textStripInfix)
 import RawDocument
 import Document
@@ -147,7 +147,7 @@ splitIntoSentences = go []
 					sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
 				in
 					Just (sentence, more'')
-		breakSentence (enum@(RawEnumerated _ (last -> last -> RawTexPara (last -> el))) : more)
+		breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> last -> RawTexPara (last -> el))) : more)
 			| Just _ <- breakSentence [el] = Just ([enum], more)
 		breakSentence _ = Nothing
 
@@ -185,6 +185,12 @@ instance AssignNumbers RawTexPara TeXPara where
 		put n{nextSentenceNr = nextNum}
 		TeXPara . (uncurry Sentence .) . zip indices . assignNumbers s x
 
+instance AssignNumbers RawItem Item where
+	assignNumbers s (RawItem label content) = do
+		n <- get
+		put n{nextSentenceNr = 1}
+		Item Nothing (if null label then Nothing else Just label) . assignNumbers s content
+	
 instance AssignNumbers RawElement Element where
 	assignNumbers section RawFigure{..} = do
 		Numbers{..} <- get
@@ -207,13 +213,9 @@ instance AssignNumbers RawElement Element where
 			, tableSection = s
 			, .. }
 	assignNumbers s (RawEnumerated x p) = do
-		orig <- get
-		r <- Enumerated x . (Item Nothing .) . mapM (\y -> do
-			n <- get
-			put n{nextSentenceNr = 1}
-			assignNumbers s y) p
-		state' <- get
-		put state'{nextSentenceNr = nextSentenceNr orig}
+		origNum <- nextSentenceNr . get
+		r <- Enumerated x . mapM (assignNumbers s) p
+		modify $ \s -> s{nextSentenceNr = origNum}
 		return r
 	assignNumbers s (RawLatexElement x) = LatexElement . assignNumbers s x
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
@@ -311,6 +313,7 @@ assignItemNumbers p
 				items' = map (\(i, Item{..}) ->
 					Item
 						(Just (h $ mapLast (+i) nn))
+						itemLabel
 						(fst $ goParas (mapLast (+i) nn ++ [1]) itemContent)
 					) (zip [0..] enumItems)
 		goElem nn (NoteElement (Note nr paras)) = (NoteElement (Note nr paras'), nn')

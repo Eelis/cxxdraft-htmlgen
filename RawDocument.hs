@@ -14,7 +14,7 @@
 	RecursiveDo #-}
 
 module RawDocument
-	( RawElement(..), RawTexPara(..), RawFootnote(..), RawParagraph(..), LinearSection(..)
+	( RawElement(..), RawTexPara(..), RawFootnote(..), RawParagraph(..), LinearSection(..), RawItem(..)
 	, loadMacros, parseFile, loadXrefDelta) where
 
 import qualified LaTeXParser as Parser
@@ -34,9 +34,14 @@ import Control.Arrow (first)
 import Data.Char (isSpace)
 import LaTeXBase
 
+data RawItem = RawItem
+	{ rawItemLabel :: LaTeX
+	, rawItemContent :: [RawTexPara] }
+	deriving Show
+
 data RawElement
 	= RawLatexElement LaTeXUnit
-	| RawEnumerated String [[RawTexPara]]
+	| RawEnumerated String [RawItem]
 	| RawCodeblock LaTeXUnit
 	| RawExample [RawTexPara]
 	| RawNote [RawTexPara]
@@ -108,16 +113,19 @@ isJunk (TeXRaw x) = all isSpace (Text.unpack x)
 isJunk (TeXComm "index" _) = True
 isJunk _ = False
 
-isItem :: LaTeXUnit -> Bool
-isItem (TeXComm (dropTrailingWs -> "item") _) = True
-isItem _ = False
+isItem :: LaTeXUnit -> Maybe LaTeX
+isItem (TeXComm (dropTrailingWs -> "item") []) = Just []
+isItem (TeXComm (dropTrailingWs -> "item") [(_, label)]) = Just label
+isItem _ = Nothing
 
-parseItems :: LaTeX -> [[RawTexPara]]
+parseItems :: LaTeX -> [RawItem]
 parseItems [] = []
 parseItems (x : rest)
-	| isJunk x = mapHead (mapHead addJunk) (parseItems rest)
-	| isItem x, (item, rest') <- break isItem rest = parsePara item : parseItems rest'
+	| isJunk x = mapHead (mapItemContent (mapHead addJunk)) (parseItems rest)
+	| Just label <- isItem x, (item, rest') <- break (isJust . isItem) rest =
+		RawItem label (parsePara item) : parseItems rest'
 	where
+		mapItemContent f (RawItem l c) = RawItem l (f c)
 		addJunk :: RawTexPara -> RawTexPara
 		addJunk (RawTexPara z) = RawTexPara (RawLatexElement x : z)
 parseItems _ = error "need items or nothing"
@@ -143,12 +151,13 @@ signatures :: [(String, Signature)]
 signatures =
 		[(c, Signature i Nothing) | i <- [0..4], c <- words (a i)] ++
 		[ ("\n", Signature 0 Nothing)
+		, ("item", Signature 0 (Just []))
 		, ("index", Signature 2 (Just []))
 		, ("caption", Signature 2 (Just []))
 		, ("gramSec", Signature 2 (Just []))
 		]
 	where
-		a 0 = "today item def makeatletter bottomline makeatother Sec left right bmod " ++
+		a 0 = "today def makeatletter bottomline makeatother Sec left right bmod " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
 			"textup edef x itcorrwidth itletterwidth small BnfIndent setlength par leq " ++
 			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++

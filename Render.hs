@@ -471,8 +471,13 @@ renderFig stripFig Figure{..} =
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
 instance Render RenderItem where
-	render RenderItem{item=Item Nothing elems} ctx = xml "li" [] $ renderLatexParas elems ctx
-	render RenderItem{item=Item (Just nn) elems, ..} ctx = xml "li" [("id", thisId)] $ addItemLink $ renderLatexParas elems ctx'
+	render RenderItem{item=Item Nothing _ elems} ctx = xml "li" [] $ renderLatexParas elems ctx
+	render RenderItem{item=Item (Just nn) mlabel elems, ..} ctx =
+			xml "li" [("id", thisId)] $ case mlabel of
+				Nothing -> addItemLink $ renderLatexParas elems ctx'
+				Just label ->
+					render anchor{aHref = linkHref, aText=simpleRender label} ctx'
+					++ " " ++ renderLatexParas elems ctx'
 		where
 			left
 				| listOrdered = "-4.5em"
@@ -497,12 +502,10 @@ instance Render RenderItem where
 			addItemLink x
 				| listOrdered = render link ctx' ++ x
 				| otherwise = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx') ++ x
-			link = anchor
-					{ aClass = linkClass
-					, aHref  = if isJust (page ctx)
-						then "#" ++ thisId
-						else "SectionToSection/" ++ paraUrl ctx ++ "#" ++ dottedNumber
-					, aText  = linkText }
+			linkHref
+				| isJust (page ctx) = "#" ++ thisId
+				| otherwise = "SectionToSection/" ++ paraUrl ctx ++ "#" ++ dottedNumber
+			link = anchor{aClass = linkClass, aHref = linkHref, aText = linkText}
 
 paraUrl :: RenderContext -> Text
 paraUrl RenderContext{..} = url $ abbreviation $ case nearestEnclosing of

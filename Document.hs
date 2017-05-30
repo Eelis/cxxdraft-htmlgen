@@ -55,6 +55,7 @@ instance Show Figure where
 
 data Item = Item
 	{ itemNumber :: Maybe [String]
+	, itemLabel :: Maybe LaTeX
 	, itemContent :: [TeXPara] }
 	deriving Show
 
