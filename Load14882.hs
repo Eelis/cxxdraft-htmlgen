@@ -27,7 +27,7 @@ import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import Control.Monad (forM)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (isAlpha, isSpace)
+import Data.Char (isAlpha, isSpace, isDigit)
 import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
@@ -130,9 +130,10 @@ splitIntoSentences = go []
 			Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
 		breakSentence (RawLatexElement (TeXRaw x) : more)
 			| Just ((++ ".") -> pre, post) <- textStripInfix "." x
-			, not (("(" `isSuffixOf` pre) && (")" `isPrefixOf` post))
+			, not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
 			, not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
 			, not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
+			, not (Text.length pre > 1 && Text.length post > 0 && isDigit (Text.last $ Text.init pre) && isDigit (Text.head post))
 			, not ("e.g." `isSuffixOf` pre)
 			, not ("i.e." `isSuffixOf` pre) =
 				let
