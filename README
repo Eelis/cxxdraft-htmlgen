@@ -78,6 +78,19 @@ Output
 
   - 14882.css    Used by all of the above.
 
+Hidden links
+
+  On any page:
+
+  - "Note:" and "Example:" tags are links that select the note (resp. example);
+
+  - defined terms are links that select themselves;
+
+  - a full stop at the end of a sentence is a link that selects the sentence;
+
+  - moving the mouse over the right margin of a numbered paragraph reveals a link
+    to the LaTeX source for that paragraph.
+
 Todo
 
   - very long section names screw up layout
