@@ -216,7 +216,7 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawEnumerated x p) = do
 		origNum <- nextSentenceNr . get
 		r <- Enumerated x . mapM (assignNumbers s) p
-		modify $ \s -> s{nextSentenceNr = origNum}
+		modify $ \y -> y{nextSentenceNr = origNum}
 		return r
 	assignNumbers s (RawLatexElement x) = LatexElement . assignNumbers s x
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
