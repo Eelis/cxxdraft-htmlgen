@@ -152,6 +152,7 @@ signatures =
 		[(c, Signature i Nothing) | i <- [0..4], c <- words (a i)] ++
 		[ ("\n", Signature 0 Nothing)
 		, ("item", Signature 0 (Just []))
+		, ("nolinebreak", Signature 0 (Just []))
 		, ("index", Signature 2 (Just []))
 		, ("caption", Signature 2 (Just []))
 		, ("gramSec", Signature 2 (Just []))
@@ -176,7 +177,7 @@ signatures =
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref"
+			"removedxref deprxref textsuperscript"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii"

@@ -43,7 +43,7 @@ kill, literal :: [String]
 kill = words $
 	"clearpage renewcommand newcommand enlargethispage noindent indent vfill pagebreak " ++
 	"caption capsep continuedcaption bottomline hline rowsep hspace endlist cline itcorr " ++
-	"hfill nocorr small endhead kill footnotesize rmfamily microtypesetup nobreak " ++
+	"hfill nocorr small endhead kill footnotesize rmfamily microtypesetup nobreak nolinebreak " ++
 	"label topline FlushAndPrintGrammar left right protect = ! @ - xspace"
 literal = ["#", "{", "}", "~", "%", ""]
 
