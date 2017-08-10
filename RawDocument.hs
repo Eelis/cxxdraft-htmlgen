@@ -211,8 +211,11 @@ loadFigure f =
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
 parsePara :: LaTeX -> [RawTexPara]
-parsePara u = RawTexPara . fmap f . splitElems (trim u)
+parsePara u = RawTexPara . fmap f . splitElems (trim (filter (not . kill) u))
 	where
+		kill (TeXComm "hline" []) = True
+		kill (TeXComm "capsep" []) = True
+		kill _ = False
 		f :: LaTeXUnit -> RawElement
 		f e@(TeXEnv k a stuff)
 			| isFigure e
