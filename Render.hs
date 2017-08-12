@@ -217,6 +217,7 @@ indexOccurrenceSuffix c indexNum
 instance Render LaTeX where
 	render ( gt@(TeXComm "grammarterm_" [(FixArg, [TeXRaw termSec]),  _])
 	       : ps@(TeXComm "textit" [(FixArg, [TeXRaw "s"])])
+	       : TeXComm "nolinebreak" _
 	       : TeXRaw openParen
 	       : TeXComm "ref" [(FixArg, [TeXRaw refSec])]
 	       : (texStripPrefix ")" -> Just rest))
@@ -224,6 +225,7 @@ instance Render LaTeX where
 		, redundantOpen openParen
 		= render (gt : ps : rest)
 	render ( gt@(TeXComm "grammarterm_" [(FixArg, [TeXRaw termSec]),  _])
+	       : TeXComm "nolinebreak" _
 	       : TeXRaw openParen
 	       : TeXComm "ref" [(FixArg, [TeXRaw refSec])]
 	       : (texStripPrefix ")" -> Just rest))
