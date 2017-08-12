@@ -375,13 +375,16 @@ resolveGrammarterms links Section{..} =
 		sectionFootnotes = map resolveFN sectionFootnotes,
 		..}
 	where
+		resolveParas = map $ mapTexPara $ map resolve
 		resolveFN :: Footnote -> Footnote
-		resolveFN fn@Footnote{..} = fn{footnoteContent = map (mapTexPara (map resolve)) footnoteContent}
+		resolveFN fn@Footnote{..} = fn{footnoteContent = resolveParas footnoteContent}
 		resolve :: Element -> Element
 		resolve (LatexElement e) = LatexElement $ head $ grammarterms links [e]
 		resolve (Enumerated s ps) = Enumerated s $ map f ps
-			where f i@Item{..} = i{itemContent=map (mapTexPara (map resolve)) itemContent}
+			where f i@Item{..} = i{itemContent = resolveParas itemContent}
 		resolve (Bnf n b) = Bnf n $ grammarterms links $ bnfGrammarterms links b
+		resolve (NoteElement n@Note{..}) = NoteElement n{noteContent = resolveParas noteContent}
+		resolve (ExampleElement e@Example{..}) = ExampleElement e{exampleContent = resolveParas exampleContent}
 		resolve other = other
 
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
