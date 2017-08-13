@@ -18,7 +18,7 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import Data.Function (on)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (ord, isAlphaNum, toLower)
+import Data.Char (ord, isAlpha, toLower, isDigit, isUpper)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
@@ -188,11 +188,14 @@ data IndexNode = IndexNode
 instance Ord IndexComponent where
 	compare = compare `on` (\c -> (f (indexSortKey c), f (indexKey c)))
 		where
-			g :: Char -> Int
+			g :: Char -> (Int, Int)
 			g c
-				| isAlphaNum c = ord (toLower c) + 1000
-				| otherwise = ord c
-			f = map g . Text.unpack . indexKeyContent
+				| isDigit c = (1, ord c)
+				| isAlpha c = (2, ord (toLower c))
+				| otherwise = (0, ord c)
+			h :: String -> ([(Int, Int)], Int)
+			h x = (map g x, if isUpper (head x) then 0 else 1)
+			f = h . Text.unpack . indexKeyContent
 
 mergeIndices :: [Index] -> Index
 mergeIndices = Map.unionsWith (Map.unionWith mergeIndexNodes)
