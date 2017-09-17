@@ -140,7 +140,7 @@ initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
 			"drawing definition importgraphic itemdescr nontermdef defnx " ++
-			"indented note example tabular longtable enumeratea"
+			"indented note defnote example tabular longtable enumeratea"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
@@ -234,7 +234,7 @@ parsePara u = RawTexPara . fmap f . splitElems (trim (filter (not . kill) u))
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| isCodeblock e = RawCodeblock e
-			| k == "note" = RawNote $ parsePara stuff
+			| k == "note" || k == "defnote" = RawNote $ parsePara stuff
 			| k == "example" = RawExample $ parsePara stuff
 			| k == "itemdecl" || k == "minipage" = RawLatexElement e
 		f x = RawLatexElement x
