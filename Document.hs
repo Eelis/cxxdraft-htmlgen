@@ -245,6 +245,7 @@ indexKeyContent txt = mconcat (map ikc txt)
 indexCatName :: (Eq b , IsString a, IsString b) => b -> a
 indexCatName "impldefindex" = "Index of implementation-defined behavior"
 indexCatName "libraryindex" = "Index of library names"
+indexCatName "headerindex" = "Index of library headers"
 indexCatName "generalindex" = "Index"
 indexCatName _ = error "indexCatName"
 
