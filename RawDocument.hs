@@ -282,6 +282,9 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 			, (FixArg, [TeXRaw (Text.unpack -> read -> lineNr)])] : more) =
 				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Just (SourceLocation file lineNr)} : x)
 				(collectParas more)
+		collectParas (TeXComm "pnum" [] : more) =
+				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Nothing} : x)
+				(collectParas more)
 		collectParas [] = []
 		collectParas x = (RawParagraph False False (parsePara p) Nothing : ps)
 			where
