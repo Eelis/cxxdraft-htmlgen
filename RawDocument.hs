@@ -179,8 +179,9 @@ signatures =
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
-			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs"
-		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii"
+			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs equal"
+		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
+			"ifthenelse PackageError"
 		a 4 = "movedxrefiii"
 		a _ = undefined
 

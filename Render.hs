@@ -356,6 +356,7 @@ instance Render LaTeXUnit where
 			indexPaths =
 				[ (cat, p) | [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
 	render (TeXComm "discretionary" _) = const zwsp
+	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [(FixArg, content)]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
