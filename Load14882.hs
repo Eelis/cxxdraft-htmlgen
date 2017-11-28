@@ -396,7 +396,7 @@ grammarterms links = mapTeX (go links)
 		go _ _ = Nothing
 
 bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
-bnfGrammarterms links = (>>= go) . mapTeX wordify
+bnfGrammarterms links = mapTeX go . mapTeX wordify
 	where
 		wordify :: LaTeXUnit -> Maybe LaTeX
 		wordify (TeXRaw stuff) = Just $ map TeXRaw $ unfoldr f stuff
@@ -408,11 +408,11 @@ bnfGrammarterms links = (>>= go) . mapTeX wordify
 				isName c = isAlpha c || c `elem` ['-', '_']
 		wordify _ = Nothing
 
-		go :: LaTeXUnit -> LaTeX
+		go :: LaTeXUnit -> Maybe LaTeX
 		go n@(TeXRaw name)
 			| Just Section{..} <- Map.lookup name links =
-				[TeXComm "grammarterm_" [(FixArg, abbreviation), (FixArg, [n])]]
-		go x = [x]
+				Just [TeXComm "grammarterm_" [(FixArg, abbreviation), (FixArg, [n])]]
+		go _ = Nothing
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
 parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
