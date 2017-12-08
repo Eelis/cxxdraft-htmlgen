@@ -3,6 +3,7 @@
 
 module SectionPages
 	( writeSectionFiles
+	, writeSingleSectionFile
 	, writeFiguresFile
 	, writeTablesFile
 	, writeIndexFiles
@@ -161,6 +162,13 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 
 parAll :: [a] -> b -> b
 parAll = flip $ foldl $ flip par
+
+writeSingleSectionFile :: SectionFileStyle -> Draft -> String -> IO ()
+writeSingleSectionFile sfs draft abbr = do
+	let section@Section{..} = Document.sectionByAbbr draft [TeXRaw $ Text.pack abbr]
+	let baseFilename = Text.unpack $ abbrAsPath abbreviation
+	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
+	putStrLn $ "  " ++ baseFilename
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do

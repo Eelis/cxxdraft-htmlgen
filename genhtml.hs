@@ -12,17 +12,19 @@ import Util
 
 import Toc (writeTocFile)
 import SectionPages
-	( writeSectionFiles, writeFiguresFile, writeTablesFile
+	( writeSectionFiles, writeFiguresFile, writeTablesFile, writeSingleSectionFile
 	, writeIndexFiles, writeFootnotesFile, writeCssFile, writeXrefDeltaFiles)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
-	, sectionFileStyle :: SectionFileStyle }
+	, sectionFileStyle :: SectionFileStyle
+	, sectionToWrite :: Maybe String }
 
 readCmdLineArgs :: [String] -> CmdLineArgs
 readCmdLineArgs = \case
-	[repo, read -> sectionFileStyle] -> CmdLineArgs{..}
-	[repo] -> CmdLineArgs{sectionFileStyle=WithExtension,..}
+	[repo, read -> sectionFileStyle, sec] -> CmdLineArgs{sectionToWrite=Just sec, ..}
+	[repo, read -> sectionFileStyle] -> CmdLineArgs{sectionToWrite=Nothing,..}
+	[repo] -> CmdLineArgs{sectionFileStyle=WithExtension,sectionToWrite=Nothing,..}
 	_ -> error "param: path/to/repo"
 
 main :: IO ()
@@ -40,10 +42,13 @@ main = do
 	writeCssFile
 	forM_ ["collapsed.css", "expanded.css", "colored.css"] $
 		\f -> copyFile f (outputDir ++ "/" ++ f)
-	writeTocFile sectionFileStyle draft
-	writeIndexFiles sectionFileStyle index
-	writeFiguresFile sectionFileStyle (figures draft)
-	writeTablesFile sectionFileStyle draft
-	writeFootnotesFile sectionFileStyle draft
-	writeSectionFiles sectionFileStyle draft
-	writeXrefDeltaFiles sectionFileStyle draft
+	case sectionToWrite of
+		Just abbr -> writeSingleSectionFile sectionFileStyle draft abbr
+		Nothing -> do
+			writeTocFile sectionFileStyle draft
+			writeIndexFiles sectionFileStyle index
+			writeFiguresFile sectionFileStyle (figures draft)
+			writeTablesFile sectionFileStyle draft
+			writeFootnotesFile sectionFileStyle draft
+			writeSectionFiles sectionFileStyle draft
+			writeXrefDeltaFiles sectionFileStyle draft

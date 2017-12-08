@@ -6,7 +6,7 @@ module Document (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems, XrefDelta,
+	texParaTex, texParaElems, XrefDelta, sectionByAbbr,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
@@ -303,6 +303,11 @@ figureByAbbr :: Draft -> LaTeX -> Figure
 figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of
 	[f] -> f
 	_ -> error $ "figureByAbbr: " ++ show a
+
+sectionByAbbr :: Draft -> LaTeX -> Section
+sectionByAbbr d a = case [ s | s <- sections d, a == abbreviation s ] of
+	[s] -> s
+	_ -> error $ "sectionByAbbr: " ++ show a
 
 splitChapters :: Draft -> ([Section], [Section])
 splitChapters = span ((/= [TeXRaw "library"]) . abbreviation) . chapters
