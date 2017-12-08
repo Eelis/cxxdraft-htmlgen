@@ -669,6 +669,10 @@ abbrHref abbr RenderContext{..}
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 renderMath :: LaTeX -> RenderContext -> Text
+renderMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] ctx =
+  render stuff ctx ++ renderMath [TeXMath Dollar more] ctx
+renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
+  render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m sec
 	| isComplexMath m = renderComplexMath m
 	| otherwise = spanTag s $ renderSimpleMath m sec
