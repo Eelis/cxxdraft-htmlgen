@@ -278,6 +278,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) = render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = s ++ ":"
+		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
 	render (TeXComm "weblink" [(FixArg, text), (FixArg, href)])
 		= render anchor
