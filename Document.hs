@@ -213,6 +213,7 @@ indexKeyContent txt = mconcat (map ikc txt)
 		ikc (TeXComm "tcode" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "texttt" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textit" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "textsc" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "mathsf" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "xspace" []) = "_"
 		ikc (TeXComm "Cpp" []) = "C++"
