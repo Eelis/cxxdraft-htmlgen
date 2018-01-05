@@ -78,7 +78,7 @@ moveIndexEntriesIntoDefs = Text.unlines . go . Text.lines
 			| otherwise = x : go xs
 
 data Numbers = Numbers
-	{ tableNr, figureNr, footnoteRefNr, footnoteNr
+	{ tableNr, figureNr, footnoteRefNr, footnoteNr, itemDeclNr
 	, nextIndexEntryNr, noteNr, exampleNr, nextSentenceNr :: Int }
 
 class AssignNumbers a b | a -> b where
@@ -88,6 +88,10 @@ instance AssignNumbers TeXArg TeXArg where
 	assignNumbers s (y, x) = (y, ) . assignNumbers s x
 
 instance AssignNumbers LaTeXUnit LaTeXUnit where
+	assignNumbers s (TeXEnv "itemdecl" [] x) = do
+		n <- get
+		put n{itemDeclNr = itemDeclNr n + 1}
+		TeXEnv "itemdecl" [(FixArg, [TeXRaw $ Text.pack $ show $ itemDeclNr n])] . assignNumbers s x
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
 	assignNumbers _ (TeXComm "index" args) = do
 		n <- get
@@ -160,7 +164,7 @@ isActualSentence = any p
 			"defnx textbf textrm textsl textsc deflinkx"
 
 		q :: LaTeXUnit -> Bool
-		q (TeXRaw _) = True
+		q (TeXRaw s) = not $ all isSpace $ Text.unpack s
 		q (TeXComm c _) | c `elem` yes = True
 		q (TeXEnv c _ _) | c `elem` yes = True
 		q (TeXEnv "indexed" _ body) = any q body
@@ -343,6 +347,8 @@ treeizeSections sectionNumber chapter parents
 			, abbreviation = lsectionAbbreviation
 			, .. }
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
+		nums <- get
+		put nums{itemDeclNr=1}
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
@@ -528,7 +534,7 @@ load14882 = do
 	if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let
-			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 1 1 1)
+			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 0 1 1 1)
 			ntdefs = Map.unions $ map nontermdefsInSection chapters
 			chapters' = map (resolveGrammarterms ntdefs) chapters
 			allEntries :: [IndexEntry]

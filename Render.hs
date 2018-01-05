@@ -403,9 +403,14 @@ instance Render LaTeXUnit where
 	    | [(FixArg, z)] <- s, Just y <-
 	       lookup x simpleMacros       = (y ++) . render z
 	    | otherwise                    = spanTag (Text.pack x) . render (s >>= snd)
-	render (TeXEnv "itemdecl" [] t)    = \c -> xml "code" [("class", "itemdecl")] $
-	                                     Text.dropWhile (== '\n') $
-	                                     render t c{rawTilde=True, rawHyphens=True}
+	render (TeXEnv "itemdecl" [(FixArg, [TeXRaw num])] t) = \c ->
+		let
+			i = idPrefix c ++ "itemdecl:" ++ num
+			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
+		in
+			xml "div" [("class", "itemdecl"), ("id", i)] $
+			xml "div" [("class", "marginalizedparent")] (render link c) ++
+			xml "code" [("class", "itemdeclcode")] (Text.dropWhile (== '\n') $ render t c{rawTilde=True, rawHyphens=True})
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t

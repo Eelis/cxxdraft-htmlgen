@@ -89,7 +89,10 @@ Hidden links
   - a full stop at the end of a sentence is a link that selects the sentence;
 
   - moving the mouse over the right margin of a numbered paragraph reveals a link
-    to the LaTeX source for that paragraph.
+    to the LaTeX source for that paragraph;
+
+  - moving the mouse over the left margin of an itemdecl reveals a link
+    that selects the itemdecl.
 
 Todo
 
