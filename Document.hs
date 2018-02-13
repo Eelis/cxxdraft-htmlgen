@@ -243,12 +243,13 @@ indexKeyContent txt = mconcat (map ikc txt)
 		ikc (TeXComm "grammarterm" [(_, x)]) = indexKeyContent x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
-indexCatName :: (Eq b , IsString a, IsString b) => b -> a
+indexCatName :: (Eq b, Show b, IsString a, IsString b) => b -> a
 indexCatName "impldefindex" = "Index of implementation-defined behavior"
 indexCatName "libraryindex" = "Index of library names"
 indexCatName "headerindex" = "Index of library headers"
 indexCatName "generalindex" = "Index"
-indexCatName _ = error "indexCatName"
+indexCatName "grammarindex" = "Index of grammar productions"
+indexCatName x = error $ "indexCatName: " ++ show x
 
 -- Gathering entities:
 
