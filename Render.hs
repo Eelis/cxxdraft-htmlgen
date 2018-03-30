@@ -112,6 +112,7 @@ simpleMacros =
 	, ("rightshift"     , "<span class=\"mathsf\">rshift</span>")
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
+	, ("textmu"         , "μ")
 	, (">"              , "&#9;")
 	, ("\n"             , "\n")
 	]
