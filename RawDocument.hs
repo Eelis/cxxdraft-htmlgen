@@ -367,6 +367,7 @@ loadMacros :: IO Macros
 loadMacros =
 	snd
 	. doParse mempty
+	. replace "\\newcommand{\\cv}{\\ifmmode\\mathit{cv}\\else\\cvqual{cv}\\fi}" "\\newcommand{\\cv}{\\mathit{cv}}"
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+") ""
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
