@@ -377,7 +377,7 @@ loadMacros =
 
 loadXrefDelta :: IO XrefDelta
 loadXrefDelta = do
-	(tex, _, _) <- Parser.parseString initialContext . Text.unpack . readFile "xrefdelta.tex"
+	(tex, _, _) <- Parser.parseString initialContext . Text.unpack . replace "\\dcr" "--" . readFile "xrefdelta.tex"
 	let lfc c = lookForCommand c tex
 	return $
 		[ (snd from, [snd to])
