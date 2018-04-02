@@ -113,6 +113,8 @@ simpleMacros =
 	, ("textlangle"     , "&langle;")
 	, ("textrangle"     , "&rangle;")
 	, ("textmu"         , "μ")
+	, ("tablerefname"   , "Table")
+	, ("newline"        , "<br>")
 	, (">"              , "&#9;")
 	, ("\n"             , "\n")
 	]
