@@ -99,8 +99,6 @@ Todo
   - very long section names screw up layout
   - table meta.unary.prop#tab:type-traits.properties is horribly
     wide due to lack of hyphenation
-  - fix alignment of bnf rules in e.g. [cpp]/1 (tricky because HTML/CSS
-    does not support tab stops)
   - don't generate anchors with duplicate ids for index entries with
     the same key
   - in collapsed stylesheet, figure out how to not hide notes/examples
