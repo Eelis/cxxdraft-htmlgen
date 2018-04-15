@@ -77,7 +77,7 @@ data LinearSection = LinearSection
 	deriving Show
 
 bnfEnvs :: [String]
-bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "bnftab", "ncbnftab", "simplebnf", "ncsimplebnf"]
+bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "simplebnf", "ncsimplebnf"]
 
 isBnf :: LaTeXUnit -> Bool
 isBnf (TeXEnv s _ _)

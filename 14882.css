@@ -152,31 +152,9 @@ div.itemdescr {
 	margin-left: 40pt;
 }
 
-.bnftab {
-	font-family: serif;
-	font-style: italic;
-	margin-left: 40pt;
-	margin-top: 0.5em;
-	margin-bottom: 0.5em;
-}
-
 .ncsimplebnf {
 	font-family: serif;
 	font-style: italic;
-	margin-top: 0.5em;
-	margin-bottom: 0.5em;
-	margin-left: 40pt;
-}
-
-.ncbnftab {
-	font-family: serif;
-	font-style: italic;
-	margin-top: 0.5em;
-	margin-bottom: 0.5em;
-	margin-left: 40pt;
-}
-
-.bnfkeywordtab {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	margin-left: 40pt;

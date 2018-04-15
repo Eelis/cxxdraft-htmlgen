@@ -123,11 +123,10 @@ simpleMacros =
 zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
-makeSpan, makeDiv, makeBnfTable, makeBnfPre :: [String]
+makeSpan, makeDiv, makeBnf :: [String]
 makeSpan = words "center mbox mathsf emph terminal textsc phantom term mathtt textnormal textrm descr textsl textit mathit indented"
 makeDiv = words "definition cvqual emph exitnote footnote mathit paras ttfamily TableBase table tabular longtable"
-makeBnfTable = words "bnfkeywordtab bnftab ncbnftab"
-makeBnfPre = words "bnf ncbnf simplebnf ncsimplebnf"
+makeBnf = words "bnf ncbnf simplebnf ncsimplebnf"
 
 indexPathString :: IndexPath -> Text
 indexPathString =
@@ -585,8 +584,7 @@ instance Render Element where
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
 	render (Bnf e t)
-		| e `elem` makeBnfTable = renderBnfTable (Text.pack e) t
-		| e `elem` makeBnfPre = bnfPre (Text.pack e) . render (trimr $ preprocessPre t)
+		| e `elem` makeBnf = bnf (Text.pack e) . render (trimr $ preprocessPre t)
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
@@ -934,14 +932,11 @@ makeTabs = Text.unlines . map f . Text.lines
 		f x = let (a, b) = Text.span (== ' ') x in
 			if Text.length a >= 2 then "&#9;" ++ b else x
 
-bnfPre :: Text -> Text -> Text
-bnfPre c = xml "pre" [("class", c)] . makeTabs . Text.strip
+bnf :: Text -> Text -> Text
+bnf c = xml "pre" [("class", c)] . makeTabs . Text.strip
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
-
-renderBnfTable :: Text -> LaTeX -> RenderContext -> Text
-renderBnfTable c l = bnfPre c . htmlTabs . render (trimr $ preprocessPre l)
 
 grammarNameRef :: Text -> Text -> Text
 grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
