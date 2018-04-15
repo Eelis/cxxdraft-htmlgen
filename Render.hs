@@ -116,6 +116,7 @@ simpleMacros =
 	, ("tablerefname"   , "Table")
 	, ("newline"        , "<br>")
 	, (">"              , "&#9;")
+	, ("bnfindent"      , "&#9;")
 	, ("\n"             , "\n")
 	]
 	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
