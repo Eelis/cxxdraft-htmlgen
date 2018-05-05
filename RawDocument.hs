@@ -177,7 +177,7 @@ signatures =
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref textsuperscript rlap"
+			"removedxref deprxref textsuperscript rlap mathrel"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs equal"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
