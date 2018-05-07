@@ -171,7 +171,8 @@ signatures =
 			"lfloor rfloor pi geq neq ge lceil rceil ell alpha bigl bigr mu lambda beta " ++
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
-			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline obeyspaces bnfindent"
+			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline " ++
+			"obeyspaces bnfindent vdots"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
