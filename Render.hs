@@ -58,7 +58,6 @@ simpleMacros =
 	, ("copyright"      , "&copy;")
 	, ("textregistered" , "&reg;")
 	, ("Cpp"            , "C++")
-	, ("cppver"         , "201402L")
 	, ("sum"            , "∑")
 	, ("ell"            , "ℓ")
 	, ("shr"            , ">>")
