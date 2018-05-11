@@ -9,8 +9,8 @@ import Data.Time.Clock (getCurrentTime, UTCTime)
 import Prelude hiding ((.), (++), writeFile)
 import LaTeXBase (LaTeXUnit(..))
 import Render (
-	secnum, Link(..), linkToSection, simpleRender, squareAbbr,
-	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir)
+	secnum, Link(..), linkToSection, simpleRender, squareAbbr, Page(TocPage), RenderContext(..), render,
+	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir, defaultRenderContext)
 import Util
 import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables)
 
@@ -20,7 +20,8 @@ tocSection s@Section{..} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		simpleRender (sectionName ++ [TeXRaw " "], (linkToSection TocToSection abbreviation){aClass="abbr_ref"})) ++
+		render ( sectionName ++ [TeXRaw " "]
+		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage}) ++
 	mconcat (tocSection . subsections)
 
 tocChapter :: Section -> Text

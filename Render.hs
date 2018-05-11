@@ -10,8 +10,8 @@
 
 module Render (
 	Render(render), concatRender, url, renderTab, renderFig, simpleRender, squareAbbr,
-	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle,
-	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext,
+	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
+	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
 	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
 	) where
 
@@ -19,7 +19,7 @@ import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	TeXPara(..), Sentence(..),
-	Section(..), Chapter(..), Table(..), Figure(..), figures, tables, Item(..),
+	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, needsSpace, isMath, isCodeblock, texStripPrefix)
@@ -201,16 +201,17 @@ sameIdNamespace Nothing (Just IndexOpen) = True
 sameIdNamespace (Just IndexOpen) Nothing = True
 sameIdNamespace x y = x == y
 
+abbrIsOnPage :: LaTeX -> Page -> Bool
+abbrIsOnPage abbr page = page == FullPage || abbr `elem` (abbreviation . sections page)
+			
 indexOccurrenceSuffix :: RenderContext -> Int -> Text
 	-- Returns the _ that distinguishes expr#def:object_expression from
 	-- expr#def:object_expression_ ([expr] has two definitions of 'object expression',
 	-- one for E1.E2 and one for E1.*E2.)
-indexOccurrenceSuffix c indexNum
-	| Nothing <- page c, Nothing <- draft c = ""
-	| otherwise = Text.pack $ replicate numPre '_'
+indexOccurrenceSuffix c indexNum = Text.pack $ replicate numPre '_'
 	where
-		m	| Just s <- page c = secIndexEntries s
-			| otherwise = indexEntryMap (fromJust (draft c))
+		m	| SectionPage s <- page c = secIndexEntries s
+			| otherwise = indexEntryMap (draft c)
 		(pre, Just theEntry, _post) = IntMap.splitLookup indexNum m
 		p e = indexPath e == indexPath theEntry &&
 			indexCategory e == indexCategory theEntry &&
@@ -274,7 +275,7 @@ instance Render LaTeXUnit where
 			linkText :: Text
 			linkText
 				| "tab:" `isPrefixOf` simpleRender abbr
-				, Just Table{..} <- tableByAbbr (fromJust draft) abbr = Text.pack (show tableNumber)
+				, Just Table{..} <- tableByAbbr draft abbr = Text.pack (show tableNumber)
 				| otherwise = squareAbbr abbr
 		in
 			simpleRender anchor{aHref = abbrHref abbr ctx, aText = linkText}
@@ -300,7 +301,7 @@ instance Render LaTeXUnit where
 		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
-			, aHref = Text.pack (show SectionToSection) ++ "/" ++ url abbr
+			, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
 				++ "#" ++ cat comm ++ indexPathHref p
 			} ctx
 		where
@@ -369,7 +370,7 @@ instance Render LaTeXUnit where
 		{ aClass = "footnotenum"
 		, aText  = n
 		, aHref  =
-			(if isJust (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
 	render (TeXComm "raisebox" args)
 		| (FixArg, [TeXRaw d]) <- head args
@@ -536,7 +537,7 @@ instance Render Footnote where
 			link = anchor
 				{ aText  = num ++ ")"
 				, aHref  =
-					(if isJust (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+					(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 					++ "#" ++ i
 				, aClass = "marginalized" }
 
@@ -617,9 +618,20 @@ isComplexMath t =
 	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ trimText $ Text.concat $ t >>= allText)
 	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr"
 
+data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | TocPage
+    deriving Eq
+
+isSectionPage :: Page -> Bool
+isSectionPage (SectionPage _) = True
+isSectionPage _ = False
+
+instance Sections Page where
+    sections (SectionPage sec) = sections sec
+    sections _ = []
+
 data RenderContext = RenderContext
-	{ page :: Maybe Section
-	, draft :: Maybe Draft
+	{ page :: Page
+	, draft :: Draft
 	, nearestEnclosing :: Either Paragraph Section
 	, rawHyphens :: Bool -- in real code envs /and/ in \texttt
 	, rawTilde :: Bool   -- in real code envs but not in \texttt
@@ -633,8 +645,8 @@ data RenderContext = RenderContext
 
 defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
-	{ page = Nothing
-	, draft = Nothing
+	{ page = error "no page"
+	, draft = error "no draft"
 	, nearestEnclosing = error "no para/sec"
 	, rawHyphens = False
 	, rawTilde = False
@@ -663,15 +675,26 @@ linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
 --linkToRemoteFigure :: Figure -> Anchor
 --linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
 
+parentLink :: Section -> LaTeX -> Text
+parentLink parent child
+	| Just sub <- Text.stripPrefix (render (abbreviation parent) ctx ++ ".") secname = sub
+	| otherwise = secname
+	where
+		secname = render child ctx
+		ctx = defaultRenderContext{replXmlChars=False}
+
 abbrHref :: LaTeX -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
 	| "fig:" `isPrefixOf` simpleRender abbr =
-		if abbr `elem` (figureAbbr . figures page) then "#" ++ url abbr
-		else remoteFigureHref (figureByAbbr (fromJust draft) abbr)
+		if page == FullPage || abbr `elem` (figureAbbr . figures page) then "#" ++ url abbr
+		else remoteFigureHref (figureByAbbr draft abbr)
 	| "tab:" `isPrefixOf` simpleRender abbr =
-		case tableByAbbr (fromJust draft) abbr of
-			Just t | not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
+		case tableByAbbr draft abbr of
+			Just t | page /= FullPage, not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
 			_ -> "#" ++ url abbr
+	| abbrIsOnPage abbr page = "#" ++ case page of
+	    SectionPage sec -> urlChars (parentLink sec abbr)
+	    _ -> url abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 renderMath :: LaTeX -> RenderContext -> Text

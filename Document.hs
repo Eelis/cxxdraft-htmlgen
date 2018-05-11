@@ -7,7 +7,7 @@ module Document (
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta,
-	indexKeyContent, indexCatName, sections, SectionKind(..), mergeIndices, SourceLocation(..),
+	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes,
 	LaTeX) where
 

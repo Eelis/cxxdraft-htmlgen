@@ -17,18 +17,17 @@ import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_)
 import System.Process (readProcess)
-import Data.Maybe (isJust, fromJust)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Render (render, concatRender, abbrAsPath, simpleRender, outputDir, url, renderFig,
-	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..),
+	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
-	secnum, Link(..), renderLatexParas)
+	secnum, Link(..), renderLatexParas, isSectionPage, parentLink)
 import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
 
 renderParagraph :: RenderContext -> Text
-renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fromJust -> Draft{..})} =
+renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Draft{..}} =
 		(case paraNumber of
 			Just (flip render ctx -> i) -> renderNumbered i
 			Nothing -> id)
@@ -50,11 +49,11 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fr
 		renderNumbered :: Text -> Text -> Text
 		renderNumbered n =
 			let
-				idTag = if isJust (page ctx) then [("id", idPrefix ctx ++ n)] else []
+				idTag = if isSectionPage (page ctx) then [("id", idPrefix ctx ++ n)] else []
 				a = anchor
 					{ aClass = "marginalized"
 					, aHref  =
-						if isJust (page ctx)
+						if isSectionPage (page ctx)
 							then "#" ++ urlChars (idPrefix ctx) ++ n
 							else "SectionToSection/" ++ url (abbreviation paraSection) ++ "#" ++ n
 					, aText  = n }
@@ -65,14 +64,6 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=(fr
 			Just (flip render ctx -> n) -> ctx{ idPrefix = idPrefix ctx ++ n ++ "." }
 			Nothing -> ctx
 renderParagraph _ = undefined
-
-parentLink :: Section -> Section -> Text
-parentLink parent child
-	| Just sub <- Text.stripPrefix (r (abbreviation parent) ++ ".") secname = sub
-	| otherwise = secname
-	where
-		secname = r (abbreviation child)
-		r = flip render defaultRenderContext{replXmlChars=False}
 
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (Text, Bool)
 renderSection context specific parasEmitted s@Section{..}
@@ -94,17 +85,17 @@ renderSection context specific parasEmitted s@Section{..}
 			| otherwise = xml "div" [("id", secOnPage), ("class", "section")]
 		secOnPage :: Text
 		secOnPage = case page context of
-			Just parent -> parentLink parent s
-			Nothing -> render (Document.abbreviation s) defaultRenderContext{replXmlChars=False}
+			SectionPage parent -> parentLink parent abbreviation
+			_ -> render abbreviation defaultRenderContext{replXmlChars=False}
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
-			(if specific == Nothing && isJust (page context) then "#" ++ urlChars secOnPage else "")
-			abbr
+			(if specific == Nothing && isSectionPage (page context) then "#" ++ urlChars secOnPage else "")
+			abbr context
 		abbr
 			| specific == Just s && not (null parents)
 				= anchor
 			| Just sp <- specific, sp /= s, not (null parents)
-				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ parentLink s sp}
+				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ parentLink s (Document.abbreviation sp)}
 			| otherwise = linkToSection
 					(if null parents then SectionToToc else SectionToSection)
 					abbreviation
@@ -123,10 +114,10 @@ writeSectionFile n sfs title body = do
 	writeFile (outputDir ++ file) $ applySectionFileStyle sfs $
 		fileContent (if sfs == InSubdir then "../" else "") title "" body
 
-sectionHeader :: Int -> Section -> Text -> Anchor -> Text
-sectionHeader hLevel s@Section{..} secnumHref abbr_ref = h hLevel $
+sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> Text
+sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
 	secnum secnumHref s ++ " " ++
-	simpleRender sectionName ++ " " ++
+	render sectionName ctx ++ " " ++
 	simpleRender abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
@@ -139,7 +130,7 @@ writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
-					++ "#" ++ url figureAbbr }
+					++ "#" ++ url figureAbbr } defaultRenderContext
 			++ renderFig True f
 
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
@@ -150,8 +141,8 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r :: Paragraph -> Table -> Text
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
-			sectionHeader 4 s "" (linkToRemoteTable t)
-			++ renderTab True t defaultRenderContext{draft=Just draft, nearestEnclosing=Left p}
+			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext
+			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=TablesPage}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
@@ -159,14 +150,14 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 	++ mconcat (uncurry r . footnotes draft)
 	where
 		r :: Section -> Footnote -> Text
-		r s fn = render fn defaultRenderContext{nearestEnclosing = Right s}
+		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage}
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = do
 	putStrLn "  full"
 	writeSectionFile "full" sfs "14882" $
 		mconcat $ applySectionFileStyle sfs . fst .
-			renderSection defaultRenderContext{draft=Just draft} Nothing True . chapters draft
+			renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
@@ -175,13 +166,13 @@ writeSectionFiles sfs draft = do
 	forM_ secs $ \section@Section{..} -> do
 		putStr "."; hFlush stdout
 		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (defaultRenderContext{draft=Just draft,page=Just section}) (Just section) False . chapters draft)
+			(mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft)
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()
 writeIndexFiles sfs index = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
 	putStrLn $ "  " ++ cat
-	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ simpleRender i
+	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage}
 
 writeCssFile :: IO ()
 writeCssFile = do
@@ -214,4 +205,4 @@ writeXrefDeltaFiles sfs draft = forM_ (xrefDelta draft) $ \(from, to) ->
 		if to == []
 			then "Subclause " ++ squareAbbr from ++ " was removed."
 			else "See " ++ Text.intercalate ", " (flip render ctx . to) ++ "."
-	where ctx = defaultRenderContext{draft=Just draft}
+	where ctx = defaultRenderContext{draft=draft, page=XrefDeltaPage}

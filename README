@@ -103,3 +103,4 @@ Todo
     the same key
   - in collapsed stylesheet, figure out how to not hide notes/examples
     when their sentences are selected
+  - make grammarterm links local when possible
