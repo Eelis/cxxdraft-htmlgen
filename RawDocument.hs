@@ -172,13 +172,13 @@ signatures =
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline " ++
-			"obeyspaces bnfindent vdots"
+			"obeyspaces bnfindent vdots tabcolsep columnbreak"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref textsuperscript rlap mathrel"
+			"removedxref deprxref textsuperscript rlap mathrel mathbin"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs equal"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
