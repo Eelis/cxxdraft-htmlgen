@@ -172,7 +172,7 @@ signatures =
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline " ++
-			"obeyspaces bnfindent vdots tabcolsep columnbreak"
+			"obeyspaces bnfindent vdots tabcolsep columnbreak nodiffref"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
