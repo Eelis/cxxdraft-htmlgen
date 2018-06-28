@@ -2,3 +2,4 @@
 dist
 tags
 node_modules
+.stack-work/
