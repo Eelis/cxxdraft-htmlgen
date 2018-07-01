@@ -535,6 +535,7 @@ load14882 = do
 			moveIndexEntriesIntoDefs .
 			trackPnums p .
 			replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
+			replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
 				-- Done here because (1) the real \nodiffref is defined with \def in a way
 				-- we don't support yet, and (2) this way a source link is generated for the pnum.
 			readFile p

@@ -372,6 +372,8 @@ loadMacros =
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+") ""
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
+	. ("\\newcommand{\\nopnumdiffref}[1]{\\textbf{Affected subclause:} \\ref{#1}}\n" ++)
+	. ("\\newcommand{\\nopnumdiffrefs}[2]{\\textbf{Affected subclauses:} \\ref{#1}, \\ref{#2}}\n" ++)
 	. mconcat
 	. mapM readFile
 	["config.tex", "macros.tex", "tables.tex"]
