@@ -172,7 +172,7 @@ signatures =
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline " ++
-			"obeyspaces bnfindent vdots tabcolsep columnbreak nodiffref emergencystretch"
+			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
 			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
@@ -195,7 +195,8 @@ parseFile macros =
 	. replace "\\hspace*" "\\hspace"
 	. replace "``" "“"
 	. replace "''" "”"
-
+	. replace "\\nodiffref\n\\change" "\\pnum\\textbf{Change:}\\space"
+	    -- Done here for now because the real \nodiffref is defined with \def in a way we don't support yet.
 	. textSubRegex (mkRegex "(\\grammarterm\\{[A-Za-z-]*\\})\\{s\\}") "\\1\\textit{s}"
 		-- Mixing italic and upright looks okay in the PDF, but looks bad in browsers,
 		-- and our linkification makes clear enough that the plural 's' is not part
