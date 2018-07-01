@@ -518,6 +518,9 @@ load14882 = do
 			replace "\\indeximpldef{" "\\index[impldefindex]{" .
 			moveIndexEntriesIntoDefs .
 			trackPnums p .
+			replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
+				-- Done here because (1) the real \nodiffref is defined with \def in a way
+				-- we don't support yet, and (2) this way a source link is generated for the pnum.
 			readFile p
 
 		extra <-
