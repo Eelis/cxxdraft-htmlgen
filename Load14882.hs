@@ -505,7 +505,7 @@ load14882 = do
 			"intro lex basic conversions expressions statements " ++
 			"declarations declarators classes derived access special " ++
 			"overloading templates exceptions preprocessor lib-intro " ++
-			"support diagnostics utilities strings locales containers " ++
+			"support concepts diagnostics utilities strings locales containers " ++
 			"iterators algorithms numerics iostreams regex atomics threads " ++
 			"grammar limits compatibility future"
 
