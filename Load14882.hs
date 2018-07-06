@@ -32,7 +32,7 @@ import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
 import System.IO (hFlush, stdout)
-import Data.List (sort, unfoldr)
+import Data.List (sort, unfoldr, (\\))
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
@@ -489,6 +489,14 @@ trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Te
 				= pre ++ "\\pnum{" ++ file ++ "}{" ++ show lineNr ++ "}" ++ (if null post then "%" else post)
 			| otherwise = line
 
+getFileList :: IO [FilePath]
+getFileList =
+	(\\ ["front", "back"]) .
+	map (Text.unpack . Text.dropEnd 1 . Text.drop (Text.length pre)) .
+	filter (pre `isPrefixOf`) .
+	Text.lines . readFile "std.tex"
+  where pre = "\\include{"
+
 load14882 :: IO Draft
 load14882 = do
 
@@ -499,15 +507,7 @@ load14882 = do
 	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
 		keys commands ++ (Text.unpack . keys environments)
 
-	let
-		files :: [FilePath]
-		files = words $
-			"intro lex basic conversions expressions statements " ++
-			"declarations declarators classes derived access special " ++
-			"overloading templates exceptions preprocessor lib-intro " ++
-			"support concepts diagnostics utilities strings locales containers " ++
-			"iterators algorithms numerics iostreams regex atomics threads " ++
-			"grammar limits compatibility future"
+	files <- getFileList
 
 	putStrLn "Loading chapters"
 	secs <- forM files $ \c -> do
