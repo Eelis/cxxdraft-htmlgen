@@ -16,20 +16,15 @@ Prerequisites
 
 Usage
 
-  First, follow the draft package instructions to build the pdf.
-  As a side effect, this generates std-gram.ext, which we need.
-
-  Then, in the cxxdraft-htmlgen dir,
-
-  with cabal do:
+  With cabal, do:
     cabal build
     dist/build/cxxdraft-htmlgen/cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
-  with stack do:
+  Or with stack, do:
     stack build
     stack exec cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
-  where sectionfilestyle is one of:
+  The sectionfilestyle parameter is one of:
 
     Bare            (to generate e.g. intro.execution)
     WithExtension   (to generate e.g. intro.execution.html)

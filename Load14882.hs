@@ -18,6 +18,7 @@ module Load14882 (parseIndex, load14882) where
 
 import qualified LaTeXParser as Parser
 import qualified Data.IntMap as IntMap
+import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
@@ -497,6 +498,20 @@ getFileList =
 	Text.lines . readFile "std.tex"
   where pre = "\\include{"
 
+grabBnf :: [String] -> [String]
+grabBnf [] = []
+grabBnf (line : rest)
+    | "\\begin{bnf}" `List.isPrefixOf` line =
+        let (x, end : more) = break ("\\end{bnf}" `List.isPrefixOf`) rest
+        in ["", line] ++ x ++ [end] ++ grabBnf more
+    | "\\gramSec" `List.isPrefixOf` line = ["", line] ++ grabBnf rest
+    | otherwise = grabBnf rest
+
+generateStdGramExt :: [FilePath] -> IO Text
+generateStdGramExt files =
+    Text.pack . unlines . grabBnf . lines . Text.unpack .
+    Text.concat . mapM readFile ((++ ".tex") . files)
+
 load14882 :: IO Draft
 load14882 = do
 
@@ -508,6 +523,7 @@ load14882 = do
 		keys commands ++ (Text.unpack . keys environments)
 
 	files <- getFileList
+	stdGramExt <- generateStdGramExt files
 
 	putStrLn "Loading chapters"
 	secs <- forM files $ \c -> do
@@ -523,10 +539,7 @@ load14882 = do
 				-- we don't support yet, and (2) this way a source link is generated for the pnum.
 			readFile p
 
-		extra <-
-			if c /= "grammar" then return ""
-			else replace "\\gramSec" "\\rSec1" . readFile "std-gram.ext"
-
+		let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
 		let r = parseFile macros (stuff ++ extra)
 
 		putStrLn $ show (length r) ++ " sections"
