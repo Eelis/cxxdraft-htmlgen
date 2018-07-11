@@ -160,7 +160,7 @@ signatures =
 	where
 		a 0 = "today def makeatletter bottomline makeatother Sec left right bmod " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
-			"textup edef x itcorrwidth itletterwidth small BnfIndent setlength par leq " ++
+			"textup edef x itcorrwidth itletterwidth small BnfIndent par leq " ++
 			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++
 			"xspace onelineskip textlangle textrangle textunderscore tilde raggedright = " ++
 			"space copyright textregistered textbackslash hsize makebox nocorr br Gamma " ++
@@ -180,7 +180,8 @@ signatures =
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
-			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs equal"
+			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
+			"equal setlength"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
 			"ifthenelse PackageError"
 		a 4 = "movedxrefiii"
