@@ -785,6 +785,7 @@ renderComplexMath m = case m of
 		cleanup (TeXComm "break" []) = []
 		cleanup (TeXComm "br" []) = []
 		cleanup (TeXComm "-" []) = []
+		cleanup (TeXComm "quad " []) = [TeXRaw " "] -- because MathJax does not support \quad
 		cleanup (TeXComm x y) = [TeXComm x (map (second (>>= cleanup)) y)]
 		cleanup x@(TeXRaw _) = [x]
 		cleanup (TeXBraces x) = [TeXBraces (x >>= cleanup)]
