@@ -460,23 +460,23 @@ sectionTex s = sectionTexParas s >>= texParaTex
 
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
-	[ IndexEntry{..}
+	[ IndexEntry{isDefinitionIndexEntry = False, ..}
 	| indexEntrySection <- sections s
 	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
 		<- lookForCommand "index" (sectionTex indexEntrySection)] ++
 	[ IndexEntry
 		{ indexCategory = "generalindex"
-		, indexEntryKind = Just DefinitionIndex
+		, isDefinitionIndexEntry = True
 		, ..}
 	| indexEntrySection <- sections s
-	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (FixArg, _), (FixArg, (parseIndex -> (indexPath, Nothing)))]
+	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (FixArg, _), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
 		<- lookForCommand "defnx" (sectionTex indexEntrySection)]
 
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
 	where
 		go :: [IndexComponent] -> IndexTree
-		go [c] = Map.singleton c (IndexNode [IndexEntry indexEntrySection indexEntryKind indexPath indexEntryNr indexCategory] Map.empty)
+		go [c] = Map.singleton c (IndexNode [IndexEntry indexEntrySection indexEntryKind indexPath indexEntryNr indexCategory isDefinitionIndexEntry] Map.empty)
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
 		go _ = error "toIndex"
 

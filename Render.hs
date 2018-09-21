@@ -447,7 +447,7 @@ instance Render IndexEntry where
 			, aText = squareAbbr abbr }
 		where
 			extraIdPrefix
-				| indexEntryKind == Just DefinitionIndex = "def"
+				| isDefinitionIndexEntry && indexEntryKind == Nothing = "def"
 				| indexCategory == "libraryindex" = "lib"
 				| otherwise = ""
 			abbr = abbreviation indexEntrySection
