@@ -177,19 +177,16 @@ isActualSentence = any p
 		p RawEnumerated{} = True
 		p _ = False
 
-indicesForEnabled :: Int -> [Bool] -> ([Maybe Int], Int)
-indicesForEnabled = go
-	where
-		go i [] = ([], i)
-		go i (True : l) = first (Just i :) (go (i + 1) l)
-		go i (False : l) = first (Nothing :) (go i l)
-
 instance AssignNumbers RawTexPara TeXPara where
-	assignNumbers s (RawTexPara (splitIntoSentences -> x)) = do
-		n <- get
-		let (indices, nextNum) = indicesForEnabled (nextSentenceNr n) (isActualSentence . x)
-		put n{nextSentenceNr = nextNum}
-		TeXPara . (uncurry Sentence .) . zip indices . assignNumbers s x
+	assignNumbers s (RawTexPara (splitIntoSentences -> x)) = TeXPara . f x
+		where
+			f [] = return []
+			f (h:t) = do
+				h' <- assignNumbers s h
+				let actual = isActualSentence h
+				n <- get
+				put n{nextSentenceNr = nextSentenceNr n + (if actual then 1 else 0)}
+				(Sentence (if actual then Just (nextSentenceNr n) else Nothing) h' :) . f t
 
 instance AssignNumbers RawItem Item where
 	assignNumbers s (RawItem label content) = do
