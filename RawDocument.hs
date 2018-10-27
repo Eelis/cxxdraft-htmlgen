@@ -26,7 +26,7 @@ import Data.Maybe (isJust)
 import LaTeXParser (Macros(..), Signature(..))
 import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
-import Data.List (transpose)
+import Data.List (transpose, take)
 import Util ((.), (++), mapHead, dropTrailingWs, textStripInfix, textSubRegex, splitOn)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import System.IO.Unsafe (unsafePerformIO)
@@ -331,11 +331,16 @@ isColumnBreakCell :: Cell [RawTexPara] -> Bool
 isColumnBreakCell (Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" [])]]) = True
 isColumnBreakCell _ = False
 
+makeRectangular :: a -> [[a]] -> [[a]]
+makeRectangular filler rows = (take numCols . (++ repeat filler)) . rows
+    where numCols = maximum (length . rows)
+        -- Todo: Remove this when the bugs in Chrome's collapsed border rendering are fixed.
+
 breakMultiCols :: [Row [RawTexPara]] -> [Row [RawTexPara]]
     -- implements the multicolfloattable environment's \columnbreak, which is left intact by parseTable
 breakMultiCols rows
     | all (\Row{..} -> length cells == 1 && rowSep == NoSep) rows =
-        Row NoSep . transpose (splitOn isColumnBreakCell $ separateColumnBreaks $ (head . cells) . rows)
+        Row NoSep . makeRectangular (Cell Normal []) (transpose $ splitOn isColumnBreakCell $ separateColumnBreaks $ (head . cells) . rows)
     | otherwise = rows
     where
         separateColumnBreaks :: [Cell [RawTexPara]] -> [Cell [RawTexPara]]
