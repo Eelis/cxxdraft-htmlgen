@@ -29,7 +29,7 @@ import Util ((.), (++), greekAlphabet)
 
 data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving Show
 data Cell a = Cell { cellSpan :: CellSpan, content :: a } deriving Show
-data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving Show
+data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving (Eq, Show)
 data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving Show
 
 data Table = Table

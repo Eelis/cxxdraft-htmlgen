@@ -4,7 +4,7 @@
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
-	textStripInfix, textSubRegex
+	textStripInfix, textSubRegex, splitOn
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -106,3 +106,9 @@ urlChars =
 
 textSubRegex :: Regex -> String -> Text -> Text
 textSubRegex pat repl txt = Text.pack $ subRegex pat (Text.unpack txt) repl
+
+splitOn :: (a -> Bool) -> [a] -> [[a]]
+splitOn _ [] = [[]]
+splitOn sep (x:y)
+    | sep x = [] : splitOn sep y
+    | otherwise = mapHead (x :) $ splitOn sep y

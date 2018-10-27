@@ -26,7 +26,8 @@ import Data.Maybe (isJust)
 import LaTeXParser (Macros(..), Signature(..))
 import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
-import Util ((.), (++), mapHead, dropTrailingWs, textStripInfix, textSubRegex)
+import Data.List (transpose)
+import Util ((.), (++), mapHead, dropTrailingWs, textStripInfix, textSubRegex, splitOn)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -230,7 +231,7 @@ parsePara u = RawTexPara . fmap f . splitElems (trim (filter (not . kill) u))
 				{ rawTableCaption = snd x
 				, rawColumnSpec = y
 				, rawTableAbbrs = map (snd . head) (lookForCommand "label" stuff)
-				, rawTableBody = parseTable content }
+				, rawTableBody = breakMultiCols $ parseTable content }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
 			| isBnf e = RawBnf k stuff
@@ -323,6 +324,27 @@ parseTable latex
 			| otherwise = findEndHead rest'
 			where
 				(row', rest') = break (== TeXLineBreak) l
+
+columnBreakCell :: Cell [RawTexPara]
+columnBreakCell = Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" [])]]
+isColumnBreakCell :: Cell [RawTexPara] -> Bool
+isColumnBreakCell (Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" [])]]) = True
+isColumnBreakCell _ = False
+
+breakMultiCols :: [Row [RawTexPara]] -> [Row [RawTexPara]]
+    -- implements the multicolfloattable environment's \columnbreak, which is left intact by parseTable
+breakMultiCols rows
+    | all (\Row{..} -> length cells == 1 && rowSep == NoSep) rows =
+        Row NoSep . transpose (splitOn isColumnBreakCell $ separateColumnBreaks $ (head . cells) . rows)
+    | otherwise = rows
+    where
+        separateColumnBreaks :: [Cell [RawTexPara]] -> [Cell [RawTexPara]]
+        separateColumnBreaks = concatMap f
+            where
+                f :: Cell [RawTexPara] -> [Cell [RawTexPara]]
+                f c@Cell{..} | [RawTexPara (RawLatexElement (TeXComm "columnbreak" []) : rest)] <- content =
+                        [columnBreakCell, c{content = [RawTexPara rest]}]
+                    | otherwise = [c]
 
 makeRow :: LaTeX -> Row [RawTexPara]
 makeRow l = Row sep $ makeRowCells l

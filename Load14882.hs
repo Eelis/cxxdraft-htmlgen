@@ -528,6 +528,7 @@ load14882 = do
 		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
 		stuff <-
+			replace "multicolfloattable" "floattable" .
 			replace "\\indeximpldef{" "\\index[impldefindex]{" .
 			moveIndexEntriesIntoDefs .
 			trackPnums p .
