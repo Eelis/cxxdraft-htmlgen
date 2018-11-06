@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
-import Render (outputDir, SectionFileStyle(..))
-import Document (Draft(..), figures)
+import Render (outputDir, SectionFileStyle(..), makeMathMap, extractMath)
+import Document (Draft(..), figures, maths)
 import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
+import Data.Maybe (mapMaybe)
 import Control.Monad (forM_)
 import Util
 
@@ -42,13 +43,14 @@ main = do
 	writeCssFile
 	forM_ ["collapsed.css", "expanded.css", "colored.css"] $
 		\f -> copyFile f (outputDir ++ "/" ++ f)
+	mathMap <- makeMathMap $ mapMaybe extractMath $ maths draft
 	case sectionToWrite of
 		Just abbr -> writeSingleSectionFile sectionFileStyle draft abbr
 		Nothing -> do
 			writeTocFile sectionFileStyle draft
-			writeIndexFiles sectionFileStyle index
-			writeFiguresFile sectionFileStyle (figures draft)
-			writeTablesFile sectionFileStyle draft
-			writeFootnotesFile sectionFileStyle draft
-			writeSectionFiles sectionFileStyle draft
+			writeIndexFiles sectionFileStyle index mathMap
+			writeFiguresFile sectionFileStyle (figures draft) mathMap
+			writeTablesFile sectionFileStyle draft mathMap
+			writeFootnotesFile sectionFileStyle draft mathMap
+			writeSectionFiles sectionFileStyle draft mathMap
 			writeXrefDeltaFiles sectionFileStyle draft

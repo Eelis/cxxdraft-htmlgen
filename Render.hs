@@ -12,7 +12,7 @@ module Render (
 	Render(render), concatRender, url, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
-	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
+	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas, makeMathMap, MathMap, extractMath
 	) where
 
 import Load14882 (parseIndex) -- todo: bad
@@ -420,7 +420,7 @@ instance Render LaTeXUnit where
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
-	    | isMath env && isComplexMath [env] = return $ TextBuilder.fromText $ renderComplexMath [env]
+	    | isMath env && isComplexMath [env] = TextBuilder.fromText . renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock env
 		| e == "minipage", [cb@(TeXEnv "codeblock" [] _)] <- trim t =
 			xml "div" [("class", "minipage")] . renderCodeblock cb
@@ -644,7 +644,8 @@ data RenderContext = RenderContext
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, extraIndentation :: Int -- in em
-	, idPrefix :: Text }
+	, idPrefix :: Text
+	, mathMap :: MathMap }
 
 defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
@@ -659,7 +660,8 @@ defaultRenderContext = RenderContext
 	, inCodeBlock = False
 	, replXmlChars = True
 	, extraIndentation = 0
-	, idPrefix = "" }
+	, idPrefix = ""
+	, mathMap = Map.empty }
 
 squareAbbr :: Render a => a -> TextBuilder.Builder
 squareAbbr x = "[" ++ simpleRender2 x ++ "]"
@@ -700,14 +702,39 @@ abbrHref abbr RenderContext{..}
 	    _ -> url abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
 
+extractMath :: LaTeX -> Maybe (String, Bool)
+extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] = extractMath [TeXMath Dollar more]
+extractMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] = extractMath [TeXMath Dollar more]
+extractMath m | not (isComplexMath m) = Nothing
+extractMath m = if isComplexMath m then Just (mathKey m) else Nothing
+
+prepMath :: LaTeX -> String
+prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
+  where
+    cleanup :: LaTeXUnit -> LaTeX
+    cleanup (TeXComm "tcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
+    cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
+    cleanup (TeXComm "discretionary" _) = []
+    cleanup (TeXComm "hfill" []) = []
+    cleanup (TeXComm "break" []) = []
+    cleanup (TeXComm "br" []) = []
+    cleanup (TeXComm "-" []) = []
+    cleanup (TeXComm "quad " []) = [TeXRaw " "] -- because MathJax does not support \quad
+    cleanup (TeXComm x y) = [TeXComm x (map (second (>>= cleanup)) y)]
+    cleanup x@(TeXRaw _) = [x]
+    cleanup (TeXBraces x) = [TeXBraces (x >>= cleanup)]
+    cleanup (TeXEnv x y z) = [TeXEnv x (map (second (>>= cleanup)) y) (z >>= cleanup)]
+    cleanup (TeXMath x y) = [TeXMath x (y >>= cleanup)]
+    cleanup x@TeXLineBreak = [x]
+
 renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] ctx =
   render stuff ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
-renderMath m sec
-	| isComplexMath m = TextBuilder.fromText $ renderComplexMath m
-	| otherwise = spanTag s $ renderSimpleMath m sec
+renderMath m ctx
+	| isComplexMath m = TextBuilder.fromText $ renderComplexMath m ctx
+	| otherwise = spanTag s $ renderSimpleMath m ctx
 	where
 		s = mathKind m
 		mathKind [TeXMath Square _] = "mathblock"
@@ -775,46 +802,53 @@ renderSimpleMathUnit (TeXMath Dollar m) sec = renderSimpleMath (trim m) sec
 renderSimpleMathUnit (TeXMath _ m) sec = renderSimpleMath m sec
 renderSimpleMathUnit other sec = render other sec
 
-renderComplexMath :: LaTeX -> Text
-renderComplexMath m = case m of
-		[TeXMath kind t] -> memodRenderMath (prepMath t) (kind == Dollar)
-		[TeXEnv "eqnarray*" [] _] -> memodRenderMath (prepMath m) False
-		_ -> memodRenderMath (prepMath m) True
-	where
-		prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
-		cleanup :: LaTeXUnit -> LaTeX
-		cleanup (TeXComm "tcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
-		cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
-		cleanup (TeXComm "discretionary" _) = []
-		cleanup (TeXComm "hfill" []) = []
-		cleanup (TeXComm "break" []) = []
-		cleanup (TeXComm "br" []) = []
-		cleanup (TeXComm "-" []) = []
-		cleanup (TeXComm "quad " []) = [TeXRaw " "] -- because MathJax does not support \quad
-		cleanup (TeXComm x y) = [TeXComm x (map (second (>>= cleanup)) y)]
-		cleanup x@(TeXRaw _) = [x]
-		cleanup (TeXBraces x) = [TeXBraces (x >>= cleanup)]
-		cleanup (TeXEnv x y z) = [TeXEnv x (map (second (>>= cleanup)) y) (z >>= cleanup)]
-		cleanup (TeXMath x y) = [TeXMath x (y >>= cleanup)]
-		cleanup x@TeXLineBreak = [x]
+mathKey :: LaTeX -> (String, Bool)
+mathKey m = case m of
+		[TeXMath kind t] -> (prepMath t, kind == Dollar)
+		[TeXEnv "eqnarray*" [] _] -> (prepMath m, False)
+		_ -> (prepMath m, True)
+
+renderComplexMath :: LaTeX -> RenderContext -> Text
+renderComplexMath math ctx
+    | inline = html
+    | otherwise = "</p><p style='text-align:center'>" ++ html ++ "</p><p>"
+    where
+        k@(_, inline) = mathKey math
+        html = fromJust $ Map.lookup k $ mathMap ctx
 
 rmTrailingNewline :: Text -> Text
 rmTrailingNewline (Text.stripSuffix "\n" -> Just x) = x
 rmTrailingNewline x = x
 
-memodRenderMath :: String -> Bool -> Text
-memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
-	let args = ["--inline" | inline] ++ ["--", s]
-	formula <- Text.replace " focusable=\"false\"" "" 
-		. rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
-		. Text.pack
-		. rm " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
-		. rm " style=\"\""
-		. readProcess "tex2html" args ""
-	return $ if inline then formula else "</p><p style='text-align:center'>" ++ formula ++ "</p><p>"
-	where
-		rm r s = subRegex (mkRegex r) s ""
+batchedRenderMath :: [(String, Bool)] -> IO [Text]
+batchedRenderMath formulas = do
+        out <- readProcess "./mathjax-batch" [] stdin
+        return
+            $ splitResults "" 
+            $ Text.lines
+            $ Text.replace " focusable=\"false\"" ""
+            $ rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
+            $ Text.pack
+            $ rm " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
+            $ rm " style=\"\""
+            $ out
+    where
+        rm r s = subRegex (mkRegex r) s ""
+        stdinLines :: [String]
+        stdinLines = concatMap (\(f, inline) -> [f] ++ [if inline then "INLINE" else "NONINLINE"]) formulas
+        stdin :: String
+        stdin = unlines stdinLines
 
+        splitResults :: Text -> [Text] -> [Text]
+        splitResults _ [] = []
+        splitResults x (a:b)
+            | a == "DONE" = x : splitResults "" b
+            | otherwise = splitResults (if x == "" then a else x ++ "\n" ++ a) b
+
+type MathMap = Map.Map (String, Bool) Text
+
+makeMathMap :: [(String, Bool)] -> IO MathMap
+makeMathMap formulas = Map.fromList . zip formulas . batchedRenderMath formulas
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =

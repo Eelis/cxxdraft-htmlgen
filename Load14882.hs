@@ -323,17 +323,6 @@ assignItemNumbers p
 			where (paras', nn') = goParas nn paras
 		goElem nn x = (x, nn)
 
-allElements :: [TeXPara] -> [Element]
-allElements x = x >>= sentences >>= sentenceElems >>= f
-	where
-		f :: Element -> [Element]
-		f e = e : case e of
-			Enumerated {..} -> allElements $ enumItems >>= itemContent
-			TableElement Table{..} -> allElements $ tableBody >>= cells >>= content
-			NoteElement Note{..} -> allElements noteContent
-			ExampleElement Example{..} -> allElements exampleContent
-			_ -> []
-
 instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
 	assignNumbers paraSection (paraNumber, RawParagraph{..}) = do
 		nums <- get

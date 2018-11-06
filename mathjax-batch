@@ -1,0 +1,36 @@
+#! /usr/bin/env node
+
+var mjAPI = require("mathjax-node");
+var split = require("split");
+
+mjAPI.config(
+  { extensions: ""
+  , fontURL: "https://cdn.mathjax.org/mathjax/latest/fonts/HTML-CSS" });
+mjAPI.start();
+
+var math = '';
+function processLine(line)
+{
+    var format;
+    if (line == "NONINLINE") format = "TeX";
+    else if (line == "INLINE") format = "inline-TeX";
+    else
+    {
+        if (math != '') math += '\n';
+        math += line;
+        return;
+    }
+
+    mjAPI.typeset({
+      math: math, format: format, html: true, css: false,
+      speakText: true, ex: 6, width: 100, linebreaks: true
+    }, function (data) {
+      // todo: if (data.errors) abort
+      console.log(data.html)
+      console.log("DONE")
+    });
+
+    math = '';
+}
+
+process.stdin.pipe(split(/\n/, null, {trailing: false})).on('data', processLine)

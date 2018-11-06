@@ -21,13 +21,12 @@ import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import LaTeXBase (LaTeXUnit(..))
-import Data.Text (isInfixOf)
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Builder as TextBuilder
 import Render (render, concatRender, abbrAsPath, simpleRender2, outputDir, url, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
-	secnum, Link(..), renderLatexParas, isSectionPage, parentLink)
+	secnum, Link(..), renderLatexParas, isSectionPage, parentLink, MathMap)
 import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, readFile, intercalateBuilders)
 
@@ -128,8 +127,8 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
 	render sectionName ctx ++ " " ++
 	simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
 
-writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
-writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
+writeFiguresFile :: SectionFileStyle -> [Figure] -> MathMap -> IO ()
+writeFiguresFile sfs figs mathMap = writeSectionFile "fig" sfs "14882: Figures" $
 	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
 	++ mconcat (r . figs)
 	where
@@ -138,11 +137,11 @@ writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ url abbreviation
-					++ "#" ++ url figureAbbr } defaultRenderContext
+					++ "#" ++ url figureAbbr } defaultRenderContext{mathMap=mathMap}
 			++ renderFig True f
 
-writeTablesFile :: SectionFileStyle -> Draft -> IO ()
-writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
+writeTablesFile :: SectionFileStyle -> Draft -> MathMap -> IO ()
+writeTablesFile sfs draft mathMap = writeSectionFile "tab" sfs "14882: Tables" $
 	"<h1>List of Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
 	++ mconcat (uncurry r . tables draft)
 	where
@@ -150,15 +149,15 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext
-			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=TablesPage}
+			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=TablesPage, mathMap=mathMap}
 
-writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
-writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
+writeFootnotesFile :: SectionFileStyle -> Draft -> MathMap -> IO ()
+writeFootnotesFile sfs draft mathMap = writeSectionFile "footnotes" sfs "14882: Footnotes" $
 	"<h1>List of Footnotes</h1>"
 	++ mconcat (uncurry r . footnotes draft)
 	where
 		r :: Section -> Footnote -> TextBuilder.Builder
-		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage}
+		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage, mathMap=mathMap}
 
 parAll :: [a] -> b -> b
 parAll = flip $ foldl $ flip par
@@ -170,16 +169,16 @@ writeSingleSectionFile sfs draft abbr = do
 	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
 
-writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
-writeSectionFiles sfs draft = do
+writeSectionFiles :: SectionFileStyle -> Draft -> MathMap -> IO ()
+writeSectionFiles sfs draft mathMap = do
 	putStr "  sections..";
 	let
 	  secs = Document.sections draft
 	  renSec section@Section{..} = (Text.unpack $ abbrAsPath abbreviation, sectionFileContent sfs title body)
 	    where
 	      title = squareAbbr abbreviation
-	      body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
-	  fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
+	      body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section, mathMap=mathMap}) (Just section) False . chapters draft
+	  fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage, mathMap=mathMap} Nothing True . chapters draft
 	  fullfile = ("full", sectionFileContent sfs "14882" fullbody)
 	  files = fullfile : map renSec secs
 	  names = fst . files
@@ -190,10 +189,10 @@ writeSectionFiles sfs draft = do
 		writeFile (sectionFilePath n sfs) content
 	putStrLn $ " " ++ show (length secs)
 
-writeIndexFiles :: SectionFileStyle -> Index -> IO ()
-writeIndexFiles sfs index = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
+writeIndexFiles :: SectionFileStyle -> Index -> MathMap -> IO ()
+writeIndexFiles sfs index mathMap = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
 	putStrLn $ "  " ++ cat
-	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage}
+	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage, mathMap=mathMap}
 
 writeCssFile :: IO ()
 writeCssFile = do
