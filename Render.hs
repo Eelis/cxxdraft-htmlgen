@@ -25,7 +25,9 @@ import Document (
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, needsSpace, isMath, isCodeblock, texStripPrefix)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
+import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
+import qualified Data.Text.Lazy as LazyText
 import Data.Char (isAlpha, isSpace)
 import Control.Arrow (second)
 import qualified Prelude
@@ -1023,24 +1025,25 @@ data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)
 
 doLink :: SectionFileStyle -> Link -> Text -> Text
-doLink sfs l = go . Text.splitOn (Text.pack (show l) ++ "/")
+doLink sfs l = LazyText.toStrict . TextBuilder.toLazyText . go . Text.splitOn (Text.pack (show l) ++ "/")
 	where
-		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = x ++ f a ++ go (b : z)
-		go [x] = x
+		go :: [Text] -> TextBuilder.Builder
+		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = TextBuilder.fromText x ++ f a ++ go (b : z)
+		go [x] = TextBuilder.fromText x
 		go _ = undefined
-		f :: Text -> Text
-		f u = case (sfs, l) of
-			(Bare, SectionToToc) -> "./#" ++ u
-			(Bare, TocToSection) -> dotSlashForColon u
-			(Bare, SectionToSection) -> dotSlashForColon u
-			(InSubdir, SectionToToc) -> "../#" ++ u
-			(InSubdir, TocToSection) -> u ++ "/"
-			(InSubdir, SectionToSection) -> "../" ++ u
-			(WithExtension, SectionToToc) -> "index.html#" ++ u
-			(WithExtension, TocToSection) -> dotSlashForColon u ++ ".html"
-			(WithExtension, SectionToSection) -> dotSlashForColon u ++ ".html"
-		dotSlashForColon x = if ':' `elem` Text.unpack x then "./" ++ x else x
-			-- Without this, we generate urls like "string::replace.html",
+		f :: Text -> TextBuilder.Builder
+		f = case (sfs, l) of
+			(Bare, SectionToToc) -> ("./#" ++) . TextBuilder.fromText
+			(Bare, TocToSection) -> dotSlashForColon
+			(Bare, SectionToSection) -> dotSlashForColon
+			(InSubdir, SectionToToc) -> ("../#" ++) . TextBuilder.fromText
+			(InSubdir, TocToSection) -> (++ "/") . TextBuilder.fromText
+			(InSubdir, SectionToSection) -> ("../" ++) . TextBuilder.fromText
+			(WithExtension, SectionToToc) -> ("index.html#" ++) . TextBuilder.fromText
+			(WithExtension, TocToSection) -> (++ ".html") . dotSlashForColon
+			(WithExtension, SectionToSection) -> (++ ".html") . dotSlashForColon
+		dotSlashForColon x = (if Text.any (== ':') x then ("./" ++) else id) (TextBuilder.fromText x)
+			-- Without dotSlashForColon, we generate urls like "string::replace.html",
 			-- in which "string" is parsed as the protocol.
 
 applySectionFileStyle :: SectionFileStyle -> Text -> Text
