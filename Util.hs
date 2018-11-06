@@ -3,18 +3,19 @@
 
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
-	anchor, Anchor(..), writeFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
-	textStripInfix, textSubRegex, splitOn
+	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
+	textStripInfix, textSubRegex, splitOn, intercalateBuilders
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
 import qualified Data.Text as Text
-import Data.List (stripPrefix)
+import Data.List (stripPrefix, intersperse)
 import Data.Char (ord, isDigit, isSpace)
 import Data.Text (Text, replace)
 import Data.Text.IO (writeFile)
 import Control.Arrow (first)
 import Text.Regex (subRegex, Regex)
+import qualified Data.Text.Lazy.Builder as TextBuilder
 
 (.) :: Functor f => (a -> b) -> (f a -> f b)
 (.) = fmap
@@ -22,21 +23,27 @@ import Text.Regex (subRegex, Regex)
 (++) :: Monoid a => a -> a -> a
 (++) = mappend
 
-xml :: Text -> [(Text, Text)] -> Text -> Text
-xml t attrs = (("<" ++ t ++ " " ++ Text.unwords (map f attrs) ++ ">") ++) . (++ ("</" ++ t ++ ">"))
+xml :: Text -> [(Text, Text)] -> TextBuilder.Builder -> TextBuilder.Builder
+xml t attrs = (TextBuilder.fromText ("<" ++ t ++ " " ++ Text.unwords (map f attrs) ++ ">") ++) . (++ TextBuilder.fromText ("</" ++ t ++ ">"))
 	where
 		f (n, v) = n ++ "='" ++ v ++ "'"
 
-spanTag :: Text -> Text -> Text
+spanTag :: Text -> TextBuilder.Builder -> TextBuilder.Builder
 spanTag = xml "span" . (:[]) . ("class",)
 
-h :: Int -> Text -> Text
+h :: Int -> TextBuilder.Builder -> TextBuilder.Builder
 h = flip xml [] . ("h" ++) . Text.pack . show
 
-data Anchor = Anchor { aClass, aId, aHref, aText, aStyle :: Text }
+data Anchor = Anchor
+    { aClass, aId, aHref :: Text
+    , aText :: TextBuilder.Builder
+    , aStyle :: Text }
+
+intercalateBuilders :: TextBuilder.Builder -> [TextBuilder.Builder] -> TextBuilder.Builder
+intercalateBuilders x y = mconcat $ intersperse x y
 
 anchor :: Anchor
-anchor = Anchor{aClass="", aId="", aHref="", aText="", aStyle=""}
+anchor = Anchor{aClass="", aId="", aHref="", aText=TextBuilder.fromText "", aStyle=""}
 
 greekAlphabet :: [(String, Char)]
 greekAlphabet =

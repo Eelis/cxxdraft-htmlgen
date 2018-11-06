@@ -9,7 +9,7 @@
 	FlexibleInstances #-}
 
 module Render (
-	Render(render), concatRender, url, renderTab, renderFig, simpleRender, squareAbbr,
+	Render(render), concatRender, url, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
 	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
@@ -39,7 +39,7 @@ import Data.MemoTrie (memo2)
 import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars)
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars, intercalateBuilders)
 
 kill, literal :: [String]
 kill = words $
@@ -170,12 +170,12 @@ instance Render Anchor where
 		         [("id"   , aId   ) | aId    /= ""] ++
 		         [("style", aStyle) | aStyle /= ""]) aText
 
-class Render a where render :: a -> RenderContext -> Text
+class Render a where render :: a -> RenderContext -> TextBuilder.Builder
 
-concatRender :: Render a => [a] -> RenderContext -> Text
+concatRender :: Render a => [a] -> RenderContext -> TextBuilder.Builder
 concatRender x c = mconcat $ map (\y -> render y c) x
 
-instance Render Char where render c _ = Text.pack [c]
+instance Render Char where render c _ = TextBuilder.singleton c
 
 instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
@@ -193,7 +193,7 @@ redundantOpen (Text.unpack -> (c:'(':s))
 	&& (s `elem` ["", "Clause ", "Clause~"])
 redundantOpen _ = False
 
-renderCodeblock :: LaTeXUnit -> RenderContext -> Text
+renderCodeblock :: LaTeXUnit -> RenderContext -> TextBuilder.Builder
 renderCodeblock (TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
 	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
 renderCodeblock _ = undefined
@@ -250,7 +250,7 @@ instance Render LaTeX where
 	render [] = return ""
 
 instance Render LaTeXUnit where
-	render (TeXRaw x                 ) = \ctx ->
+	render (TeXRaw x                 ) = \ctx -> TextBuilder.fromText $
 	                                     (if rawHyphens ctx then id
 	                                         else replace "--" "–" . replace "---" "—")
 	                                   $ (if rawTilde ctx then id else replace "~" " ")
@@ -270,29 +270,30 @@ instance Render LaTeXUnit where
 	render (TeXComm "break" []       ) = return "<br/>"
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath [m]
-	render (TeXComm "comment" [(FixArg, comment)]) = \c -> spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
+	render (TeXComm "comment" [(FixArg, comment)]) = \c ->
+	    spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
 	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
 	render (TeXComm "ref" [(FixArg, abbr)]) = \ctx@RenderContext{..} ->
 		let
-			linkText :: Text
+			linkText :: TextBuilder.Builder
 			linkText
 				| "tab:" `isPrefixOf` simpleRender abbr
-				, Just Table{..} <- tableByAbbr draft abbr = Text.pack (show tableNumber)
+				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
 				| otherwise = squareAbbr abbr
 		in
-			simpleRender anchor{aHref = abbrHref abbr ctx, aText = linkText}
+			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText}
 	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) = render anchor
 		{ aId    = "nt:" ++ s
-		, aText  = s ++ ":"
+		, aText  = TextBuilder.fromText s ++ ":"
 		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
 	render (TeXComm "weblink" [(FixArg, text), (FixArg, href)])
 		= render anchor
-			{ aText = simpleRender text
+			{ aText = simpleRender2 text
 			, aHref = simpleRender href}
 	render (TeXComm "url" [(FixArg, u)])
 		= render anchor
-			{ aText = simpleRender u
+			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
 	render (TeXComm "link" [(FixArg, txt), (FixArg, (rmClause -> [TeXComm "ref" [(FixArg, abbr)]]))])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
@@ -313,10 +314,9 @@ instance Render LaTeXUnit where
 			cat _ = undefined
 	render (TeXComm "grammarterm_" [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
 		\sec -> xml "i" [] $ if inLink sec
-			then name
-			else render anchor{aHref=grammarNameRef section name, aText=name} sec
-	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $
-		render x ctx{rawHyphens = True, insertBreaks = True}
+			then TextBuilder.fromText name
+			else render anchor{aHref=grammarNameRef section name, aText=TextBuilder.fromText name} sec
+	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			render x ctx{rawHyphens = True, insertBreaks = True}
@@ -362,7 +362,7 @@ instance Render LaTeXUnit where
 			indexPaths :: [(Text, IndexPath)]
 			indexPaths =
 				[ (cat, p) | [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
-	render (TeXComm "discretionary" _) = const zwsp
+	render (TeXComm "discretionary" _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
 	render (TeXComm "leftshift" [(FixArg, content)]) =
@@ -370,7 +370,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "verb" [(FixArg, a)]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
 	render (TeXComm "footnoteref" [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
 		{ aClass = "footnotenum"
-		, aText  = n
+		, aText  = TextBuilder.fromText n
 		, aHref  =
 			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
@@ -397,17 +397,17 @@ instance Render LaTeXUnit where
 	render (TeXComm " " [])            = return "&nbsp;"
 	render (TeXComm "\n" [])           = return "\n"
 	render (TeXComm (dropTrailingWs -> s) [])
-	    | s `elem` literal             = return $ Text.pack s
+	    | s `elem` literal             = return $ TextBuilder.fromString s
 	    | Just x <-
-	       lookup s simpleMacros       = return x
+	       lookup s simpleMacros       = return $ TextBuilder.fromText x
 	    | s `elem` kill                = return ""
 	    | otherwise                    = return $ spanTag (Text.pack s) ""
 	render (TeXComm (dropTrailingWs -> x) s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
-	       lookup x simpleMacros       = return y
+	       lookup x simpleMacros       = return $ TextBuilder.fromText y
 	    | [(FixArg, z)] <- s, Just y <-
-	       lookup x simpleMacros       = (y ++) . render z
+	       lookup x simpleMacros       = (TextBuilder.fromText y ++) . render z
 	    | otherwise                    = spanTag (Text.pack x) . render (s >>= snd)
 	render (TeXEnv "itemdecl" [(FixArg, [TeXRaw num])] t) = \c ->
 		let
@@ -416,17 +416,17 @@ instance Render LaTeXUnit where
 		in
 			xml "div" [("class", "itemdecl"), ("id", i)] $
 			xml "div" [("class", "marginalizedparent")] (render link c) ++
-			xml "code" [("class", "itemdeclcode")] (Text.dropWhile (== '\n') $ render t c{rawTilde=True, rawHyphens=True})
+			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ render t c{rawTilde=True, rawHyphens=True})
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
-	    | isMath env && isComplexMath [env] = return $ renderComplexMath [env]
+	    | isMath env && isComplexMath [env] = return $ TextBuilder.fromText $ renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock env
 		| e == "minipage", [cb@(TeXEnv "codeblock" [] _)] <- trim t =
 			xml "div" [("class", "minipage")] . renderCodeblock cb
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
-instance Render Int where render = return . Text.pack . show
+instance Render Int where render = return . TextBuilder.fromString . show
 
 instance Render IndexComponent where
 	render IndexComponent{..} = render indexKey
@@ -443,7 +443,7 @@ instance Render IndexEntry where
 				 , aText = render x ctx}) ctx
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} =
-		return $ simpleRender anchor
+		return $ simpleRender2 anchor
 			{ aHref = "SectionToSection/" ++ url abbr
 				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
 			, aText = squareAbbr abbr }
@@ -455,35 +455,36 @@ instance Render IndexEntry where
 			abbr = abbreviation indexEntrySection
 
 instance Render IndexTree where
-	render y sec = go [] y
+	render y ctx = go [] y
 		where
-			go :: IndexPath -> Map.Map IndexComponent IndexNode -> Text
+			go :: IndexPath -> Map.Map IndexComponent IndexNode -> TextBuilder.Builder
 			go up x = mconcat $ f up . Map.toList x
 
-			f :: IndexPath -> (IndexComponent, IndexNode) -> Text
+			f :: IndexPath -> (IndexComponent, IndexNode) -> TextBuilder.Builder
 			f up (comp, IndexNode{..}) =
 				let
 					up' = up ++ [comp]
 				in
 					xml "div" [("id", indexPathId "" up')] $
 					xml "div" [("class", "indexitems")] $
-					Text.intercalate ", " (nub $ filter (/= "") $ render comp sec : flip render sec . indexEntries) ++
+					TextBuilder.fromText (
+					Text.intercalate ", " (nub $ filter (/= "") $ map (LazyText.toStrict . TextBuilder.toLazyText) $ render comp ctx : flip render ctx . indexEntries)) ++
 					go up' indexSubnodes
 
-renderTab :: Bool -> Table -> RenderContext -> Text
+renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
 renderTab stripTab Table{..} sec =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
 		"Table " ++ render anchor{aText = render tableNumber sec, aHref = "#" ++ id_} sec ++ " — " ++
 		render tableCaption sec ++ "<br>" ++ renderTable columnSpec tableBody sec
 	where
-		id_ = (if stripTab then replace "tab:" "" else id) $ render (head tableAbbrs) sec
+		id_ = (if stripTab then replace "tab:" "" else id) $ LazyText.toStrict $ TextBuilder.toLazyText $ render (head tableAbbrs) sec
 
-renderFig :: Bool -> Figure -> Text
+renderFig :: Bool -> Figure -> TextBuilder.Builder
 renderFig stripFig Figure{..} =
 	xml "div" [("class", "figure"), ("id", id_)] $
-		figureSvg ++ "<br>" ++
-		"Figure " ++ simpleRender anchor{aText=simpleRender figureNumber, aHref="#" ++ id_} ++ " — " ++
-		simpleRender figureName
+		TextBuilder.fromText figureSvg ++ "<br>" ++
+		"Figure " ++ simpleRender2 anchor{aText=simpleRender2 figureNumber, aHref="#" ++ id_} ++ " — " ++
+		simpleRender2 figureName
 	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
@@ -494,7 +495,7 @@ instance Render RenderItem where
 			xml "li" [("id", thisId)] $ case mlabel of
 				Nothing -> itemLink ++ renderLatexParas elems ctx'
 				Just label ->
-					render anchor{aHref = linkHref, aText=simpleRender label} ctx'
+					render anchor{aHref = linkHref, aText=simpleRender2 label} ctx'
 					++ " " ++ renderLatexParas elems ctx'
 		where
 			left
@@ -516,12 +517,12 @@ instance Render RenderItem where
 			linkClass
 				| listOrdered = "enumerated_item_num"
 				| otherwise = "marginalized"
-			itemLink :: Text
+			itemLink :: TextBuilder.Builder
 			itemLink
 				| listOrdered = render link ctx'
 				| otherwise = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx')
 			linkHref = "#" ++ thisId
-			link = anchor{aClass=linkClass, aHref=linkHref, aText=linkText}
+			link = anchor{aClass=linkClass, aHref=linkHref, aText=TextBuilder.fromText linkText}
 
 paraUrl :: RenderContext -> Text
 paraUrl RenderContext{..} = url $ abbreviation $ case nearestEnclosing of
@@ -534,16 +535,16 @@ instance Render Footnote where
 			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
 			renderLatexParas content ctx{idPrefix = i ++ "."}
 		where
-			num = render n ctx
+			num = Text.pack $ show n
 			i = "footnote-" ++ num
 			link = anchor
-				{ aText  = num ++ ")"
+				{ aText  = TextBuilder.fromText $ num ++ ")"
 				, aHref  =
 					(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 					++ "#" ++ i
 				, aClass = "marginalized" }
 
-noWrapSpace :: Text
+noWrapSpace :: TextBuilder.Builder
 noWrapSpace = "<span style='white-space:nowrap'> </span>"
 
 instance Render Note where
@@ -586,11 +587,11 @@ instance Render Element where
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
 	render (Bnf e t)
-		| e `elem` makeBnf = bnf (Text.pack e) . render (trimr $ preprocessPre t)
+		| e `elem` makeBnf = bnf (Text.pack e) . LazyText.toStrict . TextBuilder.toLazyText . render (trimr $ preprocessPre t)
 		| otherwise = error "unexpected bnf"
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
-		xml "pre" [] . htmlTabs . render (preprocessPre t)
+		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
 	render (FigureElement f) = return $ renderFig False f
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			concatRender (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
@@ -660,8 +661,8 @@ defaultRenderContext = RenderContext
 	, extraIndentation = 0
 	, idPrefix = "" }
 
-squareAbbr :: Render a => a -> Text
-squareAbbr x = "[" ++ simpleRender x ++ "]"
+squareAbbr :: Render a => a -> TextBuilder.Builder
+squareAbbr x = "[" ++ simpleRender2 x ++ "]"
 
 remoteTableHref :: Table -> Text
 remoteTableHref Table{tableSection=Section{..}, ..} =
@@ -679,10 +680,10 @@ linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
 
 parentLink :: Section -> LaTeX -> Text
 parentLink parent child
-	| Just sub <- Text.stripPrefix (render (abbreviation parent) ctx ++ ".") secname = sub
+	| Just sub <- Text.stripPrefix (LazyText.toStrict $ TextBuilder.toLazyText $ render (abbreviation parent) ctx ++ ".") secname = sub
 	| otherwise = secname
 	where
-		secname = render child ctx
+		secname = LazyText.toStrict $ TextBuilder.toLazyText $ render child ctx
 		ctx = defaultRenderContext{replXmlChars=False}
 
 abbrHref :: LaTeX -> RenderContext -> Text
@@ -699,20 +700,20 @@ abbrHref abbr RenderContext{..}
 	    _ -> url abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
 
-renderMath :: LaTeX -> RenderContext -> Text
+renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] ctx =
   render stuff ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m sec
-	| isComplexMath m = renderComplexMath m
+	| isComplexMath m = TextBuilder.fromText $ renderComplexMath m
 	| otherwise = spanTag s $ renderSimpleMath m sec
 	where
 		s = mathKind m
 		mathKind [TeXMath Square _] = "mathblock"
 		mathKind _ = "math"
 
-renderSimpleMath :: LaTeX -> RenderContext -> Text
+renderSimpleMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderSimpleMath [] _ = ""
 renderSimpleMath (TeXRaw s : rest) sec
 	| tlast `elem` ["^", "_"] =
@@ -739,7 +740,7 @@ renderSimpleMath (TeXComm "frac" [(FixArg, num)] : rest) sec =
 		findDenum r = (r, [])
 renderSimpleMath (x : y) ctx = renderSimpleMathUnit x ctx ++ renderSimpleMath y ctx
 
-renderSimpleMathUnit :: LaTeXUnit -> RenderContext -> Text
+renderSimpleMathUnit :: LaTeXUnit -> RenderContext -> TextBuilder.Builder
 renderSimpleMathUnit (TeXRaw s) sec =
 	case suffix of
 		Just ('^', rest) -> italicise prefix ++ output "sup" rest
@@ -749,24 +750,26 @@ renderSimpleMathUnit (TeXRaw s) sec =
 		(prefix, suffix') = Text.break (`elem` ['^', '_']) s
 		suffix = Text.uncons suffix'
 
+		output :: Text -> Text -> TextBuilder.Builder
 		output tag rest =
 			case Text.uncons rest of
 				Just (c, rest') -> xml tag [] (italicise $ Text.singleton c) ++ (renderSimpleMathUnit (TeXRaw rest') sec)
 				Nothing -> error "Malformed math"
 
+		italicise :: Text -> TextBuilder.Builder
 		italicise t =
 			case Text.span isAlpha t of
-				("", "") -> ""
+				("", "") -> TextBuilder.fromString ""
 				("", rest) ->
 					case Text.uncons rest of
 						Just (c, rest') -> entities c ++ italicise rest'
 						Nothing -> error ""
-				(alpha, rest) -> spanTag "mathalpha" alpha ++ italicise rest
+				(alpha, rest) -> spanTag "mathalpha" (TextBuilder.fromText alpha) ++ italicise rest
 
-		entities :: Char -> Text
+		entities :: Char -> TextBuilder.Builder
 		entities '<' = "&lt;"
 		entities '>' = "&gt;"
-		entities c = Text.singleton c
+		entities c = TextBuilder.singleton c
 renderSimpleMathUnit (TeXBraces x) sec = renderSimpleMath x sec
 renderSimpleMathUnit (TeXMath Dollar m) sec = renderSimpleMath (trim m) sec
 renderSimpleMathUnit (TeXMath _ m) sec = renderSimpleMath m sec
@@ -813,7 +816,7 @@ memodRenderMath = memo2 $ \s inline -> unsafePerformIO $ do
 		rm r s = subRegex (mkRegex r) s ""
 
 
-renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> Text
+renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =
 	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
 	where
@@ -867,7 +870,7 @@ renderTable colspec a sec =
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", render colspan sec), ("class", c')] $ renderLatexParas content sec)
+					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ renderLatexParas content sec)
 					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
 				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderLatexParas content sec)
@@ -890,7 +893,7 @@ instance Render Sentence where
 					xml "div" [("id", v), ("class", "sentence")] $
 						r $ reverse $ linkifyFullStop $ reverse sentenceElems
 		where
-			r :: [Either Element Text] -> Text
+			r :: [Either Element TextBuilder.Builder] -> TextBuilder.Builder
 			r [] = ""
 			r (span (\x -> case x of Left (LatexElement _) -> True; _ -> False) -> (ee@(_:_), rest))
 				= render ((\(Left (LatexElement x)) -> x) . ee) ctx
@@ -902,17 +905,17 @@ instance Render Sentence where
 				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
 				Nothing -> Nothing
 			link = anchor{aText = ".", aHref = "#" ++ fromJust i, aClass = "hidden_link"}
-			linkifyFullStop :: [Element] -> [Either Element Text]
+			linkifyFullStop :: [Element] -> [Either Element TextBuilder.Builder]
 			linkifyFullStop [] = []
 			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix "." -> Just s)) : xs)
-				= Right (simpleRender link) : Left (LatexElement $ TeXRaw s) : (Left . xs)
+				= Right (simpleRender2 link) : Left (LatexElement $ TeXRaw s) : (Left . xs)
 			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix ".)" -> Just s)) : xs)
-				= Right (simpleRender link ++ ")") : Left (LatexElement $ TeXRaw s) : (Left . xs)
+				= Right (simpleRender2 link ++ ")") : Left (LatexElement $ TeXRaw s) : (Left . xs)
 			linkifyFullStop (fn@(LatexElement (TeXComm "footnoteref" _)) : xs)
 				= Left fn : linkifyFullStop xs
 			linkifyFullStop xs = Left . xs
 
-renderLatexParas :: [TeXPara] -> RenderContext -> Text
+renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""
 renderLatexParas (TeXPara [] : y) c = renderLatexParas y c
 renderLatexParas [x] ctx = render x ctx
@@ -957,8 +960,8 @@ makeTabs = Text.unlines . map f . Text.lines
 		f x = let (a, b) = Text.span (== ' ') x in
 			if Text.length a >= 2 then "&#9;" ++ b else x
 
-bnf :: Text -> Text -> Text
-bnf c = xml "pre" [("class", c)] . makeTabs . Text.strip
+bnf :: Text -> Text -> TextBuilder.Builder
+bnf c x = xml "pre" [("class", c)] $ TextBuilder.fromText $ makeTabs $ Text.strip x
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
@@ -976,32 +979,35 @@ linkToSection :: Link -> LaTeX -> Anchor
 linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr abbr }
 
 url :: LaTeX -> Text
-url = urlChars . flip render defaultRenderContext{replXmlChars = False}
+url = urlChars . LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}
 
 simpleRender :: Render a => a -> Text
-simpleRender = flip render defaultRenderContext
+simpleRender = LazyText.toStrict . TextBuilder.toLazyText . simpleRender2
 
-secnum :: Text -> Section -> Text
+simpleRender2 :: Render a => a -> TextBuilder.Builder
+simpleRender2 = flip render defaultRenderContext
+
+secnum :: Text -> Section -> TextBuilder.Builder
 secnum href Section{sectionNumber=n,..} =
-	simpleRender (anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style})
+	simpleRender2 (anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style})
 	where
 		style = "min-width:" ++ show (73 + length parents * 15) ++ "pt"
 		text
 			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
 			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
-			| otherwise = Text.intercalate "." (chap : simpleRender . tail ns)
+			| otherwise = intercalateBuilders "." (chap : simpleRender2 . tail ns)
 		ns = reverse $ n : sectionNumber . parents
 		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
-		chap :: Text
+		chap :: TextBuilder.Builder
 		chap
-			| chapter == NormalChapter = simpleRender (head ns)
-			| otherwise = Text.pack [['A'..] !! head ns]
+			| chapter == NormalChapter = simpleRender2 (head ns)
+			| otherwise = TextBuilder.singleton $ ['A'..] !! head ns
 
 abbreviations :: Section -> [LaTeX]
 abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
 
-fileContent :: Text -> Text -> Text -> Text -> Text
+fileContent :: TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder
 fileContent pathHome title extraHead body =
 	"<!DOCTYPE html>" ++
 	"<html lang='en'>" ++
@@ -1019,7 +1025,7 @@ fileContent pathHome title extraHead body =
 	"</html>"
 
 abbrAsPath :: LaTeX -> Text
-abbrAsPath = flip render defaultRenderContext{replXmlChars = False}
+abbrAsPath = LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)

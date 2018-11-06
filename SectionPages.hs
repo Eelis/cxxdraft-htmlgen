@@ -19,34 +19,38 @@ import Control.Monad (forM_)
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Render (render, concatRender, abbrAsPath, simpleRender, outputDir, url, renderFig,
+import LaTeXBase (LaTeXUnit(..))
+import Data.Text (isInfixOf)
+import qualified Data.Text.Lazy as LazyText
+import qualified Data.Text.Lazy.Builder as TextBuilder
+import Render (render, concatRender, abbrAsPath, simpleRender2, outputDir, url, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
 	secnum, Link(..), renderLatexParas, isSectionPage, parentLink)
 import Document
-import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile)
+import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, readFile, intercalateBuilders)
 
-renderParagraph :: RenderContext -> Text
+renderParagraph :: RenderContext -> TextBuilder.Builder
 renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Draft{..}} =
 		(case paraNumber of
-			Just (flip render ctx -> i) -> renderNumbered i
+			Just i -> renderNumbered (Text.pack $ show i)
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (sourceLink
 		  ++ renderLatexParas paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
 	where
 		urlBase = Text.replace "/commit/" "/tree/" commitUrl ++ "/source/"
-		sourceLink :: Text
+		sourceLink :: TextBuilder.Builder
 		sourceLink
 			| Just SourceLocation{..} <- paraSourceLoc =
 				xml "div" [("class", "sourceLinkParent")]
-				$ simpleRender $ anchor
+				$ simpleRender2 $ anchor
 					{ aClass = "sourceLink"
 					, aText = "#"
 					, aHref = urlBase ++ Text.pack (sourceFile ++ "#L" ++ show sourceLine) }
 			| otherwise = ""
 
-		renderNumbered :: Text -> Text -> Text
+		renderNumbered :: Text -> TextBuilder.Builder -> TextBuilder.Builder
 		renderNumbered n =
 			let
 				idTag = if isSectionPage (page ctx) then [("id", idPrefix ctx ++ n)] else []
@@ -56,16 +60,16 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 						if isSectionPage (page ctx)
 							then "#" ++ urlChars (idPrefix ctx) ++ n
 							else "SectionToSection/" ++ url (abbreviation paraSection) ++ "#" ++ n
-					, aText  = n }
+					, aText  = TextBuilder.fromText n }
 			in
 				xml "div" (("class", "para") : idTag) .
 				(xml "div" [("class", "marginalizedparent")] (render a ctx') ++)
 		ctx' = case paraNumber of
-			Just (flip render ctx -> n) -> ctx{ idPrefix = idPrefix ctx ++ n ++ "." }
+			Just n -> ctx{ idPrefix = idPrefix ctx ++ Text.pack (show n) ++ "." }
 			Nothing -> ctx
 renderParagraph _ = undefined
 
-renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (Text, Bool)
+renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (TextBuilder.Builder, Bool)
 renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		idDiv $ header ++
@@ -86,7 +90,7 @@ renderSection context specific parasEmitted s@Section{..}
 		secOnPage :: Text
 		secOnPage = case page context of
 			SectionPage parent -> parentLink parent abbreviation
-			_ -> render abbreviation defaultRenderContext{replXmlChars=False}
+			_ -> LazyText.toStrict $ TextBuilder.toLazyText $ render abbreviation defaultRenderContext{replXmlChars=False}
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
 			(if specific == Nothing && isSectionPage (page context) then "#" ++ urlChars secOnPage else "")
@@ -103,29 +107,30 @@ renderSection context specific parasEmitted s@Section{..}
 			or $ map (snd . renderSection context specific True)
 			   $ subsections
 
-writeSectionFile :: FilePath -> SectionFileStyle -> Text -> Text -> IO ()
-writeSectionFile n sfs title body = do
-	file <- case sfs of
-		Bare -> return n
-		WithExtension -> return $ n ++ ".html"
-		InSubdir -> do
-			createDirectoryIfMissing True (outputDir ++ n)
-			return $ n ++ "/index.html"
-	writeFile (outputDir ++ file) $ applySectionFileStyle sfs $
-		fileContent (if sfs == InSubdir then "../" else "") title "" body
+sectionFilePath :: FilePath -> SectionFileStyle -> String
+sectionFilePath n Bare = outputDir ++ n
+sectionFilePath n WithExtension = outputDir ++ n ++ ".html"
+sectionFilePath n InSubdir = outputDir ++ n ++ "/index.html"
 
-sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> Text
+writeSectionFile :: FilePath -> SectionFileStyle -> TextBuilder.Builder -> TextBuilder.Builder -> IO ()
+writeSectionFile n sfs title body = do
+	when (sfs == InSubdir) $ createDirectoryIfMissing True (outputDir ++ n)
+	writeFile (sectionFilePath n sfs) $ applySectionFileStyle sfs $ LazyText.toStrict $ TextBuilder.toLazyText $
+		fileContent (if sfs == InSubdir then "../" else "") title "" body
+		    -- todo: don't go through strict text
+
+sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
 sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
 	secnum secnumHref s ++ " " ++
 	render sectionName ctx ++ " " ++
-	simpleRender abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
+	simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
 writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
 	++ mconcat (r . figs)
 	where
-		r :: Figure -> Text
+		r :: Figure -> TextBuilder.Builder
 		r f@Figure{figureSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
@@ -138,7 +143,7 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 	"<h1>List of Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
 	++ mconcat (uncurry r . tables draft)
 	where
-		r :: Paragraph -> Table -> Text
+		r :: Paragraph -> Table -> TextBuilder.Builder
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext
@@ -149,7 +154,7 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 	"<h1>List of Footnotes</h1>"
 	++ mconcat (uncurry r . footnotes draft)
 	where
-		r :: Section -> Footnote -> Text
+		r :: Section -> Footnote -> TextBuilder.Builder
 		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage}
 
 writeFullFile :: SectionFileStyle -> Draft -> IO ()
@@ -204,5 +209,5 @@ writeXrefDeltaFiles sfs draft = forM_ (xrefDelta draft) $ \(from, to) ->
 	writeSectionFile (Text.unpack $ abbrAsPath from) sfs (squareAbbr from) $
 		if to == []
 			then "Subclause " ++ squareAbbr from ++ " was removed."
-			else "See " ++ Text.intercalate ", " (flip render ctx . to) ++ "."
+			else "See " ++ intercalateBuilders ", " (flip render ctx . to) ++ "."
 	where ctx = defaultRenderContext{draft=draft, page=XrefDeltaPage}
