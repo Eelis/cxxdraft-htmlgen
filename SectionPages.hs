@@ -3,7 +3,6 @@
 
 module SectionPages
 	( writeSectionFiles
-	, writeFullFile
 	, writeFiguresFile
 	, writeTablesFile
 	, writeIndexFiles
@@ -15,7 +14,8 @@ module SectionPages
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
+import Control.Parallel (par)
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -112,12 +112,14 @@ sectionFilePath n Bare = outputDir ++ n
 sectionFilePath n WithExtension = outputDir ++ n ++ ".html"
 sectionFilePath n InSubdir = outputDir ++ n ++ "/index.html"
 
+sectionFileContent :: SectionFileStyle -> TextBuilder.Builder -> TextBuilder.Builder -> Text
+sectionFileContent sfs title body = applySectionFileStyle sfs $ LazyText.toStrict $ TextBuilder.toLazyText $
+	fileContent (if sfs == InSubdir then "../" else "") title "" body
+
 writeSectionFile :: FilePath -> SectionFileStyle -> TextBuilder.Builder -> TextBuilder.Builder -> IO ()
 writeSectionFile n sfs title body = do
 	when (sfs == InSubdir) $ createDirectoryIfMissing True (outputDir ++ n)
-	writeFile (sectionFilePath n sfs) $ applySectionFileStyle sfs $ LazyText.toStrict $ TextBuilder.toLazyText $
-		fileContent (if sfs == InSubdir then "../" else "") title "" body
-		    -- todo: don't go through strict text
+	writeFile (sectionFilePath n sfs) (sectionFileContent sfs title body)
 
 sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
 sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
@@ -157,21 +159,27 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 		r :: Section -> Footnote -> TextBuilder.Builder
 		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage}
 
-writeFullFile :: SectionFileStyle -> Draft -> IO ()
-writeFullFile sfs draft = do
-	putStrLn "  full"
-	writeSectionFile "full" sfs "14882" $
-		mconcat $ fst .
-			renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
+parAll :: [a] -> b -> b
+parAll = flip $ foldl $ flip par
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
 writeSectionFiles sfs draft = do
 	putStr "  sections..";
-	let secs = Document.sections draft
-	forM_ secs $ \section@Section{..} -> do
+	let
+	  secs = Document.sections draft
+	  renSec section@Section{..} = (Text.unpack $ abbrAsPath abbreviation, sectionFileContent sfs title body)
+	    where
+	      title = squareAbbr abbreviation
+	      body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
+	  fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
+	  fullfile = ("full", sectionFileContent sfs "14882" fullbody)
+	  files = fullfile : map renSec secs
+	  names = fst . files
+	  contents = snd . files
+	parAll contents $ forM_ (zip names contents) $ \(n, content) -> do
 		putStr "."; hFlush stdout
-		writeSectionFile (Text.unpack $ abbrAsPath abbreviation) sfs (squareAbbr abbreviation) $
-			(mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft)
+		when (sfs == InSubdir) $ createDirectoryIfMissing True (outputDir ++ n)
+		writeFile (sectionFilePath n sfs) content
 	putStrLn $ " " ++ show (length secs)
 
 writeIndexFiles :: SectionFileStyle -> Index -> IO ()

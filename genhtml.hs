@@ -12,7 +12,7 @@ import Util
 
 import Toc (writeTocFile)
 import SectionPages
-	( writeSectionFiles, writeFullFile, writeFiguresFile, writeTablesFile
+	( writeSectionFiles, writeFiguresFile, writeTablesFile
 	, writeIndexFiles, writeFootnotesFile, writeCssFile, writeXrefDeltaFiles)
 
 data CmdLineArgs = CmdLineArgs
@@ -45,6 +45,5 @@ main = do
 	writeFiguresFile sectionFileStyle (figures draft)
 	writeTablesFile sectionFileStyle draft
 	writeFootnotesFile sectionFileStyle draft
-	writeFullFile sectionFileStyle draft
 	writeSectionFiles sectionFileStyle draft
 	writeXrefDeltaFiles sectionFileStyle draft
