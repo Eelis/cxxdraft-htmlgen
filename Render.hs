@@ -32,10 +32,8 @@ import Data.Char (isAlpha, isSpace)
 import Control.Arrow (second)
 import qualified Prelude
 import Prelude hiding (take, (.), (++), writeFile)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Text.Regex (mkRegex, subRegex)
-import Data.MemoTrie (memo2)
 import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
@@ -703,8 +701,8 @@ abbrHref abbr RenderContext{..}
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 extractMath :: LaTeX -> Maybe (String, Bool)
-extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] = extractMath [TeXMath Dollar more]
-extractMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] = extractMath [TeXMath Dollar more]
+extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, _)] : more)] = extractMath [TeXMath Dollar more]
+extractMath [TeXMath Dollar (TeXComm "tcode" _ : more)] = extractMath [TeXMath Dollar more]
 extractMath m | not (isComplexMath m) = Nothing
 extractMath m = if isComplexMath m then Just (mathKey m) else Nothing
 

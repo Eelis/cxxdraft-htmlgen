@@ -22,7 +22,6 @@ executable cxxdraft-htmlgen
                , containers >=0.5
                , mtl >=2.2
                , time >=1.4
-               , MemoTrie
                , regex-compat-tdfa
                , temporary
                , parallel
