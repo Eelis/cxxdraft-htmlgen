@@ -108,7 +108,8 @@ data Paragraph = Paragraph
 	, paraInItemdescr :: Bool
 	, paraElems :: [TeXPara]
 	, paraSection :: Section
-	, paraSourceLoc :: Maybe SourceLocation }
+	, paraSourceLoc :: Maybe SourceLocation
+	, allParaElems :: [Element] } -- derivable but stored for efficiency
 	deriving Show
 
 data Section = Section
@@ -263,24 +264,11 @@ instance Sections a => Sections (Maybe a) where sections = maybe [] sections
 allParagraphs :: Sections a => a -> [Paragraph]
 allParagraphs = (>>= paragraphs) . sections
 
-allElements :: Paragraph -> [Element]
-allElements p = g (paraElems p)
-	where
-		f :: Element -> [Element]
-		f e = e : case e of
-			Enumerated {..} -> g $ enumItems >>= itemContent
-			TableElement Table{..} -> g $ tableBody >>= cells >>= content
-			NoteElement Note{..} -> g noteContent
-			ExampleElement Example{..} -> g exampleContent
-			_ -> []
-		g x = x >>= sentences >>= sentenceElems >>= f
-
-
 tables :: Sections a => a -> [(Paragraph, Table)]
-tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allElements p]
+tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allParaElems p]
 
 figures :: Sections a => a -> [Figure]
-figures x = [f | p <- allParagraphs x, FigureElement f <- allElements p]
+figures x = [f | p <- allParagraphs x, FigureElement f <- allParaElems p]
 
 footnotes :: Sections a => a -> [(Section, Footnote)]
 footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
