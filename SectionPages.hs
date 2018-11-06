@@ -156,7 +156,7 @@ writeFullFile :: SectionFileStyle -> Draft -> IO ()
 writeFullFile sfs draft = do
 	putStrLn "  full"
 	writeSectionFile "full" sfs "14882" $
-		mconcat $ applySectionFileStyle sfs . fst .
+		mconcat $ fst .
 			renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
 
 writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
