@@ -191,10 +191,9 @@ redundantOpen (Text.unpack -> (c:'(':s))
 	&& (s `elem` ["", "Clause ", "Clause~"])
 redundantOpen _ = False
 
-renderCodeblock :: LaTeXUnit -> RenderContext -> TextBuilder.Builder
-renderCodeblock (TeXEnv _ _ t) = \c -> xml "pre" [("class", "codeblock")]
-	(render (trimr t) c{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True})
-renderCodeblock _ = undefined
+renderCodeblock :: LaTeX -> RenderContext -> TextBuilder.Builder
+renderCodeblock code ctx = xml "pre" [("class", "codeblock")] $
+	render (trimr code) ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True}
 
 sameIdNamespace :: Maybe IndexKind -> Maybe IndexKind -> Bool
 sameIdNamespace Nothing (Just IndexOpen) = True
@@ -419,8 +418,8 @@ instance Render LaTeXUnit where
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath [env] = TextBuilder.fromText . renderComplexMath [env]
-	    | isCodeblock env              = renderCodeblock env
-		| e == "minipage", [cb@(TeXEnv "codeblock" [] _)] <- trim t =
+	    | isCodeblock env              = renderCodeblock t
+		| e == "minipage", [TeXEnv "codeblock" [] cb] <- trim t =
 			xml "div" [("class", "minipage")] . renderCodeblock cb
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
