@@ -253,7 +253,6 @@ instance Render LaTeXUnit where
 	                                   $ (if rawTilde ctx then id else replace "~" " ")
 	                                   $ (if insertBreaks ctx then
 	                                         replace "::" (zwsp ++ "::" ++ zwsp) .
-	                                           -- The LaTeX sources very often neglect to use \colcol.
 	                                         replace "_" "_&shy;"
 	                                      else id)
 	                                   $ (if replXmlChars ctx then
