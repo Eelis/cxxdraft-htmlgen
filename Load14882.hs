@@ -537,6 +537,7 @@ load14882 = do
 			replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
 				-- Done here because (1) the real \nodiffref is defined with \def in a way
 				-- we don't support yet, and (2) this way a source link is generated for the pnum.
+			replace "\\makebox[0pt][l]" "" . -- handled here because we don't support multiple optional args yet
 			readFile p
 
 		let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
