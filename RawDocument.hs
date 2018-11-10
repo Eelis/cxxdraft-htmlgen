@@ -140,8 +140,8 @@ doParse m t = (x, y)
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition importgraphic itemdescr nontermdef defnx " ++
-			"indented note defnote example tabular longtable enumeratea"
+			"drawing definition importgraphic itemdescr nontermdef defnx outputblock " ++
+			"indented note defnote example tabular longtable enumeratea commentellip"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
 			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
@@ -173,10 +173,10 @@ signatures =
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname newline " ++
-			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch"
+			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
-			"tcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
+			"tcode noncxxtcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin"

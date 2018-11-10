@@ -23,7 +23,7 @@ tocSection s@Section{..} =
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render ( sectionName ++ [TeXRaw " "]
-		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage}) ++
+		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage, inSectionTitle=True}) ++
 	mconcat (tocSection . subsections)
 
 tocChapter :: Section -> TextBuilder.Builder
@@ -31,10 +31,10 @@ tocChapter s@Section{..} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		simpleRender2 (sectionName ++ [TeXRaw " "], anchor{
+		render (sectionName ++ [TeXRaw " "], anchor{
 			aClass = "folded_abbr_ref",
 			aText  = "[" ++ simpleRender2 abbreviation ++ "]",
-			aHref  = "#" ++ simpleRender abbreviation}) ++
+			aHref  = "#" ++ simpleRender abbreviation}) defaultRenderContext{inSectionTitle=True} ++
 		simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
 

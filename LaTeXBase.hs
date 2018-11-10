@@ -2,16 +2,15 @@
 
 module LaTeXBase
  ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand
- , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv
- , trim, trimr, texStripInfix, isCodeblock, isMath, texStripPrefix, allUnits ) where
+ , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
+ , trim, trimr, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, allUnits ) where
 
 import Data.Monoid ((<>))
 import Data.String (fromString)
 import Prelude hiding ((.), (++), writeFile, dropWhile)
 import Data.Text (Text, pack)
 import qualified Data.Text as Text
-import qualified Util
-import Data.Char (isSpace, isAlphaNum)
+import Data.Char (isSpace)
 import Util ((.), (++), textStripInfix, dropTrailingWs)
 import Control.Arrow (first, second)
 
@@ -119,12 +118,22 @@ concatRaws (TeXBraces x : more) = TeXBraces (concatRaws x) : concatRaws more
 concatRaws (x : more) = x : concatRaws more
 concatRaws [] = []
 
+unconsRaw :: LaTeX -> (Text, LaTeX)
+unconsRaw (TeXRaw x : y) = first (x ++) (unconsRaw y)
+unconsRaw x = ("", x)
+
 texStripPrefix :: Text -> LaTeX -> Maybe LaTeX
 texStripPrefix t (TeXRaw s : y) = case Text.stripPrefix t s of
 	Just "" -> Just y
 	Just s' -> Just (TeXRaw s' : y)
 	Nothing -> Nothing
 texStripPrefix _ _ = Nothing
+
+texStripAnyPrefix :: [Text] -> LaTeX -> Maybe (Text, LaTeX)
+texStripAnyPrefix [] _ = Nothing
+texStripAnyPrefix (x:y) z
+    | Just a <- texStripPrefix x z = Just (x, a)
+    | otherwise = texStripAnyPrefix y z
 
 texStripInfix :: Text -> LaTeX -> Maybe (LaTeX, LaTeX)
 texStripInfix t = go
@@ -143,6 +152,12 @@ dropWhile p (TeXRaw x : y) = case Text.dropWhile p x of
 	"" -> dropWhile p y
 	x' -> TeXRaw x' : y
 dropWhile _ x = x
+
+texSpan :: (Char -> Bool) -> LaTeX -> (Text, LaTeX)
+texSpan p (TeXRaw x : y) = case Text.span p x of
+    (stuff, "") ->  first (stuff ++) (texSpan p y)
+    (stuff, rest) -> (stuff, TeXRaw rest : y)
+texSpan _ x = ("", x)
 
 invisible :: LaTeXUnit -> Bool
 invisible (TeXComm "index" _) = True

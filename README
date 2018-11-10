@@ -104,3 +104,6 @@ Todo
   - in collapsed stylesheet, figure out how to not hide notes/examples
     when their sentences are selected
   - make grammarterm links local when possible
+  - bad layout and coloring in [stmt.while]/2
+  - don't highlight re grammar in [re.grammar] as C++ code
+  - don't highlight % in description of format strings (e.g. time#cal.month.nonmembers-11.sentence-3)

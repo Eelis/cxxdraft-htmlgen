@@ -4,7 +4,7 @@
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
-	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars
+	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -125,3 +125,9 @@ replaceXmlChars =
 	replace ">" "&gt;" .
 	replace "<" "&lt;" .
 	replace "&" "&amp;"
+
+stripAnyPrefix :: [Text] -> Text -> Maybe (Text, Text)
+stripAnyPrefix [] _ = Nothing
+stripAnyPrefix (x:y) z
+    | Just a <- Text.stripPrefix x z = Just (x, a)
+    | otherwise = stripAnyPrefix y z

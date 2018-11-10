@@ -208,15 +208,22 @@ parseCode c = concatRaws . go False
 		go True (Token "\"" : rest) = TeXRaw "\"" : go False rest
 		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
 			where (lit, rest') = stringLiteral rest
-		go False (Token "/" : Token "/" : rest)
-			= TeXComm "comment" [(FixArg, TeXRaw "//" : fullParse c comment)] : go False rest'
-			where (comment, rest') = breakLineComment rest
+		go False (Token "/" : Token "/" : (breakLineComment -> (comment, rest')))
+			= TeXComm "comment" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
 		go False (Token "/" : Token "*" : rest)
 		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
-		    = TeXComm "comment" [(FixArg, [TeXRaw "/*"] ++ fullParse c comment ++ [TeXRaw "*/"])] : go False rest'
+		    = TeXComm "comment" [(FixArg, [TeXRaw "/*"] ++ noncode comment ++ [TeXRaw "*/"])] : go False rest'
 		go b (Token "/" : rest) = TeXRaw "/" : go b rest
 		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) : go b rest
 			where (code, rest) = break (`elem` [Token "@", Token "/", Token "\""]) s
+		noncode :: [Token] -> LaTeX
+		noncode toks =
+		  fullParse c nc ++ case more of
+		    [] -> []
+		    Token "@" : (break (== Token "@") -> (code, _ : rest)) ->
+		        TeXComm "tcode" [(FixArg, fullParse c code)] : noncode rest
+		    _ -> error "no"
+		    where (nc, more) = span (/= Token "@") toks
 		breakLineComment s = case break (== Token "\n") s of
 			(comment, Token "\n" : rest) -> (comment ++ [Token "\n"], rest)
 			(x, y) -> (x, y)

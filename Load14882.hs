@@ -161,7 +161,7 @@ isActualSentence :: [RawElement] -> Bool
 isActualSentence = any p
 	where
 		yes = words $
-			"link tcode textit ref grammarterm indexedspan " ++
+			"link tcode noncxxtcode textit ref grammarterm indexedspan " ++
 			"defnx textbf textrm textsl textsc deflinkx"
 
 		q :: LaTeXUnit -> Bool

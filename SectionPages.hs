@@ -124,7 +124,7 @@ writeSectionFile n sfs title body = do
 sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
 sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
 	secnum secnumHref s ++ " " ++
-	render sectionName ctx ++ " " ++
+	render sectionName ctx{inSectionTitle=True} ++ " " ++
 	simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> MathMap -> IO ()

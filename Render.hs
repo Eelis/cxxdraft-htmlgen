@@ -22,14 +22,15 @@ import Document (
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
-import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix)
+import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
+    renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
-import Data.Char (isAlpha, isSpace)
-import Control.Arrow (second)
+import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
+import Control.Arrow (first, second)
 import qualified Prelude
 import Prelude hiding (take, (.), (++), writeFile)
 import System.Process (readProcess)
@@ -37,14 +38,15 @@ import Text.Regex (mkRegex, subRegex)
 import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars, intercalateBuilders, replaceXmlChars)
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
+    urlChars, intercalateBuilders, replaceXmlChars, stripAnyPrefix)
 
 kill, literal :: [String]
 kill = words $
 	"clearpage renewcommand newcommand enlargethispage noindent indent vfill pagebreak setlength " ++
 	"caption capsep continuedcaption bottomline hline rowsep hspace endlist cline itcorr " ++
 	"hfill nocorr small endhead kill footnotesize rmfamily microtypesetup nobreak nolinebreak " ++
-	"label topline FlushAndPrintGrammar left right protect = ! @ - xspace"
+	"label topline FlushAndPrintGrammar left right protect = ! @ - xspace obeyspaces"
 literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
@@ -124,10 +126,9 @@ simpleMacros =
 zwsp :: Text
 zwsp = "&#x200b;" -- U+200B ZERO WIDTH SPACE
 
-makeSpan, makeDiv, makeBnf :: [String]
-makeSpan = words "center mbox mathsf emph terminal textsc phantom term mathtt textnormal textrm descr textsl textit mathit indented"
+makeSpan, makeDiv :: [String]
+makeSpan = words "center mbox mathsf emph textsc phantom term mathtt textnormal textrm descr textsl textit mathit indented"
 makeDiv = words "definition cvqual emph exitnote footnote mathit paras ttfamily TableBase table tabular longtable"
-makeBnf = words "bnf ncbnf simplebnf ncsimplebnf"
 
 indexPathString :: IndexPath -> Text
 indexPathString =
@@ -152,6 +153,7 @@ asId = mconcat . map f
 		f :: LaTeXUnit -> Text
 		f (TeXRaw t) = replace "\n" "_" $ replace " " "_" t
 		f (TeXComm "tcode" [(_, x)]) = asId x
+		f (TeXComm "noncxxtcode" [(_, x)]) = asId x
 		f (TeXComm "texttt" [(_, x)]) = asId x
 		f (TeXComm "textit" [(_, x)]) = asId x
 		f (TeXComm "mathsf" [(_, x)]) = asId x
@@ -192,8 +194,19 @@ redundantOpen (Text.unpack -> (c:'(':s))
 redundantOpen _ = False
 
 renderCodeblock :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderCodeblock code ctx = xml "pre" [("class", "codeblock")] $
-	render (trimr code) ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True}
+renderCodeblock code ctx =
+    xml "pre" [("class", "codeblock")] $
+    highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
+    concatRaws $ expandTcode code
+  where
+    expandTcode :: LaTeX -> LaTeX
+    expandTcode [] = []
+    expandTcode (TeXComm "tcode" [(FixArg, x)] : y) = expandTcode (x ++ y)
+    expandTcode (x : y) = x : expandTcode y
+
+renderOutputblock :: LaTeX -> RenderContext -> TextBuilder.Builder
+renderOutputblock code ctx = xml "pre" [("class", "outputblock")] $
+    render code ctx{rawTilde=True, rawHyphens=True, rawSpace=True}
 
 sameIdNamespace :: Maybe IndexKind -> Maybe IndexKind -> Bool
 sameIdNamespace Nothing (Just IndexOpen) = True
@@ -245,24 +258,169 @@ instance Render LaTeX where
 	render (x : y) = render x ++ render y
 	render [] = return ""
 
+keywords :: [Text]
+keywords = map Text.pack $ words $
+    "char16_t char32_t namespace struct void operator friend template typedef long short class double public extern " ++
+    "using char new union unsigned sizeof alignas typename virtual this return const_cast delete noexcept static_cast " ++
+    "reinterpret_cast mutable bool private protected inline constexpr final volatile default explicit enum export asm " ++
+    "typeid dynamic_cast throw if else for do while goto auto concept requires decltype try catch static_assert wchar_t " ++
+    "case switch alignof break continue signed audit axiom override const register thread_local int float static"
+    -- todo: read the real keyword table instead
+
+cppDirectives :: [Text]
+cppDirectives = ["include", "define", "else", "elif", "endif", "ifdef", "ifndef", "pragma", "error", "undef", "line", "if"]
+
+texStripHash :: LaTeX -> Maybe LaTeX
+texStripHash x
+    | Just x' <- texStripPrefix "#" x = Just x'
+    | TeXComm "#" [] : x' <- x = Just x'
+    | otherwise = Nothing
+
+parseStringLiteral :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
+parseStringLiteral x
+    -- raw:
+    | Just (pre, x') <- texStripAnyPrefix ["R\"", "u8R\"", "uR\"", "UR\"", "LR\""] x
+    , Just (delim, x'') <- texStripInfix "(" x'
+    , Just (body, x''') <- texStripInfix (")" ++ simpleRender delim ++ "\"") (concatRaws $ f x'')
+    , (suffix, x'''') <- texSpan (\c -> isAlphaNum c || c == '_') x'''
+        = Just ([TeXRaw pre] ++ delim ++ [TeXRaw "("] ++ body ++ [TeXRaw ")"] ++ delim ++ [TeXRaw $ "\"" ++ suffix], x'''')
+    -- normal:
+    | Just (pre, x') <- texStripAnyPrefix ["\"", "u\"", "U\"", "L\"", "u8\""] x
+    , Just (body, x'') <- parseBody x'
+    , (suffix, x''') <- texSpan (\c -> isAlphaNum c || c == '_') x''
+        = Just ([TeXRaw pre] ++ body ++ [TeXRaw $ "\"" ++ suffix], x''')
+    | otherwise = Nothing
+    where
+        f :: LaTeX -> LaTeX
+        f [] = []
+        f (TeXComm "~" [] : more) = TeXRaw "~" : f more
+        f (TeXBraces [] : more) = f more
+        f (h : t) = h : f t
+        parseBody :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
+        parseBody [] = Nothing
+        parseBody (TeXComm (dropTrailingWs -> "textbackslash") [] : more) = parseBody $ concatRaws $ TeXRaw "\\" : more
+        parseBody (TeXRaw (Text.unpack -> raw) : more)
+            | '\\':'"':t <- raw = first (TeXRaw "\\\"" :) . parseBody (TeXRaw (Text.pack t) : more)
+            | "\"" <- raw = Just ([], more)
+            | '"':t <- raw = Just ([], TeXRaw (Text.pack t) : more)
+            | raw == "" = parseBody more
+            | h:t <- raw = first (TeXRaw (Text.pack [h]) :) . parseBody (TeXRaw (Text.pack t) : more)
+        parseBody (TeXComm "%" [] : more) = first (TeXComm "%" [] :) . parseBody more
+        parseBody (y : more) = first (y :) . parseBody more
+
+parseCharLiteral :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
+parseCharLiteral x
+    | Just (pre, x') <- texStripAnyPrefix ["'", "u'", "L'", "U'", "u8'"] x
+    , Just (before, x'') <- texStripInfix "'" x'
+    , (suffix, x''') <- texSpan (\c -> isAlphaNum c || c == '_') x''
+        = Just ([TeXRaw pre] ++ before ++ [TeXRaw $ "'" ++ suffix], x''')
+    | otherwise = Nothing
+
+parseCppDirective :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
+parseCppDirective x
+    | Just x'' <- texStripHash x
+    , (spaces, x''') <- texSpan isSpace x''
+    , Just (directive, x'''') <- texStripAnyPrefix cppDirectives x'''
+        = Just ([TeXRaw ("#" ++ spaces ++ directive)], x'''')
+    | otherwise = Nothing
+
+parseSingleLineCommentStart :: LaTeX -> Maybe (LaTeXUnit, LaTeX)
+parseSingleLineCommentStart x
+    | Just x' <- texStripPrefix "//" x = Just (TeXRaw "//", x')
+    | TeXComm cmd [(FixArg, y)] : more <- x
+    , cmd `elem` ["rlap", "textnormal", "textit"]
+        = first (\z -> TeXComm cmd [(FixArg, [z])]) . second (++ more) . parseSingleLineCommentStart y
+    | otherwise = Nothing
+
+parseNumber :: LaTeX -> Maybe (Text, LaTeX)
+parseNumber x
+    | (raw, more) <- unconsRaw x
+    , raw /= ""
+    , looksLikeNumber raw
+    , (a, raw') <- Text.span (\c -> isAlphaNum c || c `elem` ("'."::String)) raw, a /= ""
+    , (si, raw'') <- parseSign raw'
+    , (suffix, raw''') <- Text.span (\c -> isAlphaNum c || c == '_') raw''
+        = Just (a ++ si ++ suffix, TeXRaw raw''' : more)
+    | otherwise = Nothing
+    where
+        looksLikeNumber :: Text -> Bool
+        looksLikeNumber y = isDigit (Text.head y)
+            || (Text.length y >= 2 && Text.head y == '.' && isDigit (Text.head (Text.tail y)))
+        parseSign :: Text -> (Text, Text)
+        parseSign t
+            | Just (thesign, aftersign) <- stripAnyPrefix ["+", "-"] t
+            , (a, b) <- Text.span isAlphaNum aftersign
+                = (thesign ++ a, b)
+            | otherwise = ("", t)
+
+highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
+highlightLines ctx x
+    | (spaces, x') <- texSpan (== ' ') x, spaces /= "" = TextBuilder.fromText spaces ++ highlightLines ctx x'
+    | Just (directive, x') <- parseCppDirective x = spanTag "preprocessordirective" (render directive ctx) ++ highlight ctx x'
+    | TeXComm "terminal" [(FixArg, y)] : more <- x = spanTag "terminal" (highlightLines ctx y) ++ highlight ctx more
+    | i@(TeXComm cmd _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
+    | otherwise = highlight ctx x
+
+highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
+highlight _ [] = ""
+highlight ctx (TeXComm "terminal" [(FixArg, x)] : more) =
+    spanTag "terminal" (highlight ctx x) ++ highlight ctx more
+highlight ctx (x@(TeXComm c []) : more)
+    | c `elem` ["%", "&", "caret", "~"] = spanTag "operator" (render x ctx) ++ highlight ctx more
+    | c == "#" = spanTag "preprocessordirective" (render x ctx) ++ highlight ctx more
+highlight ctx (x@(TeXComm c []) : more)
+    | c `elem` ["{", "}"] = spanTag "curlybracket" (render x ctx) ++ highlight ctx more
+highlight ctx x
+    | Just x' <- texStripPrefix "\n" x = "\n" ++ highlightLines ctx x'
+    | (TeXRaw "" : t) <- x = highlight ctx t
+    | Just (number, x') <- parseNumber x = spanTag "literal" (TextBuilder.fromText number) ++ highlight ctx x'
+    | Just (lit, x') <- parseCharLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
+    | Just (lit, x') <- parseStringLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
+    -- comments
+    | Just x' <- texStripPrefix "/*" x
+    , Just (comment, x'') <- texStripInfix "*/" x'
+        = spanTag "comment" ("/*" ++ render comment ctx ++ "*/") ++ highlight ctx x''
+    | Just x' <- texStripPrefix "/*" x = spanTag "comment" "/*" ++ highlight ctx x'
+    | Just x' <- texStripPrefix "*/" x = spanTag "comment" "*/" ++ highlight ctx x'
+    | Just (start, (texSpan (/= '\n') -> (comment, x'))) <- parseSingleLineCommentStart x
+        = spanTag "comment" (render start ctx ++ TextBuilder.fromText comment) ++ highlight ctx x'
+    -- keywords
+    | (a, x') <- texSpan p x, a /= "" = (case () of
+        _ | a `elem` keywords -> spanTag "keyword"
+        _ | a `elem` ["defined", "__has_include", "__has_cpp_attribute", "_Pragma"] -> spanTag "preprocessordirective"
+        _ | a `elem` ["nullptr", "true", "false"] -> spanTag "literal"
+        _ | otherwise -> id) (render (TeXRaw a) ctx) ++ highlight ctx x'
+    where p c = isAlphaNum c || c == '_'
+highlight ctx (TeXRaw x : more)
+    | Text.head x `elem` ("'\"" :: String) = render (TeXRaw $ Text.take 1 x) ctx ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x `elem` ("()"::String) = spanTag "parenthesis" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x `elem` ("{}"::String) = spanTag "curlybracket" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x `elem` ("[]"::String) = spanTag "squarebracket" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x `elem` ("<>"::String) = spanTag "anglebracket" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x == '#' = spanTag "preprocessordirective" "#" ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.head x `elem` ("*&^.-+/!=|:?%~#"::String)
+        = spanTag "operator" (render (TeXRaw (Text.take 1 x)) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | (a, x') <- Text.span (\c -> not (isAlphaNum c || c `elem` ("#%_(){}[]<>.*:?'\"+=-/|&!^~\n" :: String))) x, a /= ""
+        = render (TeXRaw a) ctx ++ highlight ctx (TeXRaw x' : more)
+    | otherwise = error ("shit: " ++ show x)
+highlight ctx (x : more) = render x ctx ++ highlight ctx more
+
 instance Render LaTeXUnit where
-	render (TeXRaw x                 ) = \ctx -> TextBuilder.fromText $
-	                                     (if rawHyphens ctx then id
-	                                         else replace "--" "–" . replace "---" "—")
-	                                   $ (if rawTilde ctx then id else replace "~" " ")
-	                                   $ (if insertBreaks ctx then
-	                                         replace "::" (zwsp ++ "::" ++ zwsp) .
-	                                         replace "_" "_&shy;"
-	                                      else id)
-	                                   $ (if replXmlChars ctx then replaceXmlChars else id)
-	                                   $ x
+	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
+	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
+	    $ (if rawTilde then id else replace "~" " ")
+	    $ (if insertBreaks then replace "::" (zwsp ++ "::" ++ zwsp) . replace "_" "_&shy;" else id)
+	    $ (if replXmlChars then replaceXmlChars else id)
+	    $ x
 	render (TeXComm "br" []          ) = return "<br/>"
 	render  TeXLineBreak               = return "<br/>"
 	render (TeXComm "break" []       ) = return "<br/>"
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath [m]
-	render (TeXComm "comment" [(FixArg, comment)]) = \c ->
-	    spanTag "comment" $ render comment c{rawTilde=False, rawHyphens=False}
+	render (TeXComm "commentellip" []) = const $ spanTag "comment" "/* ... */"
+	render (TeXComm "comment" [(FixArg, comment)]) = \ctx ->
+	    xml "span" [("class", "comment"), ("style", "font-style:italic;font-family:serif;")] $
+	    render comment ctx{rawTilde=False, rawHyphens=False, inComment=True}
 	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
 	render (TeXComm "ref" [(FixArg, abbr)]) = \ctx@RenderContext{..} ->
 		let
@@ -310,7 +468,12 @@ instance Render LaTeXUnit where
 	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
-			render x ctx{rawHyphens = True, insertBreaks = True}
+		    if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
+		    then highlightLines ctx{rawHyphens=True, insertBreaks=True} x
+		    else render x ctx{rawHyphens=True, insertBreaks=True}
+	render (TeXComm "noncxxtcode" [(FixArg, x)]) = \ctx ->
+		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
+		    render x ctx{rawHyphens=True, insertBreaks=True}
 	render (TeXComm "textbf" [(FixArg, x)]) = ("<b>" ++) . (++ "</b>") . render x
 	render (TeXComm "index"
 			[ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
@@ -387,7 +550,9 @@ instance Render LaTeXUnit where
 	render (TeXComm "texorpdfstring" [_, (FixArg, x)]) = render x
 	render (TeXComm " " [])            = return "&nbsp;"
 	render (TeXComm "\n" [])           = return "\n"
+	render (TeXComm "textit" [(FixArg, x)]) = spanTag "textit" . render x
 	render (TeXComm (dropTrailingWs -> s) [])
+	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s
 	    | Just x <-
 	       lookup s simpleMacros       = return $ TextBuilder.fromText x
@@ -407,7 +572,7 @@ instance Render LaTeXUnit where
 		in
 			xml "div" [("class", "itemdecl"), ("id", i)] $
 			xml "div" [("class", "marginalizedparent")] (render link c) ++
-			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ render t c{rawTilde=True, rawHyphens=True})
+			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ highlightLines c{rawTilde=True, rawHyphens=True} t)
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
@@ -415,6 +580,7 @@ instance Render LaTeXUnit where
 	    | isCodeblock env              = renderCodeblock t
 		| e == "minipage", [TeXEnv "codeblock" [] cb] <- trim t =
 			xml "div" [("class", "minipage")] . renderCodeblock cb
+		| e == "outputblock"           = renderOutputblock t
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
 instance Render Int where render = return . TextBuilder.fromString . show
@@ -577,9 +743,8 @@ instance Render Element where
 	render (Codeblock x) = render x
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
-	render (Bnf e t)
-		| e `elem` makeBnf = bnf (Text.pack e) . LazyText.toStrict . TextBuilder.toLazyText . render (trimr $ preprocessPre t)
-		| otherwise = error "unexpected bnf"
+	render (Bnf e t) = \ctx -> bnf (Text.pack e) $ LazyText.toStrict $ TextBuilder.toLazyText $
+		    highlightLines ctx (trimr $ preprocessPre t)
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
@@ -633,6 +798,8 @@ data RenderContext = RenderContext
 	, insertBreaks :: Bool
 	, inLink :: Bool -- so as not to linkify grammarterms that appear as part of a defined/linkified term/phrase
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
+	, inComment :: Bool -- in comments, \tcode should not be highlighted
+	, inSectionTitle :: Bool -- in section titles, there should be no highlighting
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text
@@ -649,6 +816,8 @@ defaultRenderContext = RenderContext
 	, insertBreaks = False
 	, inLink = False
 	, inCodeBlock = False
+	, inComment = False
+	, inSectionTitle = False
 	, replXmlChars = True
 	, extraIndentation = 0
 	, idPrefix = ""
@@ -696,6 +865,7 @@ abbrHref abbr RenderContext{..}
 extractMath :: LaTeX -> Maybe (String, Bool)
 extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, _)] : more)] = extractMath [TeXMath Dollar more]
 extractMath [TeXMath Dollar (TeXComm "tcode" _ : more)] = extractMath [TeXMath Dollar more]
+extractMath [TeXMath Dollar (TeXComm "noncxxtcode" _ : more)] = extractMath [TeXMath Dollar more]
 extractMath m | not (isComplexMath m) = Nothing
 extractMath m = if isComplexMath m then Just (mathKey m) else Nothing
 
@@ -704,6 +874,7 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
   where
     cleanup :: LaTeXUnit -> LaTeX
     cleanup (TeXComm "tcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
+    cleanup (TeXComm "nontcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
     cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
     cleanup (TeXComm "discretionary" _) = []
     cleanup (TeXComm "hfill" []) = []
@@ -722,6 +893,8 @@ renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] ctx =
   render stuff ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
+  render c ctx ++ renderMath [TeXMath Dollar more] ctx
+renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
 	| isComplexMath m = TextBuilder.fromText $ renderComplexMath m ctx

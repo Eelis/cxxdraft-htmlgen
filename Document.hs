@@ -213,6 +213,7 @@ indexKeyContent txt = mconcat (map ikc txt)
 		ikc :: LaTeXUnit -> Text
 		ikc (TeXRaw t) = replace "\n" " " t
 		ikc (TeXComm "tcode" [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "noncxxtcode" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "texttt" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textit" [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textsc" [(_, x)]) = indexKeyContent x
