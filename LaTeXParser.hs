@@ -211,19 +211,15 @@ parseCode c = concatRaws . go False
 		go False (Token "/" : Token "/" : rest)
 			= TeXComm "comment" [(FixArg, TeXRaw "//" : fullParse c comment)] : go False rest'
 			where (comment, rest') = breakLineComment rest
+		go False (Token "/" : Token "*" : rest)
+		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
+		    = TeXComm "comment" [(FixArg, [TeXRaw "/*"] ++ fullParse c comment ++ [TeXRaw "*/"])] : go False rest'
 		go b (Token "/" : rest) = TeXRaw "/" : go b rest
 		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) : go b rest
 			where (code, rest) = break (`elem` [Token "@", Token "/", Token "\""]) s
 		breakLineComment s = case break (== Token "\n") s of
 			(comment, Token "\n" : rest) -> (comment ++ [Token "\n"], rest)
 			(x, y) -> (x, y)
-		{-
-		breakComment s = f s []
-			where
-				f [] a = (reverse a, [])
-				f (Token "*" : Token "/" : rest) a = (reverse $ Token "/" : Token "*" : a, rest)
-				f (x : rest) a = f rest (x : a)
-		-}
 		stringLiteral :: [Token] -> ([Token], [Token])
 		stringLiteral (Token "\\" : Token "\"" : x) = first (Token "\\\"" :) (stringLiteral x)
 		stringLiteral (Token "\\" : Token "\\" : x) = first (Token "\\\\" :) (stringLiteral x)
