@@ -6,7 +6,7 @@ module LaTeXParser (parseString, Context(..), defaultContext, Signature(..), Mac
 import LaTeXBase (LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), MathType(..), concatRaws)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Char (isAlphaNum, isSpace, isAlpha)
+import Data.Char (isAlphaNum, isSpace, isAlpha, isDigit)
 import Data.Maybe (fromJust)
 import Control.Arrow (first)
 import Data.Map (Map)
@@ -284,6 +284,11 @@ parseBegin c@Context{..} envname rest'
 			in
 				prependContent [env] (parse c afterend)
 
+parseDimen :: [Token] -> ([Token], [Token])
+parseDimen toks
+    | t@(Token txt) : more <- toks, txt `elem` [".", "pt"] || all isDigit txt = first (t :) (parseDimen more)
+    | otherwise = ([], toks)
+
 parseCmd :: Context -> String -> String -> [Token] -> ParseResult
 parseCmd c@Context{..} cmd ws rest
 	| cmd == "begin", Just (arg, rest') <- parseFixArg c rest =
@@ -314,6 +319,8 @@ parseCmd c@Context{..} cmd ws rest
 		in
 			ParseResult p (m ++ mm) r
 	| cmd == "def" = parse c $ snd $ fromJust $ balanced ('{', '}') $ dropWhile (/= Token "{") rest
+
+	| cmd == "kern" = parse c $ snd $ parseDimen rest
 
 	| Just signature <- lookup cmd signatures =
 		let
