@@ -37,7 +37,7 @@ import Text.Regex (mkRegex, subRegex)
 import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars, intercalateBuilders)
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs, urlChars, intercalateBuilders, replaceXmlChars)
 
 kill, literal :: [String]
 kill = words $
@@ -255,11 +255,7 @@ instance Render LaTeXUnit where
 	                                         replace "::" (zwsp ++ "::" ++ zwsp) .
 	                                         replace "_" "_&shy;"
 	                                      else id)
-	                                   $ (if replXmlChars ctx then
-	                                         replace ">" "&gt;" .
-	                                         replace "<" "&lt;" .
-	                                         replace "&" "&amp;"
-	                                      else id)
+	                                   $ (if replXmlChars ctx then replaceXmlChars else id)
 	                                   $ x
 	render (TeXComm "br" []          ) = return "<br/>"
 	render  TeXLineBreak               = return "<br/>"

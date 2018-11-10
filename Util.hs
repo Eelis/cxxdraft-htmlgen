@@ -4,7 +4,7 @@
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
-	textStripInfix, textSubRegex, splitOn, intercalateBuilders
+	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -119,3 +119,9 @@ splitOn _ [] = [[]]
 splitOn sep (x:y)
     | sep x = [] : splitOn sep y
     | otherwise = mapHead (x :) $ splitOn sep y
+
+replaceXmlChars :: Text -> Text
+replaceXmlChars =
+	replace ">" "&gt;" .
+	replace "<" "&lt;" .
+	replace "&" "&amp;"
