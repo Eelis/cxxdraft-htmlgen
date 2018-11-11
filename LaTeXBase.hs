@@ -3,7 +3,7 @@
 module LaTeXBase
  ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand
  , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv
- , trim, trimr, texStripInfix, isCodeblock, isMath, needsSpace, texStripPrefix, allUnits ) where
+ , trim, trimr, texStripInfix, isCodeblock, isMath, texStripPrefix, allUnits ) where
 
 import Data.Monoid ((<>))
 import Data.String (fromString)
@@ -175,31 +175,3 @@ isCodeblock :: LaTeXUnit -> Bool
 isCodeblock (TeXEnv "codeblock" _ _) = True
 isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
 isCodeblock _ = False
-
-needsSpace :: LaTeX -> Bool
-	-- In the sense of \xspace
-needsSpace [] = False
-needsSpace (z : y)
-	| invisible z = needsSpace y
-	| otherwise = go z
-	where
-		go :: LaTeXUnit -> Bool
-		go (TeXMath _ x) = needsSpace x
-		go (TeXComm "link" [(_, x), _]) = needsSpace x
-		go (TeXComm "texttt" _) = True
-		go (TeXComm "mathsf" [(_, x)]) = needsSpace x
-		go (TeXComm "mathscr" [(_, x)]) = needsSpace x
-		go (TeXComm "tcode" [(_, x)]) = needsSpace x
-		go (TeXComm "textit" [(_, x)]) = needsSpace x
-		go (TeXComm "grammarterm_" _) = True
-		go (TeXComm "index" _) = False
-		go (TeXComm "sqrt" _) = True
-		go (TeXComm "ensuremath" ((_, x) : _)) = needsSpace x
-		go (TeXComm "texorpdfstring" [_, (_, x)]) = needsSpace x
-		go (TeXComm " " []) = False
-		go (TeXComm "," []) = False
-		go (TeXComm "~" []) = True
-		go (TeXComm "&" []) = False
-		go (TeXBraces x) = needsSpace x
-		go (TeXRaw t) = Util.startsWith (\c -> isAlphaNum c || (c `elem` ("~&-!*(" :: String))) t
-		go _ = True -- error $ "needsSpace: unexpected: " ++ show x

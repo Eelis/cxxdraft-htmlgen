@@ -22,7 +22,7 @@ import Document (
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
-import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, needsSpace, isMath, isCodeblock, texStripPrefix)
+import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
@@ -235,7 +235,6 @@ instance Render LaTeX where
 		| refSec == termSec
 		, redundantOpen openParen
 		= render (gt : rest)
-	render (TeXComm (dropTrailingWs -> "xspace") [] : x) = (if needsSpace x then (" " ++) else id) . render x
 	render (TeXComm "textbackslash" [] : y)
 		| (TeXRaw s : rest) <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
 		where
