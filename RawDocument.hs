@@ -203,9 +203,10 @@ parseFile macros =
 		-- of the grammarterm.
 
 loadFigure :: Text -> Text
-loadFigure f =
-		rmIds $ snd $ Text.breakOn "<svg" $ Text.pack
-			$ unsafePerformIO (readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", p] "")
+loadFigure f = unsafePerformIO $ do
+		dot <- readFile p
+		svg <- readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", "-Nfontsize=13", "-Gfontsize=13"] (Text.unpack $ Text.replace "fontsize=24" "fontsize=13" dot)
+		return $ rmIds $ snd $ Text.breakOn "<svg" $ Text.pack svg
 	where
 		p = Text.unpack $ Text.replace ".pdf" ".dot" f
 		r = mkRegex "<g id=\"[^\"]*\"" 
