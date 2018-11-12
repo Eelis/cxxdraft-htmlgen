@@ -215,18 +215,23 @@ sameIdNamespace x y = x == y
 
 abbrIsOnPage :: LaTeX -> Page -> Bool
 abbrIsOnPage abbr page = page == FullPage || abbr `elem` (abbreviation . sections page)
-			
+
+pageIndexEntries :: RenderContext -> IntMap.IntMap IndexEntry
+pageIndexEntries c
+    | SectionPage s <- page c = secIndexEntries s
+    | otherwise = indexEntryMap (draft c)
+
 indexOccurrenceSuffix :: RenderContext -> Int -> Text
 	-- Returns the _ that distinguishes expr#def:object_expression from
 	-- expr#def:object_expression_ ([expr] has two definitions of 'object expression',
 	-- one for E1.E2 and one for E1.*E2.)
 indexOccurrenceSuffix c indexNum = Text.pack $ replicate numPre '_'
 	where
-		m	| SectionPage s <- page c = secIndexEntries s
-			| otherwise = indexEntryMap (draft c)
-		(pre, Just theEntry, _post) = IntMap.splitLookup indexNum m
+		(pre, Just theEntry, _post) = IntMap.splitLookup indexNum (pageIndexEntries c)
+		p :: IndexEntry -> Bool
 		p e = indexPath e == indexPath theEntry &&
 			indexCategory e == indexCategory theEntry &&
+			isDefinitionIndexEntry e == isDefinitionIndexEntry theEntry &&
 			sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
 		numPre = IntMap.size $ IntMap.filter p pre
 
