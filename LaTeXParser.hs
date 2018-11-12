@@ -225,7 +225,7 @@ parseCode c = concatRaws . go False
 		    _ -> error "no"
 		    where (nc, more) = span (/= Token "@") toks
 		breakLineComment s = case break (== Token "\n") s of
-			(comment, Token "\n" : rest) -> (comment ++ [Token "\n"], rest)
+			(comment, Token "\n" : rest) -> (comment, Token "\n" : rest)
 			(x, y) -> (x, y)
 		stringLiteral :: [Token] -> ([Token], [Token])
 		stringLiteral (Token "\\" : Token "\"" : x) = first (Token "\\\"" :) (stringLiteral x)
