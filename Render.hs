@@ -408,7 +408,17 @@ highlight ctx (TeXRaw x : more)
     | (a, x') <- Text.span (\c -> not (isAlphaNum c || c `elem` ("#%_(){}[]<>.*:?'\"+=-/|&!^~\n" :: String))) x, a /= ""
         = render (TeXRaw a) ctx ++ highlight ctx (TeXRaw x' : more)
     | otherwise = error ("shit: " ++ show x)
+highlight ctx (TeXEnv "indexed" [(FixArg, indices)] body : more) =
+    renderIndexed "env" indices (highlight ctx body) ++ highlight ctx more
+highlight ctx (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] : more) =
+    renderIndexed "span" indices (highlight ctx text) ++ highlight ctx more
 highlight ctx (x : more) = render x ctx ++ highlight ctx more
+
+renderIndexed :: Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
+renderIndexed thing indices body = foldl f body indexPaths
+	where
+	    f t p = xml thing [("id", uncurry indexPathId p)] t
+	    indexPaths = [ (cat, p) | [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
 
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
@@ -506,21 +516,8 @@ instance Render LaTeXUnit where
 				, aId    = "def" ++ indexPathId "generalindex" p ++ suffix
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
-	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)])
-		= \ctx -> foldl f (render text ctx) indexPaths
-		where
-			f t p = xml "span" [("id", uncurry indexPathId p)] t
-			indexPaths :: [(Text {- category -}, IndexPath)]
-			indexPaths =
-				[ (cat, p)
-				| [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
-	render (TeXEnv "indexed" [(FixArg, indices)] content)
-		= \ctx -> foldl f (render content ctx) indexPaths
-		where
-			f t p = xml "div" [("id", uncurry indexPathId p)] t
-			indexPaths :: [(Text, IndexPath)]
-			indexPaths =
-				[ (cat, p) | [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
+	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)]) = renderIndexed "span" indices . render text
+	render (TeXEnv "indexed" [(FixArg, indices)] content) = renderIndexed "env" indices . render content
 	render (TeXComm "discretionary" _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
