@@ -263,6 +263,9 @@ parseBegin c env t
     | env `elem` ["codeblock", "itemdecl", "codeblockdigitsep"]
 	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t
 	= prependContent [TeXEnv env [] (parseCode c code)] (parse c rest)
+parseBegin c "outputblock" t
+    | Just (content, rest) <- stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] t
+	= prependContent [TeXEnv "outputblock" [] [TeXRaw $ Text.pack $ concatMap tokenChars content]] (parse c rest)
 parseBegin c@Context{..} envname rest'
 	| Just Environment{..} <- Map.lookup (Text.pack envname) (environments macros)
 	, not (envname `elem` dontEval) =
