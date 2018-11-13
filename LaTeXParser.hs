@@ -202,13 +202,12 @@ parseCode c = concatRaws . go False
 	where
 		go :: Bool {- in string literal -} -> [Token] -> LaTeX
 		go _ [] = []
-		go b (Token "@" : rest) =
-				fullParse c cmd ++ go b rest'
+		go b (Token "@" : rest) = fullParse c cmd ++ go b rest'
 			where (cmd, Token "@" : rest') = break (== Token "@") rest
 		go True (Token "\"" : rest) = TeXRaw "\"" : go False rest
 		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
 			where (lit, rest') = stringLiteral rest
-		go False (Token "/" : Token "/" : (breakLineComment -> (comment, rest')))
+		go False (Token "/" : Token "/" : (break (== Token "\n") -> (comment, rest')))
 			= TeXComm "comment" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
 		go False (Token "/" : Token "*" : rest)
 		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
@@ -224,9 +223,6 @@ parseCode c = concatRaws . go False
 		        TeXComm "tcode" [(FixArg, fullParse c code)] : noncode rest
 		    _ -> error "no"
 		    where (nc, more) = span (/= Token "@") toks
-		breakLineComment s = case break (== Token "\n") s of
-			(comment, Token "\n" : rest) -> (comment, Token "\n" : rest)
-			(x, y) -> (x, y)
 		stringLiteral :: [Token] -> ([Token], [Token])
 		stringLiteral (Token "\\" : Token "\"" : x) = first (Token "\\\"" :) (stringLiteral x)
 		stringLiteral (Token "\\" : Token "\\" : x) = first (Token "\\\\" :) (stringLiteral x)
