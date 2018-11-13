@@ -180,13 +180,6 @@ instance Render Char where render c _ = TextBuilder.singleton c
 instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
 
-rmClause :: LaTeX -> LaTeX
-rmClause (TeXRaw "Clause~" : x) = x
-rmClause (TeXRaw "Clause " : x) = x
-rmClause (TeXRaw "Table~" : x) = x
-rmClause (TeXRaw "Annex~" : x) = x
-rmClause x = x
-
 redundantOpen :: Text -> Bool
 redundantOpen (Text.unpack -> (c:'(':s))
 	= (c `elem` ("~ \n" :: String))
@@ -459,12 +452,12 @@ instance Render LaTeXUnit where
 		= render anchor
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
-	render (TeXComm "link" [(FixArg, txt), (FixArg, (rmClause -> [TeXComm "ref" [(FixArg, abbr)]]))])
+	render (TeXComm "link" [(FixArg, txt), (FixArg, [TeXComm "ref" [(FixArg, abbr)]])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm comm
 				[ (FixArg, txt)
 				, (FixArg, (parseIndex -> (p, _)))
-				, (FixArg, (rmClause -> [TeXComm "ref" [(FixArg, abbr)]]))])
+				, (FixArg, [TeXComm "ref" [(FixArg, abbr)]])])
 		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
