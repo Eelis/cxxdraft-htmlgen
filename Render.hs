@@ -29,6 +29,7 @@ import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
+import qualified Text.HTML.TagSoup as Soup
 import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
 import Control.Arrow (first, second)
 import qualified Prelude
@@ -571,7 +572,7 @@ instance Render LaTeXUnit where
 	render env@(TeXEnv e _ t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
-	    | isMath env && isComplexMath [env] = TextBuilder.fromText . renderComplexMath [env]
+	    | isMath env && isComplexMath [env] = renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock t
 		| e == "minipage", [TeXEnv "codeblock" [] cb] <- trim t =
 			xml "div" [("class", "minipage")] . renderCodeblock cb
@@ -892,7 +893,7 @@ renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
 renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
-	| isComplexMath m = TextBuilder.fromText $ renderComplexMath m ctx
+	| isComplexMath m = renderComplexMath m ctx
 	| otherwise = spanTag s $ renderSimpleMath m ctx
 	where
 		s = mathKind m
@@ -967,13 +968,27 @@ mathKey m = case m of
 		[TeXEnv "eqnarray*" [] _] -> (prepMath m, False)
 		_ -> (prepMath m, True)
 
-renderComplexMath :: LaTeX -> RenderContext -> Text
+highlightCodeInMath :: RenderContext -> [Soup.Tag Text] -> TextBuilder.Builder
+highlightCodeInMath ctx
+    ( open@(Soup.TagOpen "span" (("class", cls) : _))
+    : Soup.TagText code
+    : close@(Soup.TagClose "span")
+    : more )
+      | cls `elem` ["mjx-char MJXc-TeX-type-R", "mjx-charbox MJXc-TeX-type-R"]
+        = TextBuilder.fromText (Soup.renderTags [open])
+        ++ highlight ctx [TeXRaw code]
+        ++ TextBuilder.fromText (Soup.renderTags [close])
+        ++ highlightCodeInMath ctx more
+highlightCodeInMath ctx (a:b) = TextBuilder.fromText (Soup.renderTags [a]) ++ highlightCodeInMath ctx b
+highlightCodeInMath _ [] = ""
+
+renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderComplexMath math ctx
     | inline = html
     | otherwise = "</p><p style='text-align:center'>" ++ html ++ "</p><p>"
     where
         k@(_, inline) = mathKey math
-        html = fromJust $ Map.lookup k $ mathMap ctx
+        html = highlightCodeInMath ctx $ Soup.parseTags $ fromJust $ Map.lookup k $ mathMap ctx
 
 rmTrailingNewline :: Text -> Text
 rmTrailingNewline (Text.stripSuffix "\n" -> Just x) = x
