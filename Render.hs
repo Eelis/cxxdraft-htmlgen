@@ -452,12 +452,12 @@ instance Render LaTeXUnit where
 		= render anchor
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
-	render (TeXComm "link" [(FixArg, txt), (FixArg, [TeXComm "ref" [(FixArg, abbr)]])])
+	render (TeXComm "link" [(FixArg, txt), (FixArg, abbr)])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm comm
 				[ (FixArg, txt)
 				, (FixArg, (parseIndex -> (p, _)))
-				, (FixArg, [TeXComm "ref" [(FixArg, abbr)]])])
+				, (FixArg, abbr)])
 		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
