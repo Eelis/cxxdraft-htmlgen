@@ -200,7 +200,7 @@ span.phantom { color: white; }
 	option is display:none, but then we lose the nice layout.
 	Todo: find proper solution. */
 
-span.math { }
+span.math { font-style: normal; }
 
 span.mathblock {
 	display: block;
