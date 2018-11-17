@@ -403,7 +403,7 @@ highlight ctx (TeXRaw x : more)
         = render (TeXRaw a) ctx ++ highlight ctx (TeXRaw x' : more)
     | otherwise = error ("shit: " ++ show x)
 highlight ctx (TeXEnv "indexed" [(FixArg, indices)] body : more) =
-    renderIndexed "env" indices (highlight ctx body) ++ highlight ctx more
+    renderIndexed "div" indices (highlight ctx body) ++ highlight ctx more
 highlight ctx (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] : more) =
     renderIndexed "span" indices (highlight ctx text) ++ highlight ctx more
 highlight ctx (x : more) = render x ctx ++ highlight ctx more
@@ -511,7 +511,7 @@ instance Render LaTeXUnit where
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)]) = renderIndexed "span" indices . render text
-	render (TeXEnv "indexed" [(FixArg, indices)] content) = renderIndexed "env" indices . render content
+	render (TeXEnv "indexed" [(FixArg, indices)] content) = renderIndexed "div" indices . render content
 	render (TeXComm "discretionary" _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
