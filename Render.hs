@@ -497,6 +497,7 @@ instance Render LaTeXUnit where
 					idSuffix :: Text
 					idSuffix = indexOccurrenceSuffix ctx entryNr
 				in
+					if category == "headerindex" then "" else -- needed to prevent duplicate id because \indexhdr also generates a generalindex entry
 					spanTag "indexparent" $ render anchor
 						{ aId = indexPathId category p ++ idSuffix
 						, aClass = "index"} ctx
