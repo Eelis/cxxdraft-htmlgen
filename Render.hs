@@ -145,6 +145,9 @@ indexPathId category =
 	replace "'" "&#39;" .
 	indexPathString
 
+indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Text
+indexPathId2 ctx entryNr p x = indexPathId p x ++ indexOccurrenceSuffix ctx entryNr
+
 indexPathHref :: IndexPath -> Text
 indexPathHref = (":" ++) . urlChars . indexPathString
 
@@ -403,16 +406,19 @@ highlight ctx (TeXRaw x : more)
         = render (TeXRaw a) ctx ++ highlight ctx (TeXRaw x' : more)
     | otherwise = error ("shit: " ++ show x)
 highlight ctx (TeXEnv "indexed" [(FixArg, indices)] body : more) =
-    renderIndexed "div" indices (highlight ctx body) ++ highlight ctx more
+    renderIndexed ctx "div" indices (highlight ctx body) ++ highlight ctx more
 highlight ctx (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] : more) =
-    renderIndexed "span" indices (highlight ctx text) ++ highlight ctx more
+    renderIndexed ctx "span" indices (highlight ctx text) ++ highlight ctx more
 highlight ctx (x : more) = render x ctx ++ highlight ctx more
 
-renderIndexed :: Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
-renderIndexed thing indices body = foldl f body indexPaths
+renderIndexed :: RenderContext -> Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
+renderIndexed ctx thing indices body = foldl f body indexPaths
 	where
-	    f t p = xml thing [("id", uncurry indexPathId p)] t
-	    indexPaths = [ (cat, p) | [(FixArg, _num), (OptArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, _)))] <- lookForCommand "index" indices]
+	    f t (p, x, entryNr) = xml thing [("id", indexPathId2 ctx entryNr p x)] t
+	    indexPaths = [ (cat, p, entryNr)
+	                 | [ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
+	                   , (OptArg, [TeXRaw cat])
+	                   , (FixArg, (parseIndex -> (p, _))) ] <- lookForCommand "index" indices]
 
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
@@ -493,13 +499,9 @@ instance Render LaTeXUnit where
 			Just IndexClose -> const ""
 			Just (See _ _) -> const ""
 			_ -> \ctx ->
-				let
-					idSuffix :: Text
-					idSuffix = indexOccurrenceSuffix ctx entryNr
-				in
 					if category == "headerindex" then "" else -- needed to prevent duplicate id because \indexhdr also generates a generalindex entry
 					spanTag "indexparent" $ render anchor
-						{ aId = indexPathId category p ++ idSuffix
+						{ aId = indexPathId2 ctx entryNr category p
 						, aClass = "index"} ctx
 	render (TeXComm "defnx"
 		[ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
@@ -508,11 +510,11 @@ instance Render LaTeXUnit where
 		= \ctx -> let suffix = indexOccurrenceSuffix ctx entryNr in
 			render anchor
 				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
-				, aId    = "def" ++ indexPathId "generalindex" p ++ suffix
+				, aId    = "def" ++ indexPathId2 ctx entryNr "generalindex" p
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
-	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)]) = renderIndexed "span" indices . render text
-	render (TeXEnv "indexed" [(FixArg, indices)] content) = renderIndexed "div" indices . render content
+	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
+	render (TeXEnv "indexed" [(FixArg, indices)] content) = \ctx -> renderIndexed ctx "div" indices $ render content ctx
 	render (TeXComm "discretionary" _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
