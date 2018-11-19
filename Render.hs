@@ -865,18 +865,25 @@ extractMath :: LaTeX -> Maybe (String, Bool)
 extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, _)] : more)] = extractMath [TeXMath Dollar more]
 extractMath [TeXMath Dollar (TeXComm "tcode" _ : more)] = extractMath [TeXMath Dollar more]
 extractMath [TeXMath Dollar (TeXComm "noncxxtcode" _ : more)] = extractMath [TeXMath Dollar more]
-extractMath m | not (isComplexMath m) = Nothing
-extractMath m = if isComplexMath m then Just (mathKey m) else Nothing
+extractMath m
+    | isComplexMath m = Just (mathKey m)
+    | otherwise = Nothing
 
 prepMath :: LaTeX -> String
 prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
   where
+    cleanupText :: LaTeX -> LaTeX -- MathJax does not support \, in \text
+    cleanupText [] = []
+    cleanupText (TeXComm "," [] : x) = TeXRaw " " : cleanupText x
+    cleanupText (x : y) = cleanup x ++ cleanupText y
+
     cleanup :: LaTeXUnit -> LaTeX
     cleanup (TeXComm "tcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
     cleanup (TeXComm "nontcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
     cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
     cleanup (TeXComm "discretionary" _) = []
     cleanup (TeXComm "hfill" []) = []
+    cleanup (TeXComm "text" [(FixArg, x)]) = [TeXComm "text" [(FixArg, cleanupText x)]]
     cleanup (TeXComm "break" []) = []
     cleanup (TeXComm "br" []) = []
     cleanup (TeXComm "-" []) = []
