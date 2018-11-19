@@ -22,13 +22,13 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
-	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
+	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits, triml)
 import Data.Text (Text, replace, isPrefixOf, isSuffixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import Control.Monad (forM)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (isAlpha, isSpace, isDigit)
+import Data.Char (isAlpha, isSpace, isDigit, isUpper)
 import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
@@ -119,6 +119,12 @@ instance AssignNumbers a b => AssignNumbers (Row a) (Row b) where
 		cells' <- assignNumbers s cells
 		return x{cells=cells'}
 
+startsSentence :: RawElement -> Bool
+startsSentence (RawLatexElement el)
+    | [TeXRaw (Text.dropWhile isSpace -> post)] <- triml [el]
+    = not (Text.null post) && isUpper (Text.head post)
+startsSentence _ = False
+
 splitIntoSentences :: [RawElement] -> [[RawElement]]
 splitIntoSentences = go []
 	where
@@ -126,7 +132,7 @@ splitIntoSentences = go []
 		go [] (RawLatexElement (TeXRaw "\n") : y) = go [] y
 		go [] (x@(RawExample _) : y) = [x] : go [] y
 		go [] (x@(RawNote _) : y) = [x] : go [] y
-		go [] (x@(RawCodeblock _) : y) = [x] : go [] y
+		go partial (x@(RawCodeblock _) : y@(z : _)) | startsSentence z = (partial ++ [x]) : go [] y
 		go x [] = [x]
 		go x z@(e : y)
 			| Just (s, rest) <- breakSentence z = (x ++ s) : go [] rest

@@ -3,7 +3,7 @@
 module LaTeXBase
  ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand
  , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
- , trim, trimr, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, allUnits ) where
+ , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, allUnits ) where
 
 import Data.Monoid ((<>))
 import Data.String (fromString)
@@ -175,10 +175,15 @@ dropWhileEnd p x
 -- These dropWhile and dropWhileEnd only make a half-hearted effort, in that
 -- they don't handle adjacent TeXRaws, but we don't need that.
 
-triml, trimr, trim :: LaTeX -> LaTeX
-triml = dropWhile isSpace
+trimr, trim :: LaTeX -> LaTeX
 trimr = dropWhileEnd isSpace
 trim = triml . trimr
+
+triml :: LaTeX -> LaTeX
+triml (TeXRaw x : y) = case Text.dropWhile isSpace x of
+	"" -> triml y
+	x' -> TeXRaw x' : y
+triml x = x
 
 isMath :: LaTeXUnit -> Bool
 isMath (TeXMath _ _) = True
