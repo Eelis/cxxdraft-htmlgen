@@ -78,7 +78,7 @@ renderLaTeX = mconcat . (renderUnit .)
 renderUnit :: LaTeXUnit -> Text
 renderUnit (TeXRaw t) = t
 renderUnit (TeXComm name [])
-	| dropTrailingWs name `elem` ["left", "sum", "right", "bigl", "bigr", "big", "small", "smaller"] = pack $ "\\" <> name
+	| dropTrailingWs name `elem` ["left", "sum", "int", "sin", "cos", "right", "bigl", "bigr", "big", "small", "smaller"] = pack $ "\\" <> name
 	| otherwise = "\\" <> fromString name <> "{}"
 renderUnit (TeXComm name args) = "\\" <> pack (fromString name) <> renderArgs args
 renderUnit (TeXEnv name args c) =
