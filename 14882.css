@@ -158,6 +158,7 @@ div.itemdescr {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	margin-left: 40pt;
+	background: inherit; /* no idea why this doesn't appear to be the default */
 }
 
 span.textnormal {
