@@ -22,13 +22,13 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
-	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits, triml)
-import Data.Text (Text, replace, isPrefixOf, isSuffixOf)
+	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
+import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
 import Control.Monad (forM)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (isAlpha, isSpace, isDigit, isUpper)
+import Data.Char (isAlpha)
 import Control.Arrow (first)
 import Data.Map (Map, keys)
 import qualified Data.Map as Map
@@ -37,8 +37,9 @@ import Data.List (sort, unfoldr, (\\))
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
-import Util ((.), (++), mapLast, stripInfix, textStripInfix)
+import Util ((.), (++), mapLast, stripInfix)
 import RawDocument
+import Sentences (splitIntoSentences, isActualSentence)
 import Document
 
 getCommitUrl :: IO Text
@@ -118,70 +119,6 @@ instance AssignNumbers a b => AssignNumbers (Row a) (Row b) where
 	assignNumbers s x@Row{..} = do
 		cells' <- assignNumbers s cells
 		return x{cells=cells'}
-
-startsSentence :: RawElement -> Bool
-startsSentence (RawLatexElement el)
-    | [TeXRaw (Text.dropWhile isSpace -> post)] <- triml [el]
-    = not (Text.null post) && isUpper (Text.head post)
-startsSentence _ = False
-
-splitIntoSentences :: [RawElement] -> [[RawElement]]
-splitIntoSentences = go []
-	where
-		go [] [] = []
-		go [] (RawLatexElement (TeXRaw "\n") : y) = go [] y
-		go [] (x@(RawExample _) : y) = [x] : go [] y
-		go [] (x@(RawNote _) : y) = [x] : go [] y
-		go partial (x@(RawCodeblock _) : y@(z : _)) | startsSentence z = (partial ++ [x]) : go [] y
-		go x [] = [x]
-		go x z@(e : y)
-			| Just (s, rest) <- breakSentence z = (x ++ s) : go [] rest
-			| otherwise = go (x ++ [e]) y
-		breakSentence :: [RawElement] ->
-			Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
-		breakSentence (RawLatexElement (TeXRaw x) : more)
-			| Just ((++ ".") -> pre, post) <- textStripInfix "." x
-			, not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
-			, not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
-			, not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
-			, not (Text.length pre > 1 && Text.length post > 0 && isDigit (Text.last $ Text.init pre) && isDigit (Text.head post))
-			, not ("e.g." `isSuffixOf` pre)
-			, not ("i.e." `isSuffixOf` pre) =
-				let
-					post' = Text.dropWhile isSpace post
-					(pre', post'') = case Text.stripPrefix ")" post' of
-						Just z -> (pre ++ ")" , Text.dropWhile isSpace z)
-						Nothing -> (pre, post')
-					more' = if post'' == "" then more else RawLatexElement (TeXRaw post'') : more
-					(maybefootnote, more'') = case more' of
-						fn@(RawLatexElement (TeXComm "footnoteref" _)) : z -> ([fn], z)
-						_ -> ([], more')
-					sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
-				in
-					Just (sentence, more'')
-		breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> last -> RawTexPara (last -> el))) : more)
-			| Just _ <- breakSentence [el] = Just ([enum], more)
-		breakSentence _ = Nothing
-
-isActualSentence :: [RawElement] -> Bool
-isActualSentence = any p
-	where
-		yes = words $
-			"link tcode noncxxtcode textit ref grammarterm indexedspan " ++
-			"defnx textbf textrm textsl textsc deflinkx"
-
-		q :: LaTeXUnit -> Bool
-		q (TeXRaw s) = not $ all isSpace $ Text.unpack s
-		q (TeXComm c _) | c `elem` yes = True
-		q (TeXEnv c _ _) | c `elem` yes = True
-		q (TeXEnv "indexed" _ body) = any q body
-		q (TeXBraces body) = any q body
-		q _ = False
-
-		p :: RawElement -> Bool
-		p (RawLatexElement u) = q u
-		p RawEnumerated{} = True
-		p _ = False
 
 instance AssignNumbers RawTexPara TeXPara where
 	assignNumbers s (RawTexPara (splitIntoSentences -> x)) = TeXPara . f x

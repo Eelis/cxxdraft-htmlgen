@@ -147,12 +147,6 @@ texStripInfix t = go
 		h "" = []
 		h x = [TeXRaw x]
 
-dropWhile :: (Char -> Bool) -> LaTeX -> LaTeX
-dropWhile p (TeXRaw x : y) = case Text.dropWhile p x of
-	"" -> dropWhile p y
-	x' -> TeXRaw x' : y
-dropWhile _ x = x
-
 texSpan :: (Char -> Bool) -> LaTeX -> (Text, LaTeX)
 texSpan p (TeXRaw x : y) = case Text.span p x of
     (stuff, "") ->  first (stuff ++) (texSpan p y)
@@ -171,9 +165,6 @@ dropWhileEnd p x
 		"" -> []
 		a -> [TeXRaw a]
 	| otherwise = x
-
--- These dropWhile and dropWhileEnd only make a half-hearted effort, in that
--- they don't handle adjacent TeXRaws, but we don't need that.
 
 trimr, trim :: LaTeX -> LaTeX
 trimr = dropWhileEnd isSpace
