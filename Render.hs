@@ -995,7 +995,7 @@ highlightCodeInMath _ [] = ""
 renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderComplexMath math ctx
     | inline = html
-    | otherwise = "</p><p style='text-align:center'>" ++ html ++ "</p><p>"
+    | otherwise = "<p style='text-align:center'>" ++ html ++ "<p>"
     where
         k@(_, inline) = mathKey math
         html = highlightCodeInMath ctx $ Soup.parseTags $ fromJust $ Map.lookup k $ mathMap ctx
