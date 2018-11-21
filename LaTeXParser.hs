@@ -83,6 +83,7 @@ makeEnv =
 	[ ("importgraphic", 3)
 	, ("minipage", 1)
 	, ("tabular", 1)
+	, ("array", 1)
 	, ("TableBase", 1)
 	, ("longtable", 1)
 	, ("indexed", 1)
@@ -368,6 +369,7 @@ parse c (Token ('\\':'v':'e':'r':'b':':':arg) : rest) =
 	prependContent [TeXComm "verb" [(FixArg, [TeXRaw $ Text.pack arg])]] (parse c rest)
 parse c (Token "\\let" : _ : _ : s) = parse c s -- todo
 parse c (Token "\\newcommand" : Token "{" : s) = parseNewCmd c s
+parse c (Token "\\right" : Token "." : more) = prependContent [TeXComm "right" [(FixArg, [TeXRaw "."])]] (parse c more)
 parse c (Token "\\renewcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\newenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\lstnewenvironment" : Token "{" : s) = parseNewEnv c s

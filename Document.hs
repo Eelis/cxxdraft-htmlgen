@@ -6,12 +6,12 @@ module Document (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems, XrefDelta, sectionByAbbr, maths,
+	texParaTex, texParaElems, XrefDelta, sectionByAbbr,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
 	LaTeX) where
 
-import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar), ArgKind(..), allUnits)
+import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
 import Data.Text (Text, replace)
 import qualified Data.Text as Text
 import qualified Data.List as List
@@ -274,12 +274,6 @@ figures x = [f | p <- allParagraphs x, FigureElement f <- allParaElems p]
 footnotes :: Sections a => a -> [(Section, Footnote)]
 footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
 
-unitMath :: LaTeXUnit -> Maybe LaTeX
-unitMath m@(TeXMath _ _            ) = Just [m]
-unitMath (TeXComm "ensuremath" [(FixArg, x)]) = Just x
-unitMath m@(TeXEnv "eqnarray*" _ _) = Just [m]
-unitMath _ = Nothing
-	
 allElements :: [TeXPara] -> [Element]
 allElements x = x >>= sentences >>= sentenceElems >>= f
 	where
@@ -293,11 +287,6 @@ allElements x = x >>= sentences >>= sentenceElems >>= f
 			Tabbing y -> LatexElement . y
 			Bnf _ y -> LatexElement . y
 			_ -> []
-
-maths :: Sections a => a -> [LaTeX]
-maths x = [m | s <- sections x
-             , LatexElement u <- (paragraphs s >>= allParaElems) ++ allElements (sectionFootnotes s >>= footnoteContent)
-             , (unitMath -> Just m) <- allUnits [u]]
 
 -- Misc:
 

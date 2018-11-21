@@ -35,7 +35,7 @@ import Control.Arrow (first, second)
 import qualified Prelude
 import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
-import Data.List (find, nub, intersperse)
+import Data.List (find, nub, intersperse, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
@@ -987,13 +987,28 @@ highlightCodeInMath ctx
 highlightCodeInMath ctx (a:b) = TextBuilder.fromText (Soup.renderTags [a]) ++ highlightCodeInMath ctx b
 highlightCodeInMath _ [] = ""
 
+{- Unfortunately, for:    \class{hidden_link}{\href{url}{bla}}
+MathJax generates:        <a href="url"><span class="yada hidden_link">bla</span></a>
+
+But CSS does not let you say "apply the following style to 'a' elements that have a 'span' child with class 'hidden_link'".
+
+So fixHiddenLinks moves the "hidden_link" class from the span to the a... -}
+
+fixHiddenLinks :: [Soup.Tag Text] -> [Soup.Tag Text]
+fixHiddenLinks (Soup.TagOpen "a" attrs : Soup.TagOpen "span" [("class", Text.words -> cls)] : rest)
+    | "hidden_link" `elem` cls
+        = Soup.TagOpen "a" (("class", "hidden_link") : attrs) :
+          Soup.TagOpen "span" [("class", Text.unwords $ cls \\ ["hidden_link"])] : rest
+fixHiddenLinks (x:y) = x : fixHiddenLinks y
+fixHiddenLinks [] = []
+
 renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderComplexMath math ctx
     | inline = html
-    | otherwise = "<p style='text-align:center'>" ++ html ++ "<p>"
+    | otherwise = "<br>" ++ html
     where
         (formula, inline) = mathKey math
-        html = highlightCodeInMath ctx $ Soup.parseTags $ MathJax.render formula inline
+        html = highlightCodeInMath ctx $ fixHiddenLinks $ Soup.parseTags $ MathJax.render formula inline
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =
@@ -1067,6 +1082,15 @@ instance Render TeXPara where
 instance Render [Element] where
     render l ctx = mconcat $ map (flip render ctx) l
 
+moveStuffOutsideText :: LaTeXUnit -> LaTeX
+    -- Turns \text{ \class{bla} } into \text{ }\class{\text{bla}}\text{ }, and similar for \href,
+    -- because MathJax does not support \class and \href in \text.
+moveStuffOutsideText (TeXComm "text" [(FixArg, [TeXComm nested [x, y]])])
+    | nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm "text" [y]))]]
+moveStuffOutsideText (TeXComm "text" [(FixArg, t)])
+    | length t >= 2 =   concatMap (\u -> moveStuffOutsideText $ TeXComm "text" [(FixArg, [u])]) t
+moveStuffOutsideText u = [u]
+
 instance Render Sentence where
 	render Sentence{..} ctx =
 			case i of
@@ -1082,16 +1106,32 @@ instance Render Sentence where
 			    [ (FixArg, [TeXRaw "hidden_link"])
 			    , (FixArg, [TeXComm "href" [(FixArg, [TeXRaw ("#" ++ fromJust i)]), (FixArg, [TeXRaw "."])]])
 			    ] -- in math, \class and \href are recognized by mathjax
+
+			inUnits :: LaTeX -> Maybe LaTeX
+			inUnits [] = Nothing
+			inUnits (u : uu)
+			    | Just u' <- inUnit u = Just (reverse u' ++ uu)
+			    | otherwise = (u :) . inUnits uu
+
+			inUnit :: LaTeXUnit -> Maybe LaTeX -- returns content in regular order
+			inUnit (TeXEnv "array" args body)
+			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "array" args (reverse body')]
+			inUnit (TeXComm "text" [(FixArg, x)])
+			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, reverse x')]))
+			    | otherwise = Nothing
+			inUnit (TeXMath kind m)
+			    | Just m' <- inUnits (reverse m) = Just [TeXMath kind $ reverse m']
+			    where
+			inUnit (TeXRaw (Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
+			inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
+			inUnit _ = Nothing
+
 			linkifyFullStop :: [Element] -> [Element]
 			linkifyFullStop [] = []
-			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix "." -> Just s)) : xs)
-				= LatexElement link : LatexElement (TeXRaw s) : xs
-			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix ".)" -> Just s)) : xs)
-				= LatexElement link : LatexElement (TeXRaw ")") : LatexElement (TeXRaw s) : xs
-			linkifyFullStop (fn@(LatexElement (TeXComm "footnoteref" _)) : xs)
-				= fn : linkifyFullStop xs
+			linkifyFullStop (LatexElement u : more)
+			    | Just u' <- inUnit u = map LatexElement (reverse u') ++ more
+			    | otherwise = LatexElement u : linkifyFullStop more
 			linkifyFullStop xs = xs
-
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""

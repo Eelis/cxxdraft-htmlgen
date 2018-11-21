@@ -2,12 +2,12 @@
 
 module Sentences (splitIntoSentences, isActualSentence) where
 
-import LaTeXBase (LaTeXUnit(..), triml)
+import LaTeXBase (LaTeXUnit(..), triml, LaTeX, ArgKind(FixArg))
 import Data.Text (isPrefixOf, isSuffixOf, stripPrefix)
 import qualified Data.Text as Text
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, isDigit, isUpper)
-import Util ((++), textStripInfix)
+import Util ((++), textStripInfix, dropTrailingWs)
 import RawDocument
 
 startsSentence :: RawElement -> Bool
@@ -28,6 +28,14 @@ splitIntoSentences = go []
 			| otherwise = go (x ++ [e]) y
 
 breakSentence :: [RawElement] -> Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
+breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
+    | f (reverse math) = Just ([e], more)
+    where 
+        f :: LaTeX -> Bool
+        f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
+        f (TeXComm "text" [(FixArg, a)] : _) = f (reverse a)
+        f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
+        f _ = False
 breakSentence (RawLatexElement (TeXRaw x) : more)
     | Just ((++ ".") -> pre, post) <- textStripInfix "." x
     , not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
