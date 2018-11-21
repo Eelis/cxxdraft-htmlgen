@@ -557,6 +557,12 @@ instance Render LaTeXUnit where
 	       lookup s simpleMacros       = return $ TextBuilder.fromText x
 	    | s `elem` kill                = return ""
 	    | otherwise                    = return $ spanTag (Text.pack s) ""
+	render (TeXComm "class" [(FixArg, [TeXRaw cls]), (FixArg, [TeXComm "href" [(FixArg, [TeXRaw href]), (FixArg, text)]])])
+	    = \ctx -> render anchor{aHref=href, aText=render text ctx, aClass=cls} ctx
+	render (TeXComm "class" [(FixArg, [TeXRaw cls]), (FixArg, x)])
+	    = \ctx -> spanTag cls $ render x ctx
+	render (TeXComm "href" [(FixArg, [TeXRaw href]), (FixArg, text)])
+	    = \ctx -> render anchor{aHref=href, aText=render text ctx} ctx
 	render (TeXComm (dropTrailingWs -> x) s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
@@ -1103,35 +1109,34 @@ renderTable colspec a sec =
 instance Render TeXPara where
 	render = (mconcat .) . (intersperse " " .) . mapM render . sentences
 
+instance Render [Element] where
+    render l ctx = mconcat $ map (flip render ctx) l
+
 instance Render Sentence where
 	render Sentence{..} ctx =
 			case i of
-				Nothing -> r $ map Left $ sentenceElems
+				Nothing -> render sentenceElems ctx
 				Just v ->
 					xml "div" [("id", v), ("class", "sentence")] $
-						r $ reverse $ linkifyFullStop $ reverse sentenceElems
+						render (reverse $ linkifyFullStop $ reverse sentenceElems) ctx
 		where
-			r :: [Either Element TextBuilder.Builder] -> TextBuilder.Builder
-			r [] = ""
-			r (span (\x -> case x of Left (LatexElement _) -> True; _ -> False) -> (ee@(_:_), rest))
-				= render ((\(Left (LatexElement x)) -> x) . ee) ctx
-				++ r rest
-			r (Right x : xs) = x ++ r xs
-			r (Left x : xs) = render x ctx ++ r xs
-
 			i = case sentenceNumber of
 				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
 				Nothing -> Nothing
-			link = anchor{aText = ".", aHref = "#" ++ fromJust i, aClass = "hidden_link"}
-			linkifyFullStop :: [Element] -> [Either Element TextBuilder.Builder]
+			link = TeXComm "class"
+			    [ (FixArg, [TeXRaw "hidden_link"])
+			    , (FixArg, [TeXComm "href" [(FixArg, [TeXRaw ("#" ++ fromJust i)]), (FixArg, [TeXRaw "."])]])
+			    ] -- in math, \class and \href are recognized by mathjax
+			linkifyFullStop :: [Element] -> [Element]
 			linkifyFullStop [] = []
 			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix "." -> Just s)) : xs)
-				= Right (simpleRender2 link) : Left (LatexElement $ TeXRaw s) : (Left . xs)
+				= LatexElement link : LatexElement (TeXRaw s) : xs
 			linkifyFullStop (LatexElement (TeXRaw (Text.stripSuffix ".)" -> Just s)) : xs)
-				= Right (simpleRender2 link ++ ")") : Left (LatexElement $ TeXRaw s) : (Left . xs)
+				= LatexElement link : LatexElement (TeXRaw ")") : LatexElement (TeXRaw s) : xs
 			linkifyFullStop (fn@(LatexElement (TeXComm "footnoteref" _)) : xs)
-				= Left fn : linkifyFullStop xs
-			linkifyFullStop xs = Left . xs
+				= fn : linkifyFullStop xs
+			linkifyFullStop xs = xs
+
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""
