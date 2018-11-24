@@ -51,7 +51,7 @@ Output
 
   - index.html    A table of contents with links to...
 
-  - ~2000 interlinked section pages
+  - ~2300 interlinked section pages
 
     These are named after the section abbreviation, which for
     the Bare section file style look like:
@@ -74,7 +74,7 @@ Output
       temp#dep            (the same section highlighted on the
                            page for chapter 14 "Templates")
 
-  - full         ~24 mbyte, the entire draft.
+  - full         The entire document (~24 mbyte, or ~2 mbyte compressed).
 
   - 14882.css    Used by all of the above.
 
@@ -107,3 +107,6 @@ Todo
   - bad layout and coloring in [stmt.while]/2
   - don't highlight re grammar in [re.grammar] as C++ code
   - don't highlight % in description of format strings (e.g. time#cal.month.nonmembers-11.sentence-3)
+  - nondefault node labels not handled (e.g. [tuple.elem]/3)
+  - bad highlighting for escape codes (e.g. [lex.ccon]/7)
+  - handle chapters without subsections better in TOC
