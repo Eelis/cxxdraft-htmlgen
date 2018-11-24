@@ -84,6 +84,10 @@ tocHeader date commitUrl =
 	++ " from the <a href='" ++ commitUrl ++ "'>LaTeX sources</a>"
 	++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
 	++ " This is <em>not</em> an ISO publication.)"
+	++ "<br><br>"
+	++ "<b>Note: this is an early draft. It's known to be incomplet and incorrekt, and it has lots of"
+	++ " b<span style='position:relative;left:-1.2pt'>a</span><span style='position:relative;left:1pt'>d</span>"
+	++ " for<span style='position:relative;left:-3pt'>matti<span style='position:relative;bottom:0.15ex'>n</span>g.</span></b>"
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
 writeTocFile sfs draft@Draft{..} = do
