@@ -74,7 +74,7 @@ Output
       temp#dep            (the same section highlighted on the
                            page for chapter 14 "Templates")
 
-  - full         ~9 mbyte, the entire draft.
+  - full         ~24 mbyte, the entire draft.
 
   - 14882.css    Used by all of the above.
 
