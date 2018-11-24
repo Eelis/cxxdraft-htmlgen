@@ -83,7 +83,7 @@ tocHeader date commitUrl =
 	"Generated on " ++ Text.pack (formatTime defaultTimeLocale "%F" date)
 	++ " from the C++ standard's <a href='" ++ commitUrl ++ "'>draft LaTeX sources</a>"
 	++ " by <a href='https://github.com/Eelis/cxxdraft-htmlgen'>cxxdraft-htmlgen</a>."
-	++ " This is <em>not</em> an ISO publication."
+	++ "<br>This is <em>not</em> an ISO publication."
 	++ "<hr/>"
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
@@ -98,8 +98,8 @@ writeTocFile sfs draft@Draft{..} = do
 		fileContent "" "Draft C++ Standard: Contents" (descMeta ++ tocStyle) $
 			xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
 			"<h1>Contents</h1>" ++
-			listOfTables (snd . tables draft) ++
-			listOfFigures (figures draft) ++
+			--listOfTables (snd . tables draft) ++
+			--listOfFigures (figures draft) ++
 			mconcat (tocChapter . chapters) ++
 			mconcat (h 2
 				. (\cat -> simpleRender2 anchor{aHref="TocToSection/" ++ cat, aText=indexCatName cat})
