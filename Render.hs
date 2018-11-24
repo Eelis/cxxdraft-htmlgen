@@ -1081,10 +1081,12 @@ instance Render [Element] where
 moveStuffOutsideText :: LaTeXUnit -> LaTeX
     -- Turns \text{ \class{bla} } into \text{ }\class{\text{bla}}\text{ }, and similar for \href,
     -- because MathJax does not support \class and \href in \text.
-moveStuffOutsideText (TeXComm "text" [(FixArg, [TeXComm nested [x, y]])])
-    | nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm "text" [y]))]]
-moveStuffOutsideText (TeXComm "text" [(FixArg, t)])
-    | length t >= 2 =   concatMap (\u -> moveStuffOutsideText $ TeXComm "text" [(FixArg, [u])]) t
+moveStuffOutsideText (TeXComm parent [(FixArg, [TeXComm nested [x, y]])])
+    | parent `elem` ["text", "mbox"]
+    , nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm parent [y]))]]
+moveStuffOutsideText (TeXComm parent [(FixArg, t)])
+    | parent `elem` ["text", "mbox"]
+    , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent [(FixArg, [u])]) t
 moveStuffOutsideText u = [u]
 
 instance Render Sentence where
@@ -1114,6 +1116,9 @@ instance Render Sentence where
 			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "array" args (reverse body')]
 			inUnit (TeXComm "text" [(FixArg, x)])
 			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, reverse x')]))
+			    | otherwise = Nothing
+			inUnit (TeXComm "mbox" [(FixArg, x)])
+			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "mbox" [(FixArg, reverse x')]))
 			    | otherwise = Nothing
 			inUnit (TeXMath kind m)
 			    | Just m' <- inUnits (reverse m) = Just [TeXMath kind $ reverse m']

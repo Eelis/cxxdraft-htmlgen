@@ -34,6 +34,7 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f :: LaTeX -> Bool
         f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
         f (TeXComm "text" [(FixArg, a)] : _) = f (reverse a)
+        f (TeXComm "mbox" [(FixArg, a)] : _) = f (reverse a)
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
 breakSentence (RawLatexElement (TeXRaw x) : more)
