@@ -122,10 +122,15 @@ writeSectionFile n sfs title body = do
 	writeFile (sectionFilePath n sfs) (sectionFileContent sfs title body)
 
 sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
-sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx = h hLevel $
-	secnum secnumHref s ++ " " ++
-	render sectionName ctx{inSectionTitle=True} ++ " " ++
-	simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
+sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
+    | isDef = xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR
+        ++ "<div style='height:4pt'></div>" ++ name
+    | otherwise = h hLevel $ num ++ " " ++ name ++ " " ++ abbrR
+  where
+    num = secnum secnumHref s
+    abbrR = simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
+    name = render sectionName ctx{inSectionTitle=True}
+    isDef = isDefinitionSection sectionKind
 
 writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
 writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $

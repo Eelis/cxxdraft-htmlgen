@@ -6,7 +6,7 @@ module Document (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems, XrefDelta, sectionByAbbr,
+	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
 	LaTeX) where
@@ -94,6 +94,10 @@ data SectionKind
 	| InformativeAnnexSection
 	| NormativeAnnexSection
 	deriving (Eq, Show)
+
+isDefinitionSection :: SectionKind -> Bool
+isDefinitionSection (DefinitionSection _) = True
+isDefinitionSection _ = False
 
 data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving (Eq, Show)
