@@ -48,9 +48,7 @@ makeRenderer = do
         let input = Input formula inline
         cache <- takeMVar mutex
         (result, cache') <- case Map.lookup input cache of
-            Just output -> do
-                putStrLn "reusing"
-                return (output, cache)
+            Just output -> return (output, cache)
             Nothing -> do
                 hPutStrLn stdinPipe formula
                 hPutStrLn stdinPipe (if inline then "INLINE" else "NONINLINE")
