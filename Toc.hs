@@ -91,9 +91,11 @@ writeTocFile sfs draft@Draft{..} = do
 	putStrLn "  toc"
 	date <- getCurrentTime
 	tocCss <- readFile "toc.css"
-	let tocStyle = "<style>" ++ TextBuilder.fromString tocCss ++ "</style>"
+	let
+	    descMeta = "<meta name='description' content='Browser-friendly rendering of a recent draft of the C++ standard'>"
+	    tocStyle = "<style>" ++ TextBuilder.fromString tocCss ++ "</style>"
 	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $ LazyText.toStrict $ TextBuilder.toLazyText $
-		fileContent "" "14882: Contents" tocStyle $
+		fileContent "" "14882: Contents" (descMeta ++ tocStyle) $
 			xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
 			"<h1>Contents</h1>" ++
 			listOfTables (snd . tables draft) ++
