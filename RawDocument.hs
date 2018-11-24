@@ -128,7 +128,7 @@ parseItems (x : rest)
 	where
 		mapItemContent f (RawItem l c) = RawItem l (f c)
 		addJunk :: RawTexPara -> RawTexPara
-		addJunk (RawTexPara z) = RawTexPara (RawLatexElement x : z)
+		addJunk (RawTexPara z) = RawTexPara (dropWhile isOnlySpace $ RawLatexElement x : z)
 parseItems _ = error "need items or nothing"
 
 doParse :: Macros -> Text -> (LaTeX, Macros)
@@ -214,8 +214,12 @@ loadFigure f = unsafePerformIO $ do
 			-- Without rmIds, if a page has more than one figure, it will
 			-- have duplicate 'graph1', 'node1', 'edge1' etc ids.
 
+isOnlySpace :: RawElement -> Bool
+isOnlySpace (RawLatexElement x) = triml [x] == []
+isOnlySpace _ = False
+
 parsePara :: LaTeX -> [RawTexPara]
-parsePara u = RawTexPara . fmap f . splitElems (trim (filter (not . kill) u))
+parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (filter (not . kill) u))
 	where
 		kill (TeXComm "hline" []) = True
 		kill (TeXComm "capsep" []) = True
