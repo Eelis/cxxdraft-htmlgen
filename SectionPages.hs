@@ -215,7 +215,7 @@ writeCssFile = do
 				".MJXc-TeX-main-I {font-family: MJXc-TeX-main-I,MJXc-TeX-main-Ix,MJXc-TeX-main-Iw}"
 				".MJXc-TeX-main-I {font-style: italic}"
 		-- Replace fonts to make sure code in formulas matches code in code blocks, etc.
-	mjx <- replaceFonts . Text.pack .
+	mjx <- Text.replace "display: block" "display: block;background:inherit" . replaceFonts . Text.pack .
 		readProcess "tex2html" ["--css", ""] ""
 	writeFile (outputDir ++ "/14882.css") (base ++ mjx)
 
