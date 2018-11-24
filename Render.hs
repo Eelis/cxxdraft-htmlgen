@@ -779,7 +779,7 @@ isComplexMath t =
 	(not . null $ matchCommand (`elem` complexCmds) t)
 	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
 	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ trimText $ Text.concat $ t >>= allText)
-	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr"
+	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
 
 data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | TocPage
     deriving Eq
@@ -891,10 +891,6 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
     cleanup x@TeXLineBreak = [x]
 
 renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderMath [TeXMath Dollar (TeXComm "text" [(FixArg, stuff)] : more)] ctx =
-  render stuff ctx ++ renderMath [TeXMath Dollar more] ctx
-renderMath [TeXMath Dollar (c@(TeXComm "tcode" _) : more)] ctx =
-  render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
