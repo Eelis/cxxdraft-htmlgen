@@ -12,7 +12,7 @@ module Render (
 	Render(render), concatRender, url, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
-	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas, makeMathMap, MathMap, extractMath
+	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
 	) where
 
 import Load14882 (parseIndex) -- todo: bad
@@ -33,9 +33,8 @@ import qualified Text.HTML.TagSoup as Soup
 import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
 import Control.Arrow (first, second)
 import qualified Prelude
+import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
-import System.Process (readProcess)
-import Text.Regex (mkRegex, subRegex)
 import Data.List (find, nub, intersperse)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
@@ -807,8 +806,7 @@ data RenderContext = RenderContext
 	, inSectionTitle :: Bool -- in section titles, there should be no highlighting
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, extraIndentation :: Int -- in em
-	, idPrefix :: Text
-	, mathMap :: MathMap }
+	, idPrefix :: Text }
 
 defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
@@ -825,8 +823,7 @@ defaultRenderContext = RenderContext
 	, inSectionTitle = False
 	, replXmlChars = True
 	, extraIndentation = 0
-	, idPrefix = ""
-	, mathMap = Map.empty }
+	, idPrefix = "" }
 
 squareAbbr :: Render a => a -> TextBuilder.Builder
 squareAbbr x = "[" ++ simpleRender2 x ++ "]"
@@ -866,14 +863,6 @@ abbrHref abbr RenderContext{..}
 	    SectionPage sec -> urlChars (parentLink sec abbr)
 	    _ -> url abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
-
-extractMath :: LaTeX -> Maybe (String, Bool)
-extractMath [TeXMath Dollar (TeXComm "text" [(FixArg, _)] : more)] = extractMath [TeXMath Dollar more]
-extractMath [TeXMath Dollar (TeXComm "tcode" _ : more)] = extractMath [TeXMath Dollar more]
-extractMath [TeXMath Dollar (TeXComm "noncxxtcode" _ : more)] = extractMath [TeXMath Dollar more]
-extractMath m
-    | isComplexMath m = Just (mathKey m)
-    | otherwise = Nothing
 
 prepMath :: LaTeX -> String
 prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
@@ -1003,42 +992,8 @@ renderComplexMath math ctx
     | inline = html
     | otherwise = "<p style='text-align:center'>" ++ html ++ "<p>"
     where
-        k@(_, inline) = mathKey math
-        html = highlightCodeInMath ctx $ Soup.parseTags $ fromJust $ Map.lookup k $ mathMap ctx
-
-rmTrailingNewline :: Text -> Text
-rmTrailingNewline (Text.stripSuffix "\n" -> Just x) = x
-rmTrailingNewline x = x
-
-batchedRenderMath :: [(String, Bool)] -> IO [Text]
-batchedRenderMath formulas = do
-        out <- readProcess "./mathjax-batch" [] stdin
-        return
-            $ splitResults "" 
-            $ Text.lines
-            $ Text.replace " focusable=\"false\"" ""
-            $ rmTrailingNewline -- Prevents artifacts in [rand.adapt.ibits]#4
-            $ Text.pack
-            $ rm " id=\"(MJXc|MathJax)-[0-9A-Za-z-]+\""
-            $ rm " style=\"\""
-            $ out
-    where
-        rm r s = subRegex (mkRegex r) s ""
-        stdinLines :: [String]
-        stdinLines = concatMap (\(f, inline) -> [f] ++ [if inline then "INLINE" else "NONINLINE"]) formulas
-        stdin :: String
-        stdin = unlines stdinLines
-
-        splitResults :: Text -> [Text] -> [Text]
-        splitResults _ [] = []
-        splitResults x (a:b)
-            | a == "DONE" = x : splitResults "" b
-            | otherwise = splitResults (if x == "" then a else x ++ "\n" ++ a) b
-
-type MathMap = Map.Map (String, Bool) Text
-
-makeMathMap :: [(String, Bool)] -> IO MathMap
-makeMathMap formulas = Map.fromList . zip formulas . batchedRenderMath formulas
+        (formula, inline) = mathKey math
+        html = highlightCodeInMath ctx $ Soup.parseTags $ MathJax.render formula inline
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =
