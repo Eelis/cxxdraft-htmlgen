@@ -360,6 +360,5 @@ span.indented {
 	margin-top: 1em;
 }
 
-ol.enumeratea { list-style-type: none; }
-
-ol.enumerate { list-style-type: none; }
+ol.enumeratea { list-style-type: none; background: inherit; }
+ol.enumerate { list-style-type: none; background: inherit; }
