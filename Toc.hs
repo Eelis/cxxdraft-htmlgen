@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# LANGUAGE RecordWildCards, OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, ViewPatterns, NamedFieldPuns #-}
 
 module Toc (writeTocFile) where
 
@@ -14,7 +14,7 @@ import Render (
 	secnum, Link(..), linkToSection, simpleRender, simpleRender2, squareAbbr, Page(TocPage), RenderContext(..), render,
 	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir, defaultRenderContext)
 import Util
-import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables)
+import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables, isDefinitionSection)
 
 tocSection :: Section -> TextBuilder.Builder
 tocSection Section{sectionKind=DefinitionSection _} = ""
@@ -27,16 +27,20 @@ tocSection s@Section{..} =
 	mconcat (tocSection . subsections)
 
 tocChapter :: Section -> TextBuilder.Builder
-tocChapter s@Section{..} =
+tocChapter s@Section{abbreviation, sectionName, subsections, parents} =
 	xml "div" [("id", simpleRender abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		render (sectionName ++ [TeXRaw " "], anchor{
-			aClass = "folded_abbr_ref",
-			aText  = "[" ++ simpleRender2 abbreviation ++ "]",
-			aHref  = "#" ++ simpleRender abbreviation}) defaultRenderContext{inSectionTitle=True} ++
+		render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True} ++
 		simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
+  where
+	href = (if any (not . isDefinitionSection . sectionKind) subsections then "#" else "TocToSection/")
+	    ++ url abbreviation
+	link = anchor{
+		aClass = "folded_abbr_ref",
+		aText = "[" ++ simpleRender2 abbreviation ++ "]",
+		aHref = href}
 
 listOfTables :: [Table] -> TextBuilder.Builder
 listOfTables ts =

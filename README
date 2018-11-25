@@ -109,4 +109,3 @@ Todo
   - don't highlight % in description of format strings (e.g. time#cal.month.nonmembers-11.sentence-3)
   - nondefault node labels not handled (e.g. [tuple.elem]/3)
   - bad highlighting for escape codes (e.g. [lex.ccon]/7)
-  - handle chapters without subsections better in TOC
