@@ -112,6 +112,7 @@ isParasEnd _ = False
 isJunk :: LaTeXUnit -> Bool
 isJunk (TeXRaw x) = all isSpace (Text.unpack x)
 isJunk (TeXComm "index" _) = True
+isJunk (TeXComm "setlength" _) = True
 isJunk _ = False
 
 isItem :: LaTeXUnit -> Maybe LaTeX
