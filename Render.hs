@@ -261,9 +261,9 @@ instance Render LaTeX where
 
 keywords :: [Text]
 keywords = map Text.pack $ words $
-    "char16_t char32_t namespace struct void operator friend template typedef long short class double public extern " ++
+    "char8_t char16_t char32_t namespace struct void operator friend template typedef long short class double public extern " ++
     "using char new union unsigned sizeof alignas typename virtual this return const_cast delete noexcept static_cast " ++
-    "reinterpret_cast mutable bool private protected inline constexpr final volatile default explicit enum export asm " ++
+    "reinterpret_cast mutable bool private protected inline constexpr consteval final volatile default explicit enum export asm " ++
     "typeid dynamic_cast throw if else for do while goto auto concept requires decltype try catch static_assert wchar_t " ++
     "case switch alignof break continue signed audit axiom override const register thread_local int float static"
     -- todo: read the real keyword table instead
