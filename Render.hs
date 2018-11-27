@@ -873,7 +873,10 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
     cleanupText (x : y) = cleanup x ++ cleanupText y
 
     cleanup :: LaTeXUnit -> LaTeX
-    cleanup (TeXComm "tcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
+    cleanup (TeXComm "texttt" [(FixArg, [TeXComm "textit" x])]) =
+        [TeXComm "class" [(FixArg, [TeXRaw "textit"]), (FixArg, [TeXComm "texttt" x])]]
+        -- MathJax does not support \textit inside \texttt
+    cleanup (TeXComm "tcode" x) = cleanup (TeXComm "texttt" (map (second (>>= cleanup)) x))
     cleanup (TeXComm "nontcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
     cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
     cleanup (TeXComm "discretionary" _) = []
