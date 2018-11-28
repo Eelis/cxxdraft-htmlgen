@@ -12,14 +12,14 @@ import Prelude hiding ((.), (++), writeFile)
 import LaTeXBase (LaTeXUnit(..))
 import Render (
 	secnum, Link(..), linkToSection, simpleRender, simpleRender2, squareAbbr, Page(TocPage), RenderContext(..), render,
-	fileContent, applySectionFileStyle, url, SectionFileStyle(..), outputDir, defaultRenderContext)
+	fileContent, applySectionFileStyle, SectionFileStyle(..), outputDir, defaultRenderContext)
 import Util
 import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables, isDefinitionSection)
 
 tocSection :: Section -> TextBuilder.Builder
 tocSection Section{sectionKind=DefinitionSection _} = ""
 tocSection s@Section{..} =
-	xml "div" [("id", simpleRender abbreviation)] $
+	xml "div" [("id", abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render ( sectionName ++ [TeXRaw " "]
@@ -28,7 +28,7 @@ tocSection s@Section{..} =
 
 tocChapter :: Section -> TextBuilder.Builder
 tocChapter s@Section{abbreviation, sectionName, subsections, parents} =
-	xml "div" [("id", simpleRender abbreviation)] $
+	xml "div" [("id", abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True} ++
@@ -36,10 +36,10 @@ tocChapter s@Section{abbreviation, sectionName, subsections, parents} =
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
   where
 	href = (if any (not . isDefinitionSection . sectionKind) subsections then "#" else "TocToSection/")
-	    ++ url abbreviation
+	    ++ urlChars abbreviation
 	link = anchor{
 		aClass = "folded_abbr_ref",
-		aText = "[" ++ simpleRender2 abbreviation ++ "]",
+		aText = TextBuilder.fromText $ "[" ++ abbreviation ++ "]",
 		aHref = href}
 
 listOfTables :: [Table] -> TextBuilder.Builder
@@ -56,8 +56,8 @@ listOfTables ts =
 			spanTag "secnum" (simpleRender2 tableNumber)
 			++ simpleRender2 tableCaption
 			++ simpleRender2 anchor{
-				aHref  = "TocToSection/" ++ url (abbreviation tableSection)
-				         ++ "#" ++ url (head tableAbbrs),
+				aHref  = "TocToSection/" ++ urlChars (abbreviation tableSection)
+				         ++ "#" ++ urlChars (head tableAbbrs),
 				aText  = squareAbbr (head tableAbbrs),
 				aClass = "abbr_ref"}
 			++ "<br>"
@@ -76,8 +76,8 @@ listOfFigures figs =
 			spanTag "secnum" (simpleRender2 figureNumber)
 			++ simpleRender2 figureName
 			++ simpleRender2 anchor{
-				aHref  = "TocToSection/" ++ url (abbreviation figureSection)
-				         ++ "#" ++ url figureAbbr,
+				aHref  = "TocToSection/" ++ urlChars (abbreviation figureSection)
+				         ++ "#" ++ urlChars figureAbbr,
 				aText  = squareAbbr figureAbbr,
 				aClass = "abbr_ref"}
 			++ "<br>"

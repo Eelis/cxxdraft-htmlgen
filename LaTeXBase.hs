@@ -1,7 +1,7 @@
 {-# LANGUAGE ViewPatterns, OverloadedStrings #-}
 
 module LaTeXBase
- ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand
+ ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand, isJustRaw
  , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
  , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, allUnits ) where
 
@@ -187,3 +187,7 @@ isCodeblock :: LaTeXUnit -> Bool
 isCodeblock (TeXEnv "codeblock" _ _) = True
 isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
 isCodeblock _ = False
+
+isJustRaw :: LaTeX -> Maybe Text
+isJustRaw [TeXRaw x] = Just x
+isJustRaw _ = Nothing

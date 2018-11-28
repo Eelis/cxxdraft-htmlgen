@@ -340,7 +340,7 @@ grammarterms links = mapTeX (go links)
 	where
 		go g (TeXComm "grammarterm" args@((FixArg, [TeXRaw name]) : _))
 			| Just Section{..} <- Map.lookup (Text.toLower name) g =
-				Just [TeXComm "grammarterm_" ((FixArg, abbreviation) : args)]
+				Just [TeXComm "grammarterm_" ((FixArg, [TeXRaw abbreviation]) : args)]
 		go _ _ = Nothing
 
 bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
@@ -360,7 +360,7 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		go d@(TeXComm cmd _) | cmd `elem` ["nontermdef", "terminal"] = Just [d]
 		go n@(TeXRaw name)
 			| Just Section{..} <- Map.lookup name links =
-				Just [TeXComm "grammarterm_" [(FixArg, abbreviation), (FixArg, [n])]]
+				Just [TeXComm "grammarterm_" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]
 		go _ = Nothing
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)

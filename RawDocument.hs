@@ -21,8 +21,8 @@ import qualified LaTeXParser as Parser
 import qualified Data.Text as Text
 import Data.Text (Text, replace)
 import Data.Monoid ((<>))
-import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta)
-import Data.Maybe (isJust)
+import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta, Abbreviation)
+import Data.Maybe (isJust, fromJust)
 import LaTeXParser (Macros(..), Signature(..))
 import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
@@ -50,10 +50,10 @@ data RawElement
 	| RawTable
 		{ rawTableCaption :: LaTeX
 		, rawColumnSpec :: LaTeX
-		, rawTableAbbrs :: [LaTeX]
+		, rawTableAbbrs :: [Abbreviation]
 		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
-	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: LaTeX, rawFigureSvg :: Text }
+	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: Abbreviation, rawFigureSvg :: Text }
 	deriving Show
 
 newtype RawTexPara = RawTexPara { rawTexParaElems :: [RawElement] }
@@ -70,7 +70,7 @@ data RawParagraph = RawParagraph
 	deriving Show
 
 data LinearSection = LinearSection
-	{ lsectionAbbreviation :: LaTeX
+	{ lsectionAbbreviation :: Abbreviation
 	, lsectionKind :: SectionKind
 	, lsectionName :: LaTeX
 	, lsectionParagraphs :: [RawParagraph]
@@ -228,7 +228,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 		f :: LaTeXUnit -> RawElement
 		f e@(TeXEnv k a stuff)
 			| isFigure e
-			, [(FixArg, rawFigureName), (FixArg, rawFigureAbbr), (FixArg, [TeXRaw figureFile])] <- a
+			, [(FixArg, rawFigureName), (FixArg, [TeXRaw rawFigureAbbr]), (FixArg, [TeXRaw figureFile])] <- a
 				= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
 			| isTable e
 			, ((x : _todo) : _) <- lookForCommand "caption" stuff
@@ -236,7 +236,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 				= RawTable
 				{ rawTableCaption = snd x
 				, rawColumnSpec = y
-				, rawTableAbbrs = map (snd . head) (lookForCommand "label" stuff)
+				, rawTableAbbrs = map (fromJust . isJustRaw . snd . head) (lookForCommand "label" stuff)
 				, rawTableBody = breakMultiCols $ parseTable content }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
@@ -302,7 +302,7 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 parseSections :: Int -> LaTeX -> [LinearSection]
 parseSections level
 	(TeXComm c args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
-	| ((FixArg, lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
+	| ((FixArg, isJustRaw -> fromJust -> lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
 		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
 		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
 		("definition", [name, abbr]) -> (abbr, name, DefinitionSection (level + 1), level)
@@ -416,11 +416,11 @@ loadXrefDelta = do
 	(tex, _, _) <- Parser.parseString initialContext . Text.unpack . replace "\\dcr" "--" . readFile "xrefdelta.tex"
 	let lfc c = lookForCommand c tex
 	return $
-		[ (snd from, [snd to])
+		[ (fromJust $ isJustRaw $ snd from, [snd to])
 			| [from, to] <- lfc "movedxrefs" ] ++
-		[ (snd from, (:[]) . TeXComm "ref" . (:[]) . tos)
+		[ (fromJust $ isJustRaw $ snd from, (:[]) . TeXComm "ref" . (:[]) . tos)
 			| from : tos <- lfc "movedxref" ++ lfc "movedxrefii" ++ lfc "movedxrefiii" ] ++
 		[ (abbr, [])
-			| [(_, abbr)] <- lfc "removedxref" ] ++
-		[ (a, [[TeXComm "ref" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
-			| [(_, a@[TeXRaw abbr])] <- lfc "deprxref" ]
+			| [(_, [TeXRaw abbr])] <- lfc "removedxref" ] ++
+		[ (abbr, [[TeXComm "ref" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
+			| [(_, [TeXRaw abbr])] <- lfc "deprxref" ]

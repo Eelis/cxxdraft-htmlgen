@@ -9,16 +9,16 @@
 	FlexibleInstances #-}
 
 module Render (
-	Render(render), concatRender, url, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
+	Render(render), concatRender, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
-	abbrAsPath, abbreviations, RenderContext(..), renderLatexParas
+	RenderContext(..), renderLatexParas
 	) where
 
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
-	TeXPara(..), Sentence(..),
+	TeXPara(..), Sentence(..), Abbreviation,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -209,7 +209,7 @@ sameIdNamespace Nothing (Just IndexOpen) = True
 sameIdNamespace (Just IndexOpen) Nothing = True
 sameIdNamespace x y = x == y
 
-abbrIsOnPage :: LaTeX -> Page -> Bool
+abbrIsOnPage :: Abbreviation -> Page -> Bool
 abbrIsOnPage abbr page = page == FullPage || abbr `elem` (abbreviation . sections page)
 
 pageIndexEntries :: RenderContext -> IntMap.IntMap IndexEntry
@@ -436,11 +436,11 @@ instance Render LaTeXUnit where
 	    xml "span" [("class", "comment"), ("style", "font-style:italic;font-family:serif;")] $
 	    render comment ctx{rawTilde=False, rawHyphens=False, inComment=True}
 	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
-	render (TeXComm "ref" [(FixArg, abbr)]) = \ctx@RenderContext{..} ->
+	render (TeXComm "ref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
 			linkText
-				| "tab:" `isPrefixOf` simpleRender abbr
+				| "tab:" `isPrefixOf` abbr
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
 				| otherwise = squareAbbr abbr
 		in
@@ -458,12 +458,12 @@ instance Render LaTeXUnit where
 		= render anchor
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
-	render (TeXComm "link" [(FixArg, txt), (FixArg, abbr)])
+	render (TeXComm "link" [(FixArg, txt), (FixArg, [TeXRaw abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
 	render (TeXComm comm
 				[ (FixArg, txt)
 				, (FixArg, (parseIndex -> (p, _)))
-				, (FixArg, abbr)])
+				, (FixArg, [TeXRaw abbr])])
 		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
@@ -605,7 +605,7 @@ instance Render IndexEntry where
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} =
 		return $ simpleRender2 anchor
-			{ aHref = "SectionToSection/" ++ url abbr
+			{ aHref = "SectionToSection/" ++ urlChars abbr
 				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
 			, aText = squareAbbr abbr }
 		where
@@ -638,7 +638,7 @@ renderTab stripTab Table{..} sec =
 		"Table " ++ render anchor{aText = render tableNumber sec, aHref = "#" ++ id_} sec ++ " — " ++
 		render tableCaption sec ++ "<br>" ++ renderTable columnSpec tableBody sec
 	where
-		id_ = (if stripTab then replace "tab:" "" else id) $ LazyText.toStrict $ TextBuilder.toLazyText $ render (head tableAbbrs) sec
+		id_ = (if stripTab then replace "tab:" "" else id) $ head tableAbbrs
 
 renderFig :: Bool -> Figure -> TextBuilder.Builder
 renderFig stripFig Figure{..} =
@@ -646,7 +646,7 @@ renderFig stripFig Figure{..} =
 		TextBuilder.fromText figureSvg ++ "<br>" ++
 		"Figure " ++ simpleRender2 anchor{aText=simpleRender2 figureNumber, aHref="#" ++ id_} ++ " — " ++
 		simpleRender2 figureName
-	where id_ = (if stripFig then replace "fig:" "" else id) $ simpleRender figureAbbr
+	where id_ = (if stripFig then replace "fig:" "" else id) figureAbbr
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
@@ -686,7 +686,7 @@ instance Render RenderItem where
 			link = anchor{aClass=linkClass, aHref=linkHref, aText=TextBuilder.fromText linkText}
 
 paraUrl :: RenderContext -> Text
-paraUrl RenderContext{..} = url $ abbreviation $ case nearestEnclosing of
+paraUrl RenderContext{..} = urlChars $ abbreviation $ case nearestEnclosing of
 	Left p -> paraSection p
 	Right s -> s
 
@@ -825,16 +825,16 @@ defaultRenderContext = RenderContext
 	, extraIndentation = 0
 	, idPrefix = "" }
 
-squareAbbr :: Render a => a -> TextBuilder.Builder
-squareAbbr x = "[" ++ simpleRender2 x ++ "]"
+squareAbbr :: Abbreviation -> TextBuilder.Builder
+squareAbbr x = "[" ++ TextBuilder.fromText x ++ "]"
 
 remoteTableHref :: Table -> Text
 remoteTableHref Table{tableSection=Section{..}, ..} =
-	"SectionToSection/" ++ url abbreviation ++ "#" ++ url (head tableAbbrs)
+	"SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars (head tableAbbrs)
 
 remoteFigureHref :: Figure -> Text
 remoteFigureHref Figure{figureSection=Section{..}, ..} =
-	"SectionToSection/" ++ url abbreviation ++ "#" ++ url figureAbbr
+	"SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars figureAbbr
 
 linkToRemoteTable :: Table -> Anchor
 linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
@@ -842,26 +842,23 @@ linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
 --linkToRemoteFigure :: Figure -> Anchor
 --linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
 
-parentLink :: Section -> LaTeX -> Text
+parentLink :: Section -> Abbreviation -> Text
 parentLink parent child
-	| Just sub <- Text.stripPrefix (LazyText.toStrict $ TextBuilder.toLazyText $ render (abbreviation parent) ctx ++ ".") secname = sub
-	| otherwise = secname
-	where
-		secname = LazyText.toStrict $ TextBuilder.toLazyText $ render child ctx
-		ctx = defaultRenderContext{replXmlChars=False}
+	| Just sub <- Text.stripPrefix (abbreviation parent ++ ".") child = sub
+	| otherwise = child
 
-abbrHref :: LaTeX -> RenderContext -> Text
+abbrHref :: Abbreviation -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
-	| "fig:" `isPrefixOf` simpleRender abbr =
-		if page == FullPage || abbr `elem` (figureAbbr . figures page) then "#" ++ url abbr
+	| "fig:" `isPrefixOf` abbr =
+		if page == FullPage || abbr `elem` (figureAbbr . figures page) then "#" ++ urlChars abbr
 		else remoteFigureHref (figureByAbbr draft abbr)
-	| "tab:" `isPrefixOf` simpleRender abbr =
+	| "tab:" `isPrefixOf` abbr =
 		case tableByAbbr draft abbr of
 			Just t | page /= FullPage, not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
-			_ -> "#" ++ url abbr
+			_ -> "#" ++ urlChars abbr
 	| abbrIsOnPage abbr page = "#" ++ case page of
 	    SectionPage sec -> urlChars (parentLink sec abbr)
-	    _ -> url abbr
+	    _ -> urlChars abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 prepMath :: LaTeX -> String
@@ -1194,14 +1191,14 @@ grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
 data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
 
-linkToSectionHref :: Link -> LaTeX -> Text
-linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ url abbr
+linkToSectionHref :: Link -> Abbreviation -> Text
+linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ urlChars abbr
 
-linkToSection :: Link -> LaTeX -> Anchor
+linkToSection :: Link -> Abbreviation -> Anchor
 linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr abbr }
 
-url :: LaTeX -> Text
-url = urlChars . LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}
+--url :: Text -> Text
+--url = urlChars . LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}
 
 simpleRender :: Render a => a -> Text
 simpleRender = LazyText.toStrict . TextBuilder.toLazyText . simpleRender2
@@ -1226,9 +1223,6 @@ secnum href Section{sectionNumber=n,..} =
 			| chapter == NormalChapter = simpleRender2 (head ns)
 			| otherwise = TextBuilder.singleton $ ['A'..] !! head ns
 
-abbreviations :: Section -> [LaTeX]
-abbreviations Section{..} = abbreviation : concatMap abbreviations subsections
-
 fileContent :: TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder
 fileContent pathHome title extraHead body =
 	"<!DOCTYPE html>" ++
@@ -1245,9 +1239,6 @@ fileContent pathHome title extraHead body =
 		"</head>" ++
 		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
 	"</html>"
-
-abbrAsPath :: LaTeX -> Text
-abbrAsPath = LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}
 
 data SectionFileStyle = Bare | WithExtension | InSubdir
 	deriving (Eq, Read)

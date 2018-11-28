@@ -23,7 +23,7 @@ import qualified Data.Text as Text
 import LaTeXBase (LaTeXUnit(..))
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Builder as TextBuilder
-import Render (render, concatRender, abbrAsPath, simpleRender2, outputDir, url, renderFig,
+import Render (render, concatRender, simpleRender2, outputDir, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
 	secnum, Link(..), renderLatexParas, isSectionPage, parentLink)
@@ -59,7 +59,7 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 					, aHref  =
 						if isSectionPage (page ctx)
 							then "#" ++ urlChars (idPrefix ctx) ++ n
-							else "SectionToSection/" ++ url (abbreviation paraSection) ++ "#" ++ n
+							else "SectionToSection/" ++ urlChars (abbreviation paraSection) ++ "#" ++ n
 					, aText  = TextBuilder.fromText n }
 			in
 				xml "div" (("class", "para") : idTag) .
@@ -90,7 +90,7 @@ renderSection context specific parasEmitted s@Section{..}
 		secOnPage :: Text
 		secOnPage = case page context of
 			SectionPage parent -> parentLink parent abbreviation
-			_ -> LazyText.toStrict $ TextBuilder.toLazyText $ render abbreviation defaultRenderContext{replXmlChars=False}
+			_ -> abbreviation
 		full = specific == Nothing || specific == Just s
 		header = sectionHeader (min 4 $ 1 + length parents) s
 			(if specific == Nothing && isSectionPage (page context) then "#" ++ urlChars secOnPage else "")
@@ -99,7 +99,7 @@ renderSection context specific parasEmitted s@Section{..}
 			| specific == Just s && not (null parents)
 				= anchor
 			| Just sp <- specific, sp /= s, not (null parents)
-				= anchor{aHref = "SectionToSection/" ++ url abbreviation ++ "#" ++ parentLink s (Document.abbreviation sp)}
+				= anchor{aHref = "SectionToSection/" ++ urlChars abbreviation ++ "#" ++ parentLink s (Document.abbreviation sp)}
 			| otherwise = linkToSection
 					(if null parents then SectionToToc else SectionToSection)
 					abbreviation
@@ -141,8 +141,8 @@ writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
 		r f@Figure{figureSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
-				aHref = "SectionToSection/" ++ url abbreviation
-					++ "#" ++ url figureAbbr } defaultRenderContext
+				aHref = "SectionToSection/" ++ urlChars abbreviation
+					++ "#" ++ urlChars figureAbbr } defaultRenderContext
 			++ renderFig True f
 
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
@@ -169,8 +169,8 @@ parAll = flip $ foldl $ flip par
 
 writeSingleSectionFile :: SectionFileStyle -> Draft -> String -> IO ()
 writeSingleSectionFile sfs draft abbr = do
-	let section@Section{..} = Document.sectionByAbbr draft [TeXRaw $ Text.pack abbr]
-	let baseFilename = Text.unpack $ abbrAsPath abbreviation
+	let section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
+	let baseFilename = Text.unpack abbreviation
 	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
 
@@ -179,7 +179,7 @@ writeSectionFiles sfs draft = do
 	putStr "  sections..";
 	let
 	  secs = Document.sections draft
-	  renSec section@Section{..} = (Text.unpack $ abbrAsPath abbreviation, sectionFileContent sfs title body)
+	  renSec section@Section{..} = (Text.unpack abbreviation, sectionFileContent sfs title body)
 	    where
 	      title = squareAbbr abbreviation
 	      body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
@@ -226,7 +226,7 @@ writeCssFile = do
 
 writeXrefDeltaFiles :: SectionFileStyle -> Draft -> IO ()
 writeXrefDeltaFiles sfs draft = forM_ (xrefDelta draft) $ \(from, to) ->
-	writeSectionFile (Text.unpack $ abbrAsPath from) sfs (squareAbbr from) $
+	writeSectionFile (Text.unpack from) sfs (squareAbbr from) $
 		if to == []
 			then "Subclause " ++ squareAbbr from ++ " was removed."
 			else "See " ++ intercalateBuilders ", " (flip render ctx . to) ++ "."

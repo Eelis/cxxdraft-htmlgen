@@ -6,9 +6,9 @@ module Document (
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection,
+	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
-	coreChapters, libChapters, figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
+	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
 	LaTeX) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
@@ -36,7 +36,7 @@ data Table = Table
 	{ tableNumber :: Int
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
-	, tableAbbrs :: [LaTeX]
+	, tableAbbrs :: [Abbreviation]
 	, tableBody :: [Row [TeXPara]]
 	, tableSection :: Section }
 
@@ -46,7 +46,7 @@ instance Show Table where
 data Figure = Figure
 	{ figureNumber :: Int
 	, figureName :: LaTeX
-	, figureAbbr :: LaTeX
+	, figureAbbr :: Abbreviation
 	, figureSvg :: Text
 	, figureSection :: Section }
 
@@ -116,8 +116,10 @@ data Paragraph = Paragraph
 	, allParaElems :: [Element] } -- derivable but stored for efficiency
 	deriving Show
 
+type Abbreviation = Text -- of a section, figure, or table
+
 data Section = Section
-	{ abbreviation :: LaTeX
+	{ abbreviation :: Abbreviation
 	, sectionName :: LaTeX
 	, paragraphs :: [Paragraph]
 	, sectionFootnotes :: [Footnote]
@@ -133,7 +135,7 @@ data Section = Section
 instance Eq Section where
 	x == y = abbreviation x == abbreviation y
 
-type XrefDelta = [(LaTeX, [LaTeX])]
+type XrefDelta = [(Abbreviation, [LaTeX])]
 
 data Draft = Draft
 	{ commitUrl :: Text
@@ -314,23 +316,16 @@ elemTex (TableElement t) = tableBody t >>= rowTex
 		rowTex r = content . cells r >>= (>>= texParaTex)
 elemTex (FigureElement _) = []
 
-tableByAbbr :: Draft -> LaTeX -> Maybe Table
+tableByAbbr :: Draft -> Abbreviation -> Maybe Table
 	-- only returns Maybe because some of our tables are broken
 tableByAbbr d a = listToMaybe [ t | (_, t) <- tables d, a `elem` tableAbbrs t ]
 
-figureByAbbr :: Draft -> LaTeX -> Figure
+figureByAbbr :: Draft -> Abbreviation -> Figure
 figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of
 	[f] -> f
 	_ -> error $ "figureByAbbr: " ++ show a
 
-sectionByAbbr :: Draft -> LaTeX -> Section
+sectionByAbbr :: Draft -> Abbreviation -> Section
 sectionByAbbr d a = case [ s | s <- sections d, a == abbreviation s ] of
 	[s] -> s
 	_ -> error $ "sectionByAbbr: " ++ show a
-
-splitChapters :: Draft -> ([Section], [Section])
-splitChapters = span ((/= [TeXRaw "library"]) . abbreviation) . chapters
-
-coreChapters, libChapters :: Draft -> [Section]
-coreChapters = fst . splitChapters
-libChapters = snd . splitChapters
