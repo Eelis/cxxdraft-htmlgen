@@ -103,7 +103,6 @@ Todo
     the same key
   - in collapsed stylesheet, figure out how to not hide notes/examples
     when their sentences are selected
-  - make grammarterm links local when possible
   - don't highlight re grammar in [re.grammar] as C++ code
   - don't highlight % in description of format strings (e.g. time#cal.month.nonmembers-11.sentence-3)
   - nondefault node labels not handled (e.g. [tuple.elem]/3)

@@ -478,7 +478,9 @@ instance Render LaTeXUnit where
 	render (TeXComm "grammarterm_" [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
 		\sec -> xml "i" [] $ if inLink sec
 			then TextBuilder.fromText name
-			else render anchor{aHref=grammarNameRef section name, aText=TextBuilder.fromText name} sec
+			else render anchor{
+			    aHref = grammarNameRef section name sec,
+			    aText = TextBuilder.fromText name} sec
 	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
@@ -1185,8 +1187,10 @@ bnf c x = xml "pre" [("class", c)] $ TextBuilder.fromText $ makeTabs $ Text.stri
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
 
-grammarNameRef :: Text -> Text -> Text
-grammarNameRef s n = "SectionToSection/" ++ s ++ "#nt:" ++ (Text.toLower n)
+grammarNameRef :: Abbreviation -> Text -> RenderContext -> Text
+grammarNameRef section name RenderContext{..} =
+    (if abbrIsOnPage section page then "" else "SectionToSection/" ++ section)
+    ++ "#nt:" ++ (Text.toLower name)
 
 data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
