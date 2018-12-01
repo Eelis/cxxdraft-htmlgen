@@ -167,11 +167,11 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers s (RawCodeblock x) = Codeblock . assignNumbers s x
-	assignNumbers s (RawNote x) = do
+	assignNumbers s (RawNote label x) = do
 		Numbers{..} <- get
 		put Numbers{noteNr = noteNr+1, ..}
 		x' <- assignNumbers s x
-		return $ NoteElement $ Note noteNr x'
+		return $ NoteElement $ Note noteNr label x'
 	assignNumbers s (RawExample x) = do
 		Numbers{..} <- get
 		put Numbers{exampleNr = exampleNr+1, ..}
@@ -262,7 +262,7 @@ assignItemNumbers p
 						itemLabel
 						(fst $ goParas (mapLast (+i) nn ++ [1]) itemContent)
 					) (zip [0..] enumItems)
-		goElem nn (NoteElement (Note nr paras)) = (NoteElement (Note nr paras'), nn')
+		goElem nn (NoteElement (Note nr label paras)) = (NoteElement (Note nr label paras'), nn')
 			where (paras', nn') = goParas nn paras
 		goElem nn x = (x, nn)
 

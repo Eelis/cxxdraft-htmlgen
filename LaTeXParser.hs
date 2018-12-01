@@ -78,16 +78,17 @@ rmLine s = case dropWhile (/= Token "\n") s of
 	Token "\n" : x -> x
 	x -> x
 
-makeEnv :: [(String, Int)]
+makeEnv :: [(String, Signature)]
 makeEnv =
-	[ ("importgraphic", 3)
-	, ("minipage", 1)
-	, ("tabular", 1)
-	, ("array", 1)
-	, ("TableBase", 1)
-	, ("longtable", 1)
-	, ("indexed", 1)
-	, ("itemdecl", 0) ] -- todo: move
+	[ ("importgraphic", Signature 3 Nothing)
+	, ("minipage", Signature 1 Nothing)
+	, ("tabular", Signature 1 Nothing)
+	, ("array", Signature 1 Nothing)
+	, ("TableBase", Signature 1 Nothing)
+	, ("note", Signature 0 (Just [Token "Note"]))
+	, ("longtable", Signature 1 Nothing)
+	, ("indexed", Signature 1 Nothing)
+	, ("itemdecl", Signature 0 Nothing) ] -- todo: move
 
 parseOptArg :: [Token] -> Maybe ([Token], [Token])
 parseOptArg = balanced ('[', ']')
@@ -102,12 +103,6 @@ parseFixArg ctx (Token [c] : more) | isSpace c = parseFixArg ctx more
 parseFixArg ctx (Token "{" : more) =
 	let ParseResult t _macros s = parse ctx more in Just (t, s)
 parseFixArg _ _ = Nothing
-
-parseFixArgs :: Context -> Int -> [Token] -> ([LaTeX], [Token])
-parseFixArgs c mx s
-	| mx == 0 = ([], s)
-	| Just (r, s') <- parseFixArg c s = first (r:) (parseFixArgs c (mx-1) s')
-	| otherwise = ([], s)
 
 parseSignature :: [Token] -> (Signature, [Token])
 parseSignature t = case optArgs of
@@ -267,11 +262,11 @@ parseBegin c env t
 parseBegin c "outputblock" t
     | Just (content, rest) <- stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] t
 	= prependContent [TeXEnv "outputblock" [] [TeXRaw $ Text.pack $ concatMap tokenChars content]] (parse c rest)
-parseBegin c@Context{..} envname rest'
+parseBegin c@Context{..} envname rest
 	| Just Environment{..} <- Map.lookup (Text.pack envname) (environments macros)
 	, not (envname `elem` dontEval) =
 			let
-				(args, bodyAndOnwards) = parseArgs envSignature rest'
+				(args, bodyAndOnwards) = parseArgs envSignature rest
 				(body, after_end) = balanced_body envname bodyAndOnwards
 				together = replArgs args begin ++ body ++ end
 				f
@@ -280,16 +275,17 @@ parseBegin c@Context{..} envname rest'
 				content = f $ fullParse c together
 			in
 				prependContent content (parse c after_end)
-	| otherwise =
+	| Just sig <- lookup envname makeEnv =
 			let
-				arity
-					| Just a <- lookup envname makeEnv = a
-					| otherwise = 0
-				(arguments, rest'') = parseFixArgs c arity rest'
-				ParseResult body _ afterend = parse c rest''
-				env = TeXEnv envname (map (FixArg, ) arguments) (concatRaws body)
+				(arguments, rest') = parseArgs sig rest
+				ParseResult body _ afterend = parse c rest'
+				env = TeXEnv envname (map ((FixArg, ) . fullParse c) arguments) (concatRaws body)
+					-- todo: not all fixargs
 			in
 				prependContent [env] (parse c afterend)
+	| otherwise =
+			let ParseResult body _ afterend = parse c rest
+			in prependContent [TeXEnv envname [] (concatRaws body)] (parse c afterend)
 
 parseDimen :: [Token] -> ([Token], [Token])
 parseDimen toks

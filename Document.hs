@@ -64,7 +64,7 @@ data Footnote = Footnote
 	, footnoteContent :: [TeXPara] }
 	deriving Show
 
-data Note = Note { noteNumber :: Int, noteContent :: [TeXPara] }
+data Note = Note { noteNumber :: Int, noteLabel :: Text, noteContent :: [TeXPara] }
 	deriving Show
 
 data Example = Example { exampleNumber :: Int, exampleContent :: [TeXPara] }

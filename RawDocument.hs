@@ -45,7 +45,7 @@ data RawElement
 	| RawEnumerated String [RawItem]
 	| RawCodeblock LaTeXUnit
 	| RawExample [RawTexPara]
-	| RawNote [RawTexPara]
+	| RawNote Text [RawTexPara]
 	| RawBnf String LaTeX
 	| RawTable
 		{ rawTableCaption :: LaTeX
@@ -243,7 +243,9 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| isCodeblock e = RawCodeblock e
-			| k == "note" || k == "defnote" = RawNote $ parsePara stuff
+			| k == "note" || k == "defnote" =
+			    let label = case a of [(FixArg, [TeXRaw x])] -> x; _ -> "Note"
+			    in RawNote label $ parsePara stuff
 			| k == "example" = RawExample $ parsePara stuff
 			| k == "itemdecl" || k == "minipage" = RawLatexElement e
 		f x = RawLatexElement x

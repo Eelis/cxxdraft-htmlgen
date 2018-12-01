@@ -20,7 +20,7 @@ splitIntoSentences = go []
 		go [] [] = []
 		go [] (RawLatexElement (TeXRaw "\n") : y) = go [] y
 		go [] (x@(RawExample _) : y) = [x] : go [] y
-		go [] (x@(RawNote _) : y) = [x] : go [] y
+		go [] (x@(RawNote _ _) : y) = [x] : go [] y
 		go partial (x@(RawCodeblock _) : y@(z : _)) | startsSentence z = (partial ++ [x]) : go [] y
 		go x [] = [x]
 		go x z@(e : y)

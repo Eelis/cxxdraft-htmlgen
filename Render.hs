@@ -724,7 +724,7 @@ instance Render Note where
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "note_link",
-				aText = "<span class='textit'>Note</span>" }
+				aText = spanTag "textit" (TextBuilder.fromText noteLabel) }
 
 instance Render Example where
 	render Example{..} ctx =
