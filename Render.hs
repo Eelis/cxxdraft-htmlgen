@@ -959,6 +959,7 @@ renderSimpleMathUnit (TeXRaw s) sec =
 		entities '<' = "&lt;"
 		entities '>' = "&gt;"
 		entities c = TextBuilder.singleton c
+renderSimpleMathUnit (TeXComm "mathtt" [(FixArg, x)]) ctx = spanTag "mathtt" (highlight ctx x)
 renderSimpleMathUnit (TeXBraces x) sec = renderSimpleMath x sec
 renderSimpleMathUnit (TeXMath Dollar m) sec = renderSimpleMath (trim m) sec
 renderSimpleMathUnit (TeXMath _ m) sec = renderSimpleMath m sec
