@@ -358,18 +358,17 @@ highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlightLines ctx x
     | (spaces, x') <- texSpan (== ' ') x, spaces /= "" = TextBuilder.fromText spaces ++ highlightLines ctx x'
     | Just (directive, x') <- parseCppDirective x = spanTag "preprocessordirective" (render directive ctx) ++ highlight ctx x'
-    | TeXComm "terminal" [(FixArg, y)] : more <- x = spanTag "terminal" (highlightLines ctx y) ++ highlight ctx more
+    | TeXComm (Text.pack -> c) [(FixArg, y)] : more <- x, c `elem` ["terminal", "rlap"] = spanTag c (highlightLines ctx y) ++ highlight ctx more
     | i@(TeXComm cmd _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
     | otherwise = highlight ctx x
 
 highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlight _ [] = ""
-highlight ctx (TeXComm "terminal" [(FixArg, x)] : more) =
-    spanTag "terminal" (highlight ctx x) ++ highlight ctx more
+highlight ctx (TeXComm (Text.pack -> c) [(FixArg, x)] : more)
+    | c `elem` ["terminal", "rlap"] = spanTag c (highlight ctx x) ++ highlight ctx more
 highlight ctx (x@(TeXComm c []) : more)
     | c `elem` ["%", "&", "caret", "~"] = spanTag "operator" (render x ctx) ++ highlight ctx more
     | c == "#" = spanTag "preprocessordirective" (render x ctx) ++ highlight ctx more
-highlight ctx (x@(TeXComm c []) : more)
     | c `elem` ["{", "}"] = spanTag "curlybracket" (render x ctx) ++ highlight ctx more
 highlight ctx x
     | Just x' <- texStripPrefix "\n" x = "\n" ++ highlightLines ctx x'
