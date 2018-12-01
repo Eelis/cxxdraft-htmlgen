@@ -38,11 +38,14 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
 breakSentence (RawLatexElement (TeXRaw x) : more)
-    | Just ((++ ".") -> pre, post) <- textStripInfix "." x
-    , not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
+    | Just ((++ ".") -> pre, post) <- textStripInfix "." x = f pre post
+  where
+   f pre post
+    | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
     , not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
     , not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
     , not (Text.length pre > 1 && Text.length post > 0 && isDigit (Text.last $ Text.init pre) && isDigit (Text.head post))
+    , not (("etc." `isSuffixOf` pre) && "," `isPrefixOf` post)
     , not ("e.g." `isSuffixOf` pre)
     , not ("i.e." `isSuffixOf` pre) =
         let
@@ -57,6 +60,8 @@ breakSentence (RawLatexElement (TeXRaw x) : more)
             sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
         in
             Just (sentence, more'')
+    | Just ((++ ".") -> pre', post') <- textStripInfix "." post = f (pre ++ pre') post'
+    | otherwise = Nothing
 breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> last -> RawTexPara (last -> el))) : more)
     | Just _ <- breakSentence [el] = Just ([enum], more)
 breakSentence _ = Nothing
