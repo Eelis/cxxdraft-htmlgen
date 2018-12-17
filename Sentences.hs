@@ -30,19 +30,22 @@ splitIntoSentences = go []
 breakSentence :: [RawElement] -> Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
 breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
     | f (reverse math) = Just ([e], more)
-    where 
+    where
         f :: LaTeX -> Bool
         f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
         f (TeXComm "text" [(FixArg, a)] : _) = f (reverse a)
         f (TeXComm "mbox" [(FixArg, a)] : _) = f (reverse a)
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
+breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
+breakSentence (b@(RawLatexElement (TeXComm "break" [])) : more) = Just ([b], more)
 breakSentence (RawLatexElement (TeXRaw x) : more)
     | Just ((++ ".") -> pre, post) <- textStripInfix "." x = f pre post
   where
    f pre post
     | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
     , not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
+    , not (("E.g." `isSuffixOf` pre) && ("," `isPrefixOf` post))
     , not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
     , not (Text.length pre > 1 && Text.length post > 0 && isAlphaNum (Text.last $ Text.init pre) && isDigit (Text.head post))
     , not (("etc." `isSuffixOf` pre) && "," `isPrefixOf` post)
