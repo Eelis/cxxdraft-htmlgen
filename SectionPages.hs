@@ -20,7 +20,6 @@ import Control.Parallel (par)
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import LaTeXBase (LaTeXUnit(..))
 import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Builder as TextBuilder
 import Render (render, concatRender, simpleRender2, outputDir, renderFig,

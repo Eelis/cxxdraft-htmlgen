@@ -11,10 +11,10 @@ import Data.Time.Clock (getCurrentTime, UTCTime)
 import Prelude hiding ((.), (++), writeFile)
 import LaTeXBase (LaTeXUnit(..))
 import Render (
-	secnum, Link(..), linkToSection, simpleRender, simpleRender2, squareAbbr, Page(TocPage), RenderContext(..), render,
+	secnum, Link(..), linkToSection, simpleRender2, Page(TocPage), RenderContext(..), render,
 	fileContent, applySectionFileStyle, SectionFileStyle(..), outputDir, defaultRenderContext)
 import Util
-import Document (Figure(..), Table(..), Section(..), Draft(..), SectionKind(..), indexCatName, figures, tables, isDefinitionSection)
+import Document (Section(..), Draft(..), SectionKind(..), indexCatName, isDefinitionSection)
 
 tocSection :: Section -> TextBuilder.Builder
 tocSection Section{sectionKind=DefinitionSection _} = ""
@@ -42,46 +42,6 @@ tocChapter s@Section{abbreviation, sectionName, subsections, parents} =
 		aText = TextBuilder.fromText $ "[" ++ abbreviation ++ "]",
 		aHref = href}
 
-listOfTables :: [Table] -> TextBuilder.Builder
-listOfTables ts =
-	xml "div" [("id", "tab")] $
-		h 2 ("List of Tables "
-			++ simpleRender2 abbrAnchor{aHref="#tab", aClass="folded_abbr_ref"}
-			++ simpleRender2 abbrAnchor{aHref="TocToSection/tab", aClass="unfolded_abbr_ref"})
-		++ xml "div" [("class", "tocChapter")] (mconcat (tableItem . ts))
-	where
-		abbrAnchor = anchor{aText="[tab]"}
-		tableItem :: Table -> TextBuilder.Builder
-		tableItem Table{..} =
-			spanTag "secnum" (simpleRender2 tableNumber)
-			++ simpleRender2 tableCaption
-			++ simpleRender2 anchor{
-				aHref  = "TocToSection/" ++ urlChars (abbreviation tableSection)
-				         ++ "#" ++ urlChars (head tableAbbrs),
-				aText  = squareAbbr (head tableAbbrs),
-				aClass = "abbr_ref"}
-			++ "<br>"
-
-listOfFigures :: [Figure] -> TextBuilder.Builder
-listOfFigures figs =
-	xml "div" [("id", "fig")] $
-		h 2 ("List of Figures "
-			++ simpleRender2 abbrAnchor{aHref="#fig", aClass="folded_abbr_ref"}
-			++ simpleRender2 abbrAnchor{aHref="TocToSection/fig", aClass="unfolded_abbr_ref"})
-		++ xml "div" [("class", "tocChapter")] (mconcat (figureItem . figs))
-	where
-		abbrAnchor = anchor{aText="[fig]"}
-		figureItem :: Figure -> TextBuilder.Builder
-		figureItem Figure{..} =
-			spanTag "secnum" (simpleRender2 figureNumber)
-			++ simpleRender2 figureName
-			++ simpleRender2 anchor{
-				aHref  = "TocToSection/" ++ urlChars (abbreviation figureSection)
-				         ++ "#" ++ urlChars figureAbbr,
-				aText  = squareAbbr figureAbbr,
-				aClass = "abbr_ref"}
-			++ "<br>"
-
 tocHeader :: UTCTime -> Text -> Text
 tocHeader date commitUrl =
 	"(Generated on " ++ Text.pack (formatTime defaultTimeLocale "%F" date)
@@ -94,7 +54,7 @@ tocHeader date commitUrl =
 	++ " for<span style='position:relative;left:-3pt'>matti<span style='position:relative;bottom:0.15ex'>n</span>g.</span></b>"
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
-writeTocFile sfs draft@Draft{..} = do
+writeTocFile sfs Draft{..} = do
 	putStrLn "  toc"
 	date <- getCurrentTime
 	tocCss <- readFile "toc.css"
@@ -106,8 +66,6 @@ writeTocFile sfs draft@Draft{..} = do
 			"<h1 style='text-align:center; hyphens:none'>Working Draft, Standard for Programming Language C++</h1>" ++
 			"<br>" ++ xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
 			"<br><h1>Contents</h1>" ++
-			--listOfTables (snd . tables draft) ++
-			--listOfFigures (figures draft) ++
 			mconcat (tocChapter . chapters) ++
 			mconcat (h 2
 				. (\cat -> simpleRender2 anchor{aHref="TocToSection/" ++ cat, aText=indexCatName cat})

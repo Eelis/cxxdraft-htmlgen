@@ -7,7 +7,6 @@ import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
-import Data.Maybe (mapMaybe)
 import Control.Monad (forM_)
 import Util
 
