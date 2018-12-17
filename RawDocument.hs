@@ -252,7 +252,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 		splitElems :: LaTeX -> [LaTeX]
 		splitElems [] = []
 		splitElems (x:xs)
-			| TeXRaw (textStripInfix "\n\n" -> Just (a, (Text.dropWhile isSpace -> b))) <- x =
+			| TeXRaw (textStripInfix "\n\n" -> Just (a, (Text.stripStart -> b))) <- x =
 				(if a == "" then ([] :) else ([TeXRaw a] :)) $
 					splitElems (if b == "" then xs else TeXRaw b : xs)
 			| otherwise = case splitElems xs of

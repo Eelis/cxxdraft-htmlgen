@@ -772,14 +772,11 @@ allText (TeXBraces x) = x >>= allText
 allText (TeXMath _ x) = x >>= allText
 allText _ = []
 
-trimText :: Text -> Text
-trimText = Text.dropWhile isSpace . Text.dropWhileEnd isSpace
-
 isComplexMath :: LaTeX -> Bool
 isComplexMath t =
 	(not . null $ matchCommand (`elem` complexCmds) t)
 	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
-	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ trimText $ Text.concat $ t >>= allText)
+	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
 	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
 
 data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | TocPage
@@ -1125,7 +1122,7 @@ instance Render Sentence where
 			inUnit (TeXMath kind m)
 			    | Just m' <- inUnits (reverse m) = Just [TeXMath kind $ reverse m']
 			    where
-			inUnit (TeXRaw (Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
+			inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
 			inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
 			inUnit _ = Nothing
 

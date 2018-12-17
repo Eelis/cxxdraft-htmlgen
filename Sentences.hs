@@ -53,9 +53,9 @@ breakSentence (RawLatexElement (TeXRaw x) : more)
     , not ("e.g." `isSuffixOf` pre)
     , not ("i.e." `isSuffixOf` pre) =
         let
-            post' = Text.dropWhile isSpace post
+            post' = Text.stripStart post
             (pre', post'') = case stripPrefix ")" post' of
-                Just z -> (pre ++ ")" , Text.dropWhile isSpace z)
+                Just z -> (pre ++ ")" , Text.stripStart z)
                 Nothing -> (pre, post')
             more' = if post'' == "" then more else RawLatexElement (TeXRaw post'') : more
             (maybefootnote, more'') = case more' of
