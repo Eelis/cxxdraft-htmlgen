@@ -6,13 +6,27 @@ import LaTeXBase (LaTeXUnit(..), triml, LaTeX, ArgKind(FixArg))
 import Data.Text (isPrefixOf, isSuffixOf, stripPrefix)
 import qualified Data.Text as Text
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (isSpace, isDigit, isAlphaNum, isUpper)
+import Data.Char (isSpace, isDigit, isAlphaNum, isUpper, isLower)
 import Util ((++), textStripInfix, dropTrailingWs)
 import RawDocument
 
 startsSentence :: RawElement -> Bool
 startsSentence (RawLatexElement e) | [TeXRaw x] <- triml [e], x /= "" = isUpper (Text.head x)
 startsSentence _ = False
+
+unitContinuesSentence :: LaTeXUnit -> Bool
+unitContinuesSentence (TeXComm " " []) = True
+unitContinuesSentence (TeXRaw txt) = "," `isPrefixOf` txt
+unitContinuesSentence _ = False
+
+elemContinuesSentence :: RawElement -> Bool
+elemContinuesSentence (RawLatexElement u) = unitContinuesSentence u
+elemContinuesSentence _ = False
+
+elemsContinueSentence :: [RawElement] -> Bool
+elemsContinueSentence (RawLatexElement (TeXRaw "") : more) = elemsContinueSentence more
+elemsContinueSentence (x : _) = elemContinuesSentence x
+elemsContinueSentence _ = False
 
 splitIntoSentences :: [RawElement] -> [[RawElement]]
 splitIntoSentences = go []
@@ -39,16 +53,14 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f _ = False
 breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
 breakSentence (b@(RawLatexElement (TeXComm "break" [])) : more) = Just ([b], more)
-breakSentence (RawLatexElement (TeXRaw x) : more)
-    | Just ((++ ".") -> pre, post) <- textStripInfix "." x = f pre post
+breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") -> pre, post)))) : more)
+    = f pre post
   where
    f pre post
     | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
-    , not (("e." `isSuffixOf` pre) && ("g." `isPrefixOf` post))
-    , not (("E.g." `isSuffixOf` pre) && ("," `isPrefixOf` post))
-    , not (("i." `isSuffixOf` pre) && ("e." `isPrefixOf` post))
+    , not (Text.length post > 0 && isLower (Text.head post))
     , not (Text.length pre > 1 && Text.length post > 0 && isAlphaNum (Text.last $ Text.init pre) && isDigit (Text.head post))
-    , not (("etc." `isSuffixOf` pre) && "," `isPrefixOf` post)
+    , not (elemsContinueSentence (RawLatexElement (TeXRaw post) : more))
     , not (Text.length pre >= 2 && ("." `isSuffixOf` pre) && isUpper (Text.last $ Text.init pre))
     , not ("e.g." `isSuffixOf` pre)
     , not ("i.e." `isSuffixOf` pre) =
