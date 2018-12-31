@@ -142,13 +142,14 @@ indexPathId category =
 	(":" ++) .
 	replace " "  "%20" .
 	replace "'" "&#39;" .
+	replace "&" "&amp;" .
 	indexPathString
 
 indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Text
 indexPathId2 ctx entryNr p x = indexPathId p x ++ indexOccurrenceSuffix ctx entryNr
 
 indexPathHref :: IndexPath -> Text
-indexPathHref = (":" ++) . urlChars . indexPathString
+indexPathHref = (":" ++) . urlChars . replace "&" "&amp;" . indexPathString
 
 asId :: LaTeX -> Text
 asId = mconcat . map f
