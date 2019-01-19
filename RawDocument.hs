@@ -180,7 +180,7 @@ signatures =
 			"tcode noncxxtcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref textsuperscript rlap mathrel mathbin"
+			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength"
@@ -399,6 +399,13 @@ makeRowCells latex =
 			| otherwise =
 				Cell Normal $ parsePara content
 
+rmExplSyntax :: Text -> Text
+rmExplSyntax = Text.unlines . f . Text.lines
+    where
+        f [] = []
+        f ("\\ExplSyntaxOn" : (dropWhile (/= "\\ExplSyntaxOff") -> (_ : x))) = f x
+        f (h : t) = h : f t
+
 loadMacros :: IO Macros
 loadMacros =
 	snd
@@ -407,8 +414,7 @@ loadMacros =
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+") ""
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
-	. ("\\newcommand{\\nopnumdiffref}[1]{\\textbf{Affected subclause:} \\ref{#1}}\n" ++)
-	. ("\\newcommand{\\nopnumdiffrefs}[2]{\\textbf{Affected subclauses:} \\ref{#1}, \\ref{#2}}\n" ++)
+	. rmExplSyntax
 	. mconcat
 	. mapM readFile
 	["config.tex", "macros.tex", "tables.tex"]

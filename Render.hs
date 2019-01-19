@@ -419,6 +419,13 @@ renderIndexed ctx thing indices body = foldl f body indexPaths
 	                   , (OptArg, [TeXRaw cat])
 	                   , (FixArg, (parseIndex -> (p, _))) ] <- lookForCommand "index" indices]
 
+commasAnd :: [TextBuilder.Builder] -> TextBuilder.Builder
+commasAnd [] = undefined
+commasAnd [x] = x
+commasAnd [x, y] = x ++ " and " ++ y
+commasAnd [x, y, z] = x ++ ", " ++ y ++ ", and " ++ z
+commasAnd (x : y) = x ++ ", " ++ commasAnd y
+
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
@@ -445,6 +452,10 @@ instance Render LaTeXUnit where
 				| otherwise = squareAbbr abbr
 		in
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText}
+	render (TeXComm "nopnumdiffref" [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
+	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
+	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
+	        ++ commasAnd (map f abbrs)
 	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) = render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = TextBuilder.fromText s ++ ":"
