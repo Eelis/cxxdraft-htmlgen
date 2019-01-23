@@ -326,12 +326,15 @@ parseCppDirective x
         = Just ([TeXRaw ("#" ++ spaces ++ directive)], x'''')
     | otherwise = Nothing
 
-parseSingleLineCommentStart :: LaTeX -> Maybe (LaTeXUnit, LaTeX)
-parseSingleLineCommentStart x
-    | Just x' <- texStripPrefix "//" x = Just (TeXRaw "//", x')
-    | TeXComm cmd [(FixArg, y)] : more <- x
-    , cmd `elem` ["rlap", "textnormal", "textit"]
-        = first (\z -> TeXComm cmd [(FixArg, [z])]) . second (++ more) . parseSingleLineCommentStart y
+parseSingleLineComment :: LaTeX -> Maybe (LaTeX {- comment -}, LaTeX {- subsequent lines -})
+parseSingleLineComment x
+    | Just x' <- texStripPrefix "//" x = Just $ case texStripInfix "\n" x' of
+        Just (commentLine, moreLines) -> (TeXRaw "//" : commentLine, TeXRaw "\n" : moreLines)
+        Nothing -> (x, [])
+    | rlap@(TeXComm "rlap" [(FixArg, [TeXComm "textnormal" [(FixArg,[TeXComm "textit" [(FixArg,[TeXRaw "//"])]])]])]) : more <- x
+    , Just (commentLine, moreLines) <- texStripInfix "\n" more
+        = Just ([rlap, TeXComm "tcode" [(FixArg, commentLine)]], TeXRaw "\n" : moreLines)
+    | TeXComm "comment" [(FixArg, c)] : x' <- x = Just (c, x')
     | otherwise = Nothing
 
 parseNumber :: LaTeX -> Maybe (Text, LaTeX)
@@ -359,14 +362,14 @@ highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlightLines ctx x
     | (spaces, x') <- texSpan (== ' ') x, spaces /= "" = TextBuilder.fromText spaces ++ highlightLines ctx x'
     | Just (directive, x') <- parseCppDirective x = spanTag "preprocessordirective" (render directive ctx) ++ highlight ctx x'
-    | TeXComm (Text.pack -> c) [(FixArg, y)] : more <- x, c `elem` ["terminal", "rlap"] = spanTag c (highlightLines ctx y) ++ highlight ctx more
+    | TeXComm (Text.pack -> c) [(FixArg, y)] : more <- x, c `elem` ["terminal"] = spanTag c (highlightLines ctx y) ++ highlight ctx more
     | i@(TeXComm cmd _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
     | otherwise = highlight ctx x
 
 highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlight _ [] = ""
 highlight ctx (TeXComm (Text.pack -> c) [(FixArg, x)] : more)
-    | c `elem` ["terminal", "rlap"] = spanTag c (highlight ctx x) ++ highlight ctx more
+    | c `elem` ["terminal"] = spanTag c (highlight ctx x) ++ highlight ctx more
 highlight ctx (x@(TeXComm c []) : more)
     | c `elem` ["%", "&", "caret", "~"] = spanTag "operator" (render x ctx) ++ highlight ctx more
     | c == "#" = spanTag "preprocessordirective" (render x ctx) ++ highlight ctx more
@@ -383,8 +386,7 @@ highlight ctx x
         = spanTag "comment" ("/*" ++ render comment ctx ++ "*/") ++ highlight ctx x''
     | Just x' <- texStripPrefix "/*" x = spanTag "comment" "/*" ++ highlight ctx x'
     | Just x' <- texStripPrefix "*/" x = spanTag "comment" "*/" ++ highlight ctx x'
-    | Just (start, (texSpan (/= '\n') -> (comment, x'))) <- parseSingleLineCommentStart x
-        = spanTag "comment" (render start ctx ++ TextBuilder.fromText comment) ++ highlight ctx x'
+    | Just (comment, x') <- parseSingleLineComment x = spanTag "comment" (render comment ctx{inComment=True}) ++ highlightLines ctx x'
     -- keywords
     | (a, x') <- texSpan p x, a /= "" = (case () of
         _ | a `elem` keywords -> spanTag "keyword"
@@ -439,9 +441,6 @@ instance Render LaTeXUnit where
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" []) = const $ spanTag "comment" "/* ... */"
-	render (TeXComm "comment" [(FixArg, comment)]) = \ctx ->
-	    xml "span" [("class", "comment"), ("style", "font-style:italic;font-family:serif;")] $
-	    render comment ctx{rawTilde=False, rawHyphens=False, inComment=True}
 	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
 	render (TeXComm "ref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let

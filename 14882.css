@@ -251,7 +251,7 @@ code.itemdeclcode {
 	display: block;
 }
 
-span.comment { color: green; }
+span.comment { color: green; font-style: italic; font-family: serif; }
 span.keyword { color: #00607c; }
 span.parenthesis { color: #af1915; }
 span.curlybracket { color: #af1915; }
