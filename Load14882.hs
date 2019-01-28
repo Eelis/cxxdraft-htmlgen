@@ -66,18 +66,24 @@ gitGetCommitRef = do
 -- to move the \indexdefns inside (after) the \definition, so that the index entries
 -- don't link to the page for the preceding section.
 
-moveIndexEntriesIntoDefs :: Text -> Text
-moveIndexEntriesIntoDefs = Text.unlines . go . Text.lines
+moveIndexEntriesIntoDefs :: [Text] -> [Text]
+moveIndexEntriesIntoDefs [] = []
+moveIndexEntriesIntoDefs (x:xs)
+	| "\\indexdefn{" `isPrefixOf` x = case moveIndexEntriesIntoDefs xs of
+		[] -> [x]
+		y:ys
+			| "\\definition{" `isPrefixOf` y -> y : x : ys
+			| otherwise -> x : y : ys
+	| otherwise = x : moveIndexEntriesIntoDefs xs
+
+moveIndexEntriesIntoSecs :: [Text] -> [Text]
+moveIndexEntriesIntoSecs = go []
 	where
-		go :: [Text] -> [Text]
-		go [] = []
-		go (x:xs)
-			| "\\indexdefn{" `isPrefixOf` x = case go xs of
-				[] -> [x]
-				y:ys
-					| "\\definition{" `isPrefixOf` y -> y : x : ys
-					| otherwise -> x : y : ys
-			| otherwise = x : go xs
+		go x [] = x
+		go x (h:t)
+		    | "\\indextext{" `isPrefixOf` h = go (h : x) t
+		    | "\\rSec" `isPrefixOf` h = h : reverse x ++ go [] t
+		    | otherwise = reverse x ++ [h] ++ go [] t
 
 data Numbers = Numbers
 	{ tableNr, figureNr, footnoteRefNr, footnoteNr, itemDeclNr
@@ -474,7 +480,7 @@ load14882 = do
 		stuff <-
 			replace "multicolfloattable" "floattable" .
 			replace "\\indeximpldef{" "\\index[impldefindex]{" .
-			moveIndexEntriesIntoDefs .
+			Text.unlines . moveIndexEntriesIntoSecs . moveIndexEntriesIntoDefs . Text.lines .
 			trackPnums p .
 			replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
 			replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
