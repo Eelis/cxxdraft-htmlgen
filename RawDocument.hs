@@ -160,7 +160,7 @@ signatures =
 		, ("gramSec", Signature 2 (Just []))
 		]
 	where
-		a 0 = "today def makeatletter bottomline makeatother Sec left right bmod " ++
+		a 0 = "today def makeatletter bottomline makeatother Sec left right bmod long " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
 			"textup edef x itcorrwidth itletterwidth small BnfIndent par leq " ++
 			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++
