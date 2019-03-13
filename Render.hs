@@ -787,7 +787,7 @@ isComplexMath :: LaTeX -> Bool
 isComplexMath t =
 	(not . null $ matchCommand (`elem` complexCmds) t)
 	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
-	|| (Text.any (`elem` ("+-*/^_=, " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
+	|| (Text.any (`elem` ("+-*/^_=,' " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
 	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
 
 data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | TocPage
