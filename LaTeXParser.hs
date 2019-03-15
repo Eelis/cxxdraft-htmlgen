@@ -259,6 +259,11 @@ parseBegin c env t
     | env `elem` ["codeblock", "itemdecl", "codeblockdigitsep"]
 	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t
 	= prependContent [TeXEnv env [] (parseCode c code)] (parse c rest)
+parseBegin c env t
+	| env == "codeblocktu"
+	, Just (title, t') <- balanced ('{', '}') t
+	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t'
+	= prependContent [TeXEnv env [(FixArg, fullParse c title)] (parseCode c code)] (parse c rest)
 parseBegin c "outputblock" t
     | Just (content, rest) <- stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] t
 	= prependContent [TeXEnv "outputblock" [] [TeXRaw $ Text.pack $ concatMap tokenChars content]] (parse c rest)

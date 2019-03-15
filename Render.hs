@@ -190,11 +190,14 @@ redundantOpen (Text.unpack -> (c:'(':s))
 	&& (s `elem` ["", "Clause ", "Clause~"])
 redundantOpen _ = False
 
-renderCodeblock :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderCodeblock code ctx =
-    xml "pre" [("class", "codeblock")] $
-    highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
-    concatRaws $ expandTcode code
+renderCodeblock :: String -> [(ArgKind, LaTeX)] -> LaTeX -> RenderContext -> TextBuilder.Builder
+renderCodeblock env args code ctx =
+    (case (env, args) of
+      ("codeblocktu", [(FixArg, title)]) -> "<p>" ++ render title ctx ++ ":"
+      _ -> "") ++
+    xml "pre" [("class", "codeblock")] (
+        highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
+        concatRaws $ expandTcode code)
   where
     expandTcode :: LaTeX -> LaTeX
     expandTcode [] = []
@@ -589,13 +592,13 @@ instance Render LaTeXUnit where
 			xml "div" [("class", "itemdecl"), ("id", i)] $
 			xml "div" [("class", "marginalizedparent")] (render link c) ++
 			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ highlightLines c{rawTilde=True, rawHyphens=True} t)
-	render env@(TeXEnv e _ t)
+	render env@(TeXEnv e args t)
 	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath [env] = renderComplexMath [env]
-	    | isCodeblock env              = renderCodeblock t
+	    | isCodeblock env              = renderCodeblock e args t
 		| e == "minipage", [TeXEnv "codeblock" [] cb] <- trim t =
-			xml "div" [("class", "minipage")] . renderCodeblock cb
+			xml "div" [("class", "minipage")] . renderCodeblock "codeblock" [] cb
 		| e == "outputblock"           = renderOutputblock t
 	    | otherwise                    = error $ "render: unexpected env " ++ e
 
