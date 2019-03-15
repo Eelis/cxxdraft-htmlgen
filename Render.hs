@@ -269,7 +269,7 @@ keywords = map Text.pack $ words $
     "using char new union unsigned sizeof alignas typename virtual this return const_cast delete noexcept static_cast " ++
     "reinterpret_cast mutable bool private protected inline constexpr consteval final volatile default explicit enum export asm " ++
     "typeid dynamic_cast throw if else for do while goto auto concept requires decltype try catch static_assert wchar_t " ++
-    "case switch alignof break continue signed audit axiom override const register thread_local int float static"
+    "case switch alignof break continue signed audit axiom override const register thread_local int float static module import"
     -- todo: read the real keyword table instead
 
 cppDirectives :: [Text]
