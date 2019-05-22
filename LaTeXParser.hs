@@ -85,6 +85,7 @@ makeEnv =
 	, ("tabular", Signature 1 Nothing)
 	, ("array", Signature 1 Nothing)
 	, ("TableBase", Signature 1 Nothing)
+	, ("lib2dtab2", Signature 4 Nothing)
 	, ("note", Signature 0 (Just [Token "Note"]))
 	, ("longtable", Signature 1 Nothing)
 	, ("indexed", Signature 1 Nothing)

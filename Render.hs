@@ -1021,25 +1021,25 @@ renderComplexMath math ctx
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =
-	xml "table" [] (renderRows (parseColspec $ Text.unpack $ stripColspec colspec) a)
+	xml "table" [] (renderRows (parseColspec colspec) a)
 	where
-		stripColspec :: LaTeX -> Text
-		stripColspec = mconcat . (>>= f)
-			where
-				f (TeXRaw s) = [s]
-				f _ = []
+		parseColspec :: LaTeX -> [Text]
+		parseColspec [] = []
+		parseColspec (TeXRaw (Text.unpack -> '|' : x) : y) = go (TeXRaw (Text.pack x) : y)
+		parseColspec x = go x
 
-		parseColspec :: String -> [Text]
-		parseColspec ('|' : rest) = pc rest
-		parseColspec other = pc other
-
-		pc ('|' : []) = []
-		pc ('|' : letter : rest) =
-			"border " ++ (colClass letter) : pc rest
-		pc (letter : rest) =
-			colClass letter : pc rest
-		pc "" = []
-
+		go :: LaTeX -> [Text]
+		go [] = []
+		go [TeXRaw "|"] = []
+		go (TeXRaw "@" : TeXBraces _ : x) = go x -- unimplemented
+		go (TeXRaw ">" : TeXBraces _ : x) = go x -- unimplemented
+		go (TeXRaw "" : y) = go y
+		go (TeXRaw (Text.unpack -> '|' : rest) : y) = (\(d:b)->("border " ++ d:b)) $ go (TeXRaw (Text.pack rest) : y)
+		go (TeXRaw (Text.unpack -> letter : rest) : y) = colClass letter : go (TeXRaw (Text.pack rest) : y)
+		go (TeXBraces _ : x) = go x -- unimplemented
+		go x = error ("parseColspec: " ++ show x)
+		
+		colClass :: Char -> Text
 		colClass x | x `elem` ['l', 'm', 'x'] = "left"
 		colClass 'p' = "justify"
 		colClass 'r' = "right"
@@ -1067,16 +1067,16 @@ renderTable colspec a sec =
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let
-					[c''] = parseColspec $ Text.unpack $ stripColspec cs'
+					[c''] = parseColspec cs'
 					c' = combine c'' c ++ clineClass colnum clines
 					colspan
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					(xml "td" [("colspan", Text.pack $ show colspan), ("class", c')] $ renderLatexParas content sec)
+					renderCell colspan c' (renderLatexParas content sec)
 					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				(xml "td" [("class", c ++ clineClass colnum clines)] $ renderLatexParas content sec)
+				renderCell 1 (c ++ clineClass colnum clines) (renderLatexParas content sec)
 				++ renderCols cs (colnum + 1) clines rest
 		renderCols [] _ _ (_ : _) = error "Too many columns"
 
@@ -1084,6 +1084,13 @@ renderTable colspec a sec =
 			| isJust $ find (\(begin, end) -> begin <= n && n <= end) clines =
 				" cline"
 			| otherwise = ""
+
+renderCell :: Int -> Text -> TextBuilder.Builder -> TextBuilder.Builder
+renderCell colspan classes content = xml "td" attrs content
+    where
+        classes' = if TextBuilder.toLazyText content == "" then "empty " ++ classes else classes
+        attrs = [("colspan", Text.pack $ show colspan) | colspan /= 1]
+            ++ [("class", classes')]
 
 instance Render TeXPara where
 	render = (mconcat .) . (intersperse " " .) . mapM render . sentences

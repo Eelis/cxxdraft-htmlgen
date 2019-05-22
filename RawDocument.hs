@@ -86,7 +86,7 @@ isBnf (TeXEnv s _ _)
 isBnf _ = False
 
 isTable, isTabbing, isFigure :: LaTeXUnit -> Bool
-isTable = isTeXEnv "TableBase"
+isTable x = isTeXEnv "TableBase" x || isTeXEnv "lib2dtab2" x
 isTabbing = isTeXEnv "tabbing"
 isFigure = isTeXEnv "importgraphic"
 
