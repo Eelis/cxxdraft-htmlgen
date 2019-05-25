@@ -411,6 +411,9 @@ loadMacros =
 	snd
 	. doParse mempty
 	. replace "\\newcommand{\\cv}{\\ifmmode\\mathit{cv}\\else\\cvqual{cv}\\fi}" "\\newcommand{\\cv}{\\mathit{cv}}"
+	. replace
+	       "\\renewcommand{\\tref}[1]{\\hyperref[tab:#1]{\\tablerefname \\nolinebreak[3] \\ref*{tab:#1}}}\n"
+	       "\\renewcommand{\\tref}[1]{Table \\ref{tab:#1}}\n"
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+") ""
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
