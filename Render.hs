@@ -724,6 +724,8 @@ instance Render Footnote where
 
 noWrapSpace :: TextBuilder.Builder
 noWrapSpace = "<span style='white-space:nowrap'> </span>"
+    -- &nbsp; would make more sense but introduces bad newlines when the text is copied
+    -- to the clipboard in Firefox. See https://bugzilla.mozilla.org/show_bug.cgi?id=1273836
 
 instance Render Note where
 	render Note{..} ctx =
