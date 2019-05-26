@@ -1041,8 +1041,10 @@ renderTable colspec a sec =
 		go (TeXRaw "@" : TeXBraces _ : x) = go x -- unimplemented
 		go (TeXRaw ">" : TeXBraces _ : x) = go x -- unimplemented
 		go (TeXRaw "" : y) = go y
-		go (TeXRaw (Text.unpack -> '|' : rest) : y) = (\(d:b)->("border " ++ d:b)) $ go (TeXRaw (Text.pack rest) : y)
-		go (TeXRaw (Text.unpack -> letter : rest) : y) = colClass letter : go (TeXRaw (Text.pack rest) : y)
+		go (TeXRaw (Text.unpack -> letter : rest) : y)
+		    | letter == ' ' = go (TeXRaw (Text.pack rest) : y)
+		    | letter == '|' = (\(d:b)->("border " ++ d:b)) $ go (TeXRaw (Text.pack rest) : y)
+		    | otherwise = colClass letter : go (TeXRaw (Text.pack rest) : y)
 		go (TeXBraces _ : x) = go x -- unimplemented
 		go x = error ("parseColspec: " ++ show x)
 		
