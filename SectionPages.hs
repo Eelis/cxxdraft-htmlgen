@@ -122,8 +122,7 @@ writeSectionFile n sfs title body = do
 
 sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
 sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
-    | isDef = xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR
-        ++ "<div style='height:4pt'></div>" ++ name
+    | isDef = xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
     | otherwise = h hLevel $ num ++ " " ++ name ++ " " ++ abbrR
   where
     num = secnum secnumHref s
