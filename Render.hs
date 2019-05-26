@@ -818,6 +818,8 @@ data RenderContext = RenderContext
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, inComment :: Bool -- in comments, \tcode should not be highlighted
 	, inSectionTitle :: Bool -- in section titles, there should be no highlighting
+	, inSentence :: Bool -- inside a sentence, we shouldn't generate nested sentence divs
+	                     -- (which would happen for sentences inside items inside lists inside sentences)
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
@@ -835,6 +837,7 @@ defaultRenderContext = RenderContext
 	, inCodeBlock = False
 	, inComment = False
 	, inSectionTitle = False
+	, inSentence = False
 	, replXmlChars = True
 	, extraIndentation = 0
 	, idPrefix = "" }
@@ -1112,12 +1115,11 @@ moveStuffOutsideText (TeXComm parent [(FixArg, t)])
 moveStuffOutsideText u = [u]
 
 instance Render Sentence where
-	render Sentence{..} ctx =
-			case i of
-				Nothing -> render sentenceElems ctx
-				Just v ->
+	render Sentence{..} ctx
+			| not (inSentence ctx), Just v <- i =
 					xml "div" [("id", v), ("class", "sentence")] $
-						render (reverse $ linkifyFullStop $ reverse sentenceElems) ctx
+						render (reverse $ linkifyFullStop $ reverse sentenceElems) ctx{inSentence = True}
+			| otherwise = render sentenceElems ctx
 		where
 			i = case sentenceNumber of
 				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
