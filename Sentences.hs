@@ -35,11 +35,13 @@ splitIntoSentences = go []
 		go [] (RawLatexElement (TeXRaw "\n") : y) = go [] y
 		go [] (x@(RawExample _) : y) = [x] : go [] y
 		go [] (x@(RawNote _ _) : y) = [x] : go [] y
-		go partial (x@(RawCodeblock _) : y@(z : _)) | startsSentence z = (partial ++ [x]) : go [] y
+		go partial (x@(RawCodeblock _) : y) | z : _ <- rmIndices y, startsSentence z = (partial ++ [x]) : go [] y
 		go x [] = [x]
 		go x z@(e : y)
 			| Just (s, rest) <- breakSentence z = (x ++ s) : go [] rest
 			| otherwise = go (x ++ [e]) y
+		rmIndices (RawLatexElement (TeXRaw "\n") : RawLatexElement (TeXComm "index" _) : x) = rmIndices x
+		rmIndices x = x
 
 breakSentence :: [RawElement] -> Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
 breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
