@@ -40,7 +40,7 @@ main = do
 	createDirectoryIfMissing True outputDir
 	copyFile "icon.png" (outputDir ++ "/icon.png")
 	writeCssFile
-	forM_ ["collapsed.css", "expanded.css", "colored.css"] $
+	forM_ ["expanded.css", "colored.css"] $
 		\f -> copyFile f (outputDir ++ "/" ++ f)
 	case sectionToWrite of
 		Just abbr -> writeSingleSectionFile sectionFileStyle draft abbr

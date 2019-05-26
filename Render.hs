@@ -1255,7 +1255,6 @@ fileContent pathHome title extraHead body =
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Notes and examples expanded'/>" ++
 			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
-			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "collapsed.css' title='Notes and examples collapsed'/>" ++
 			"<link rel='icon' href='icon.png'/>" ++
 			extraHead ++
 		"</head>" ++
