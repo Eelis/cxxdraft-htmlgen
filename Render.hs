@@ -538,6 +538,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "footnoteref" [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
 		{ aClass = "footnotenum"
 		, aText  = TextBuilder.fromText n
+		, aId    = "footnoteref-" ++ n
 		, aHref  =
 			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
@@ -710,6 +711,7 @@ instance Render Footnote where
 			xml "div" [("class", "footnote"), ("id", i)] $
 			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
 			renderLatexParas content ctx{idPrefix = i ++ "."}
+			++ " " ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
 		where
 			num = Text.pack $ show n
 			i = "footnote-" ++ num
