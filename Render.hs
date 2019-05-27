@@ -1018,13 +1018,17 @@ fixHiddenLinks (Soup.TagOpen "a" attrs : Soup.TagOpen "span" [("class", Text.wor
 fixHiddenLinks (x:y) = x : fixHiddenLinks y
 fixHiddenLinks [] = []
 
+removeAriaLabel :: Soup.Tag Text -> Soup.Tag Text
+removeAriaLabel (Soup.TagOpen x attrs) = Soup.TagOpen x (filter ((/= "aria-label") . fst) attrs)
+removeAriaLabel x = x
+
 renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderComplexMath math ctx
     | inline = html
     | otherwise = "<br>" ++ html
     where
         (formula, inline) = mathKey math
-        html = highlightCodeInMath ctx $ fixHiddenLinks $ Soup.parseTags $ MathJax.render formula inline
+        html = highlightCodeInMath ctx $ fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a sec =
