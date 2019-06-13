@@ -130,18 +130,18 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
     name = render sectionName ctx{inSectionTitle=True}
     isDef = isDefinitionSection sectionKind
 
-writeFiguresFile :: SectionFileStyle -> [Figure] -> IO ()
-writeFiguresFile sfs figs = writeSectionFile "fig" sfs "14882: Figures" $
+writeFiguresFile :: SectionFileStyle -> Draft -> IO ()
+writeFiguresFile sfs draft = writeSectionFile "fig" sfs "14882: Figures" $
 	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
-	++ mconcat (r . figs)
+	++ mconcat (uncurry r . figures draft)
 	where
-		r :: Figure -> TextBuilder.Builder
-		r f@Figure{figureSection=s@Section{..}, ..} =
+		r :: Paragraph -> Figure -> TextBuilder.Builder
+		r p f@Figure{figureSection=s@Section{..}, ..} =
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ urlChars abbreviation
 					++ "#" ++ urlChars figureAbbr } defaultRenderContext
-			++ renderFig True f
+			++ renderFig True f defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=FiguresPage}
 
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
 writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $

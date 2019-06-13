@@ -116,6 +116,7 @@ simpleMacros =
 	, ("textrangle"     , "&rangle;")
 	, ("textmu"         , "μ")
 	, ("tablerefname"   , "Table")
+	, ("figurerefname"  , "Figure")
 	, ("newline"        , "<br>")
 	, (">"              , "&#9;")
 	, ("bnfindent"      , "&#9;")
@@ -445,6 +446,12 @@ instance Render LaTeXUnit where
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" []) = const $ spanTag "comment" "/* ... */"
 	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
+	render (TeXComm "fref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
+		let
+			linkText :: TextBuilder.Builder
+			linkText = TextBuilder.fromString $ ("Figure " ++) $ show $ figureNumber $ figureByAbbr draft ("fig:" ++ abbr)
+		in
+			simpleRender2 anchor{aHref = abbrHref ("fig:" ++ abbr) ctx, aText = linkText}
 	render (TeXComm "ref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
@@ -649,19 +656,19 @@ instance Render IndexTree where
 					go up' indexSubnodes
 
 renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
-renderTab stripTab Table{..} sec =
+renderTab stripTab Table{..} ctx =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
-		"Table " ++ render anchor{aText = render tableNumber sec, aHref = "#" ++ id_} sec ++ " — " ++
-		render tableCaption sec ++ "<br>" ++ renderTable columnSpec tableBody sec
+		"Table " ++ render anchor{aText = render tableNumber ctx, aHref = "#" ++ id_} ctx ++ ": " ++
+		render tableCaption ctx ++ "<br>" ++ renderTable columnSpec tableBody ctx
 	where
 		id_ = (if stripTab then replace "tab:" "" else id) $ head tableAbbrs
 
-renderFig :: Bool -> Figure -> TextBuilder.Builder
-renderFig stripFig Figure{..} =
+renderFig :: Bool -> Figure -> RenderContext -> TextBuilder.Builder
+renderFig stripFig Figure{..} ctx =
 	xml "div" [("class", "figure"), ("id", id_)] $
 		TextBuilder.fromText figureSvg ++ "<br>" ++
-		"Figure " ++ simpleRender2 anchor{aText=simpleRender2 figureNumber, aHref="#" ++ id_} ++ " — " ++
-		simpleRender2 figureName
+		"Figure " ++ render anchor{aText = render figureNumber ctx, aHref="#" ++ id_} ctx ++ ": " ++
+		render figureName ctx ++ "&emsp;&ensp;" ++ squareAbbr figureAbbr
 	where id_ = (if stripFig then replace "fig:" "" else id) figureAbbr
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
@@ -771,7 +778,7 @@ instance Render Element where
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
-	render (FigureElement f) = return $ renderFig False f
+	render (FigureElement f) = renderFig False f
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			concatRender (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where
@@ -797,7 +804,7 @@ isComplexMath t =
 	|| (Text.any (`elem` ("+-*/^_=,' " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
 	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
 
-data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | TocPage
+data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | FiguresPage | TocPage
     deriving Eq
 
 isSectionPage :: Page -> Bool
@@ -869,7 +876,7 @@ parentLink parent child
 abbrHref :: Abbreviation -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
 	| "fig:" `isPrefixOf` abbr =
-		if page == FullPage || abbr `elem` (figureAbbr . figures page) then "#" ++ urlChars abbr
+		if page == FullPage || abbr `elem` (figureAbbr . snd . figures page) then "#" ++ urlChars abbr
 		else remoteFigureHref (figureByAbbr draft abbr)
 	| "tab:" `isPrefixOf` abbr =
 		case tableByAbbr draft abbr of

@@ -150,7 +150,7 @@ instance AssignNumbers RawElement Element where
 		return $ FigureElement Figure
 			{ figureNumber  = figureNr
 			, figureName    = rawFigureName
-			, figureAbbr    = rawFigureAbbr
+			, figureAbbr    = "fig:" ++ rawFigureAbbr
 			, figureSvg     = rawFigureSvg
 			, figureSection = section }
 	assignNumbers s RawTable{..} = do

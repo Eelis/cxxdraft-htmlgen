@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
 import Render (outputDir, SectionFileStyle(..))
-import Document (Draft(..), figures)
+import Document (Draft(..))
 import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
@@ -47,7 +47,7 @@ main = do
 		Nothing -> do
 			writeTocFile sectionFileStyle draft
 			writeIndexFiles sectionFileStyle index
-			writeFiguresFile sectionFileStyle (figures draft)
+			writeFiguresFile sectionFileStyle draft
 			writeTablesFile sectionFileStyle draft
 			writeFootnotesFile sectionFileStyle draft
 			writeSectionFiles sectionFileStyle draft

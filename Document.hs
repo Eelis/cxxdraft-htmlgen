@@ -274,8 +274,8 @@ allParagraphs = (>>= paragraphs) . sections
 tables :: Sections a => a -> [(Paragraph, Table)]
 tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allParaElems p]
 
-figures :: Sections a => a -> [Figure]
-figures x = [f | p <- allParagraphs x, FigureElement f <- allParaElems p]
+figures :: Sections a => a -> [(Paragraph, Figure)]
+figures x = [(p, f) | p <- allParagraphs x, FigureElement f <- allParaElems p]
 
 footnotes :: Sections a => a -> [(Section, Footnote)]
 footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
@@ -321,7 +321,7 @@ tableByAbbr :: Draft -> Abbreviation -> Maybe Table
 tableByAbbr d a = listToMaybe [ t | (_, t) <- tables d, a `elem` tableAbbrs t ]
 
 figureByAbbr :: Draft -> Abbreviation -> Figure
-figureByAbbr d a = case [ f | f <- figures d, a == figureAbbr f ] of
+figureByAbbr d a = case [ f | (_, f) <- figures d, a == figureAbbr f ] of
 	[f] -> f
 	_ -> error $ "figureByAbbr: " ++ show a
 
