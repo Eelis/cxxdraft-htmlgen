@@ -30,7 +30,7 @@ import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Text.HTML.TagSoup as Soup
-import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
+import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit, isLower)
 import Control.Arrow (first, second)
 import qualified Prelude
 import qualified MathJax
@@ -39,7 +39,7 @@ import Data.List (find, nub, intersperse, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, stripAnyPrefix)
+    urlChars, intercalateBuilders, replaceXmlChars, stripAnyPrefix, mapLast)
 
 kill, literal :: [String]
 kill = words $
@@ -1150,6 +1150,11 @@ instance Render Sentence where
 			    | Just u' <- inUnit u = Just (reverse u' ++ uu)
 			    | otherwise = (u :) . inUnits uu
 
+			inItem :: Item -> Item
+			inItem it@Item{itemContent=[TeXPara (s@Sentence{sentenceElems=e@(LatexElement (TeXRaw (Text.unpack -> x : _)) : _)} : ss)]}
+			    | isLower x = it{itemContent=[TeXPara (s{sentenceElems = reverse $ linkifyFullStop $ reverse e} : ss)]}
+			inItem x = x
+
 			inUnit :: LaTeXUnit -> Maybe LaTeX -- returns content in regular order
 			inUnit (TeXEnv "array" args body)
 			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "array" args (reverse body')]
@@ -1168,6 +1173,7 @@ instance Render Sentence where
 
 			linkifyFullStop :: [Element] -> [Element]
 			linkifyFullStop [] = []
+			linkifyFullStop (Enumerated cmd items : more) = Enumerated cmd (mapLast inItem items) : more
 			linkifyFullStop (LatexElement u : more)
 			    | Just u' <- inUnit u = map LatexElement (reverse u') ++ more
 			    | otherwise = LatexElement u : linkifyFullStop more
