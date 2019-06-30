@@ -1159,6 +1159,8 @@ instance Render Sentence where
 			inUnit :: LaTeXUnit -> Maybe LaTeX -- returns content in regular order
 			inUnit (TeXEnv "array" args body)
 			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "array" args (reverse body')]
+			inUnit (TeXEnv "indented" [] body)
+			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "indented" [] (reverse body')]
 			inUnit (TeXComm "text" [(FixArg, x)])
 			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, reverse x')]))
 			    | otherwise = Nothing
