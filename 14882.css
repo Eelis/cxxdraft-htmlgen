@@ -359,6 +359,7 @@ div.table {
 }
 
 span.indented {
+	background: inherit;
 	display: block;
 	margin-left: 2em;
 	margin-bottom: 1em;
