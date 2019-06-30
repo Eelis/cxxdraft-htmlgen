@@ -1131,6 +1131,7 @@ moveStuffOutsideText u = [u]
 
 instance Render Sentence where
 	render Sentence{..} ctx
+			| (Enumerated _ _ : _) <- sentenceElems = render sentenceElems ctx -- not a real sentence
 			| not (inSentence ctx), Just v <- i =
 					xml "div" [("id", v), ("class", "sentence")] $
 						render (reverse $ linkifyFullStop $ reverse sentenceElems) ctx{inSentence = True}

@@ -85,7 +85,8 @@ breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> last -> RawTexPa
 breakSentence _ = Nothing
 
 isActualSentence :: [RawElement] -> Bool
-isActualSentence = any p
+isActualSentence (RawEnumerated _ _ : _) = False
+isActualSentence l = any p l
 	where
 		yes = words $
 			"link tcode noncxxtcode textit ref grammarterm indexedspan " ++
