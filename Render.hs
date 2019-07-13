@@ -39,7 +39,7 @@ import Data.List (find, nub, intersperse, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, stripAnyPrefix, mapLast)
+    urlChars, intercalateBuilders, replaceXmlChars, mapLast)
 
 kill, literal :: [String]
 kill = words $
@@ -341,26 +341,50 @@ parseSingleLineComment x
     | TeXComm "comment" [(FixArg, c)] : x' <- x = Just (c, x')
     | otherwise = Nothing
 
+parseMany :: (Text -> Maybe (Text, Text)) -> Text -> (Text, Text)
+parseMany p t = case p t of
+    Nothing -> ("", t)
+    Just (x, t') -> first (x++) (parseMany p t')
+
+parseChar :: (Char -> Bool) -> Text -> Maybe (Text, Text)
+parseChar p t
+    | t /= "", p (Text.head t) = Just (Text.take 1 t, Text.drop 1 t)
+    | otherwise = Nothing
+
+parseFirstOf :: [Text -> Maybe (a, Text)] -> Text -> Maybe (a, Text)
+parseFirstOf [] _ = Nothing
+parseFirstOf (p:pp) t
+    | Just r <- p t = Just r
+    | otherwise = parseFirstOf pp t
+
+parseSeq :: (Text -> Maybe (Text, Text)) -> (Text -> Maybe (Text, Text)) -> Text -> Maybe (Text, Text)
+parseSeq p q t
+    | Just (x, t') <- p t
+    , Just (y, t'') <- q t' = Just (x ++ y, t'')
+    | otherwise = Nothing
+
 parseNumber :: LaTeX -> Maybe (Text, LaTeX)
 parseNumber x
     | (raw, more) <- unconsRaw x
-    , raw /= ""
-    , looksLikeNumber raw
-    , (a, raw') <- Text.span (\c -> isAlphaNum c || c `elem` ("'."::String)) raw, a /= ""
-    , (si, raw'') <- parseSign raw'
-    , (suffix, raw''') <- Text.span (\c -> isAlphaNum c || c == '_') raw''
-        = Just (a ++ si ++ suffix, TeXRaw raw''' : more)
+    , Just (n, rest) <- (parseStart `parseSeq` (\t -> Just (parseMany parseSuffix t))) raw
+        = Just (n, TeXRaw rest : more)
     | otherwise = Nothing
     where
-        looksLikeNumber :: Text -> Bool
-        looksLikeNumber y = isDigit (Text.head y)
-            || (Text.length y >= 2 && Text.head y == '.' && isDigit (Text.head (Text.tail y)))
-        parseSign :: Text -> (Text, Text)
-        parseSign t
-            | Just (thesign, aftersign) <- stripAnyPrefix ["+", "-"] t
-            , (a, b) <- Text.span isAlphaNum aftersign
-                = (thesign ++ a, b)
-            | otherwise = ("", t)
+        parseDigit = parseChar isDigit
+        parseNonDigit = parseChar (\c -> isAlpha c || c == '_')
+        parseStart :: Text -> Maybe (Text, Text)
+        parseStart = parseFirstOf [parseChar (== '.') `parseSeq` parseDigit, parseDigit]
+        parseSign :: Text -> Maybe (Text, Text)
+        parseSign = parseChar (\c -> c == '-' || c == '+')
+        parseSuffix :: Text -> Maybe (Text, Text)
+        parseSuffix = parseFirstOf
+            [ parseDigit
+            , parseChar (== '\'') `parseSeq` parseDigit
+            , parseChar (== '\'') `parseSeq` parseNonDigit
+            , parseChar (`elem` ("eEpP"::String)) `parseSeq` parseSign
+            , parseChar (== '.')
+            , parseNonDigit
+            ]
 
 highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlightLines ctx x
