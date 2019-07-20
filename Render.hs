@@ -414,7 +414,7 @@ highlight ctx x
         = spanTag "comment" ("/*" ++ render comment ctx ++ "*/") ++ highlight ctx x''
     | Just x' <- texStripPrefix "/*" x = spanTag "comment" "/*" ++ highlight ctx x'
     | Just x' <- texStripPrefix "*/" x = spanTag "comment" "*/" ++ highlight ctx x'
-    | Just (comment, x') <- parseSingleLineComment x = spanTag "comment" (render comment ctx{inComment=True}) ++ highlightLines ctx x'
+    | Just (comment, x') <- parseSingleLineComment x = spanTag "comment" (render comment ctx{inComment=True, rawTilde=False}) ++ highlightLines ctx x'
     -- keywords
     | (a, x') <- texSpan p x, a /= "" = (case () of
         _ | a `elem` keywords -> spanTag "keyword"
@@ -595,7 +595,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "texorpdfstring" [_, (FixArg, x)]) = render x
 	render (TeXComm " " [])            = return "&nbsp;"
 	render (TeXComm "\n" [])           = return "\n"
-	render (TeXComm "textit" [(FixArg, x)]) = spanTag "textit" . render x
+	render (TeXComm "textit" [(FixArg, x)]) = \c -> spanTag "textit" $ render x c{rawTilde = False}
 	render (TeXComm (dropTrailingWs -> s) [])
 	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s
