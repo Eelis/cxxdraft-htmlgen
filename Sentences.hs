@@ -1,14 +1,16 @@
-{-# LANGUAGE OverloadedStrings, ViewPatterns, LambdaCase #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns, LambdaCase, TypeSynonymInstances, FlexibleInstances #-}
 
-module Sentences (splitIntoSentences, isActualSentence) where
+module Sentences (splitIntoSentences, isActualSentence, linkifyFullStop) where
 
 import LaTeXBase (LaTeXUnit(..), triml, LaTeX, ArgKind(FixArg))
-import Data.Text (isPrefixOf, isSuffixOf, stripPrefix)
+import Data.Text (isPrefixOf, isSuffixOf, stripPrefix, Text)
 import qualified Data.Text as Text
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, isDigit, isAlphaNum, isUpper, isLower)
-import Util ((++), textStripInfix, dropTrailingWs)
+import Data.Maybe (isNothing)
+import Util ((++), textStripInfix, dropTrailingWs, (.), trimString)
 import RawDocument
+import Document
 
 startsSentence :: RawElement -> Bool
 startsSentence (RawLatexElement e) | [TeXRaw x] <- triml [e], x /= "" = isUpper (Text.head x)
@@ -104,3 +106,87 @@ isActualSentence l = any p l
 		p (RawLatexElement u) = q u
 		p RawEnumerated{} = True
 		p _ = False
+
+class LinkifyFullStop a where
+    linkifyFullStop :: LaTeXUnit -> a -> Maybe a
+
+instance LinkifyFullStop LaTeX where
+    linkifyFullStop link l = reverse . f (reverse l)
+      where
+        f [] = Nothing
+        f (u : uu)
+            | Just u' <- inUnit u = Just (reverse u' ++ uu)
+            | otherwise = (u :) . f uu
+        inUnit :: LaTeXUnit -> Maybe LaTeX -- returns content in regular order
+        inUnit (TeXEnv "array" args body)
+            | Just body' <- linkifyFullStop link body = Just [TeXEnv "array" args body']
+        inUnit (TeXEnv "indented" [] body)
+            | Just body' <- linkifyFullStop link body = Just [TeXEnv "indented" [] body']
+        inUnit (TeXComm "text" [(FixArg, x)])
+            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, x')]))
+            | otherwise = Nothing
+        inUnit (TeXComm "mbox" [(FixArg, x)])
+            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "mbox" [(FixArg, x')]))
+            | otherwise = Nothing
+        inUnit (TeXMath kind m)
+            | Just m' <- linkifyFullStop link m = Just [TeXMath kind m']
+        inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
+        inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
+        inUnit _ = Nothing
+
+instance LinkifyFullStop Item where
+    linkifyFullStop link it@Item{itemContent=[TeXPara (s@Sentence{sentenceElems=e} : ss)]}
+        | (x:_) <- Text.unpack (Text.dropWhile isSpace (justText e))
+        , isLower x
+        , Just y <- linkifyFullStop link e
+            = Just it{itemContent=[TeXPara (s{sentenceElems = y} : ss)]}
+    linkifyFullStop _ _ = Nothing
+
+instance LinkifyFullStop [Element] where
+    linkifyFullStop link = (reverse .) . f . reverse
+      where
+        f :: [Element] -> Maybe [Element]
+        f (Enumerated cmd (reverse -> (lastItem : moreItems)) : more)
+            | all (isNothing . linkifyFullStop link) moreItems
+            , Just lastItem' <- linkifyFullStop link lastItem
+            = Just $ Enumerated cmd (reverse (lastItem' : moreItems)) : more
+        f (LatexElement u : more)
+            | Just u' <- linkifyFullStop link [u] = Just $ map LatexElement (reverse u') ++ more
+            | otherwise = (LatexElement u :) . f more
+        f _ = Nothing
+
+moveStuffOutsideText :: LaTeXUnit -> LaTeX
+    -- Turns \text{ \class{bla} } into \text{ }\class{\text{bla}}\text{ }, and similar for \href,
+    -- because MathJax does not support \class and \href in \text.
+moveStuffOutsideText (TeXComm parent [(FixArg, [TeXComm nested [x, y]])])
+    | parent `elem` ["text", "mbox"]
+    , nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm parent [y]))]]
+moveStuffOutsideText (TeXComm parent [(FixArg, t)])
+    | parent `elem` ["text", "mbox"]
+    , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent [(FixArg, [u])]) t
+moveStuffOutsideText u = [u]
+
+justText :: [Element] -> Text
+justText = Text.concat . map g
+    where
+        g :: Element -> Text
+        g = ff . elemTex
+        ff :: LaTeX -> Text
+        ff = Text.concat . map f
+        f :: LaTeXUnit -> Text
+        f (TeXRaw x) = x
+        f TeXLineBreak = ""
+        f (TeXEnv "codeblock" _ _) = "code"
+        f (TeXBraces x) = ff x
+        f (TeXMath _ x) = ff x
+        f (TeXComm " " _) = ""
+        f (TeXComm c _)
+            | trimString c `elem` words ("left right dotsc cdots lceil rceil lfloor rfloor cdot phantom index & { } # @ - ; " ++
+                                         "linebreak ~ textunderscore leq geq lfloor rfloor footnoteref discretionary nolinebreak setlength") = ""
+            | c == "ref" = "bla"
+            | c == "nolinebreak" = ""
+        f (TeXComm c ((FixArg, x) : _))
+            | trimString c `elem` words "deflinkx link liblinkx tcode noncxxtcode textsc mathscr term mathsf mathit text textit texttt mathtt grammarterm ensuremath textsc mathbin url" = ff x
+        f (TeXComm c (_ : (FixArg, x) : _))
+            | c `elem` ["defnx", "grammarterm_"] = ff x
+        f _ = {-trace ("justText: " ++ show x)-} ""

@@ -18,7 +18,7 @@ module Render (
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
-	TeXPara(..), Sentence(..), Abbreviation, elemTex,
+	TeXPara(..), Sentence(..), Abbreviation,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -30,7 +30,7 @@ import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Text.HTML.TagSoup as Soup
-import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit, isLower)
+import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
 import Control.Arrow (first, second)
 import qualified Prelude
 import qualified MathJax
@@ -38,8 +38,9 @@ import Prelude hiding (take, (.), (++), writeFile)
 import Data.List (find, nub, intersperse, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
+import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, mapLast)
+    urlChars, intercalateBuilders, replaceXmlChars, trimString)
 
 kill, literal :: [String]
 kill = words $
@@ -1142,48 +1143,12 @@ instance Render TeXPara where
 instance Render [Element] where
     render l ctx = mconcat $ map (flip render ctx) l
 
-moveStuffOutsideText :: LaTeXUnit -> LaTeX
-    -- Turns \text{ \class{bla} } into \text{ }\class{\text{bla}}\text{ }, and similar for \href,
-    -- because MathJax does not support \class and \href in \text.
-moveStuffOutsideText (TeXComm parent [(FixArg, [TeXComm nested [x, y]])])
-    | parent `elem` ["text", "mbox"]
-    , nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm parent [y]))]]
-moveStuffOutsideText (TeXComm parent [(FixArg, t)])
-    | parent `elem` ["text", "mbox"]
-    , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent [(FixArg, [u])]) t
-moveStuffOutsideText u = [u]
-
-justText :: [Element] -> Text
-justText = Text.concat . map g
-    where
-        g :: Element -> Text
-        g = ff . elemTex
-        ff :: LaTeX -> Text
-        ff = Text.concat . map f
-        f :: LaTeXUnit -> Text
-        f (TeXRaw x) = x
-        f TeXLineBreak = ""
-        f (TeXEnv "codeblock" _ _) = "code"
-        f (TeXBraces x) = ff x
-        f (TeXMath _ x) = ff x
-        f (TeXComm " " _) = ""
-        f (TeXComm c _)
-            | trimString c `elem` words ("left right dotsc cdots lceil rceil lfloor rfloor cdot phantom index & { } # @ - ; " ++
-                                         "linebreak ~ textunderscore leq geq lfloor rfloor footnoteref discretionary nolinebreak setlength") = ""
-            | c == "ref" = "bla"
-            | c == "nolinebreak" = ""
-        f (TeXComm c ((FixArg, x) : _))
-            | trimString c `elem` words "deflinkx link liblinkx tcode noncxxtcode textsc mathscr term mathsf mathit text textit texttt mathtt grammarterm ensuremath textsc mathbin url" = ff x
-        f (TeXComm c (_ : (FixArg, x) : _))
-            | c `elem` ["defnx", "grammarterm_"] = ff x
-        f x = {-trace ("justText: " ++ show x)-} ""
-
 instance Render Sentence where
 	render Sentence{..} ctx
 			| (Enumerated _ _ : _) <- sentenceElems = render sentenceElems ctx -- not a real sentence
 			| not (inSentence ctx), Just v <- i =
 					xml "div" [("id", v), ("class", "sentence")] $
-						render (reverse $ linkifyFullStop $ reverse sentenceElems) ctx{inSentence = True}
+						render (case linkifyFullStop link sentenceElems of Just x -> x; Nothing -> sentenceElems) ctx{inSentence = True}
 			| otherwise = render sentenceElems ctx
 		where
 			i = case sentenceNumber of
@@ -1193,43 +1158,6 @@ instance Render Sentence where
 			    [ (FixArg, [TeXRaw "hidden_link"])
 			    , (FixArg, [TeXComm "href" [(FixArg, [TeXRaw ("#" ++ fromJust i)]), (FixArg, [TeXRaw "."])]])
 			    ] -- in math, \class and \href are recognized by mathjax
-
-			inUnits :: LaTeX -> Maybe LaTeX
-			inUnits [] = Nothing
-			inUnits (u : uu)
-			    | Just u' <- inUnit u = Just (reverse u' ++ uu)
-			    | otherwise = (u :) . inUnits uu
-
-			inItem :: Item -> Item
-			inItem it@Item{itemContent=[TeXPara (s@Sentence{sentenceElems=e} : ss)]}
-			    | (x:_) <- Text.unpack (Text.dropWhile isSpace (justText e)), isLower x = it{itemContent=[TeXPara (s{sentenceElems = reverse $ linkifyFullStop $ reverse e} : ss)]}
-			inItem x = x
-
-			inUnit :: LaTeXUnit -> Maybe LaTeX -- returns content in regular order
-			inUnit (TeXEnv "array" args body)
-			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "array" args (reverse body')]
-			inUnit (TeXEnv "indented" [] body)
-			    | Just body' <- inUnits (reverse body) = Just [TeXEnv "indented" [] (reverse body')]
-			inUnit (TeXComm "text" [(FixArg, x)])
-			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, reverse x')]))
-			    | otherwise = Nothing
-			inUnit (TeXComm "mbox" [(FixArg, x)])
-			    | Just x' <- inUnits (reverse x) = Just (moveStuffOutsideText (TeXComm "mbox" [(FixArg, reverse x')]))
-			    | otherwise = Nothing
-			inUnit (TeXMath kind m)
-			    | Just m' <- inUnits (reverse m) = Just [TeXMath kind $ reverse m']
-			    where
-			inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
-			inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
-			inUnit _ = Nothing
-
-			linkifyFullStop :: [Element] -> [Element]
-			linkifyFullStop [] = []
-			linkifyFullStop (Enumerated cmd items : more) = Enumerated cmd (mapLast inItem items) : more
-			linkifyFullStop (LatexElement u : more)
-			    | Just u' <- inUnit u = map LatexElement (reverse u') ++ more
-			    | otherwise = LatexElement u : linkifyFullStop more
-			linkifyFullStop xs = xs
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""
