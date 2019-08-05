@@ -49,6 +49,7 @@ greekAlphabet :: [(String, Char)]
 greekAlphabet =
 	[ ("alpha"          , 'α')
 	, ("beta"           , 'β')
+	, ("gamma"          , 'γ')
 	, ("delta"          , 'δ')
 	, ("mu"             , 'μ')
 	, ("nu"             , 'ν')
