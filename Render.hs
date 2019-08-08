@@ -430,6 +430,8 @@ highlight ctx (TeXRaw x : more)
     | Text.head x `elem` ("[]"::String) = spanTag "squarebracket" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
     | Text.head x `elem` ("<>"::String) = spanTag "anglebracket" (render (TeXRaw $ Text.take 1 x) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
     | Text.head x == '#' = spanTag "preprocessordirective" "#" ++ highlight ctx (TeXRaw (Text.tail x) : more)
+    | Text.take 2 x == "::"
+        = spanTag "operator" (render (TeXRaw "::") ctx) ++ highlight ctx (TeXRaw (Text.drop 2 x) : more)
     | Text.head x `elem` ("*&^.-+/!=|:?%~#"::String)
         = spanTag "operator" (render (TeXRaw (Text.take 1 x)) ctx) ++ highlight ctx (TeXRaw (Text.tail x) : more)
     | (a, x') <- Text.span (\c -> not (isAlphaNum c || c `elem` ("#%_(){}[]<>.*:?'\"+=-/|&!^~\n" :: String))) x, a /= ""
