@@ -4,7 +4,8 @@
 module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
-	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix, trimString
+	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix, trimString,
+	spanJust
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -135,3 +136,8 @@ stripAnyPrefix (x:y) z
 
 trimString :: String -> String
 trimString = reverse . dropWhile isSpace . reverse . dropWhile isSpace
+
+spanJust :: [a] -> (a -> Maybe b) -> ([b], [a])
+spanJust (x : z) f
+    | Just y <- f x = first (y :) (spanJust z f)
+spanJust z _ = ([], z)

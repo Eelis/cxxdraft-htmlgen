@@ -40,7 +40,7 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, trimString)
+    urlChars, intercalateBuilders, replaceXmlChars, trimString, spanJust)
 
 kill, literal :: [String]
 kill = words $
@@ -1141,7 +1141,12 @@ instance Render TeXPara where
 	render = (mconcat .) . (intersperse " " .) . mapM render . sentences
 
 instance Render [Element] where
-    render l ctx = mconcat $ map (flip render ctx) l
+    render l@(LatexElement _ : _) ctx = render (spanJust l p) ctx
+        where
+            p (LatexElement e) = Just e
+            p _ = Nothing
+    render (x : y) ctx = render x ctx ++ render y ctx
+    render [] _ = ""
 
 instance Render Sentence where
 	render Sentence{..} ctx
