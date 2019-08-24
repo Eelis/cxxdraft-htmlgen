@@ -441,6 +441,7 @@ highlight ctx (TeXEnv "indexed" [(FixArg, indices)] body : more) =
     renderIndexed ctx "div" indices (highlight ctx body) ++ highlight ctx more
 highlight ctx (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] : more) =
     renderIndexed ctx "span" indices (highlight ctx text) ++ highlight ctx more
+highlight ctx (TeXComm "rlap" [(FixArg, text)] : more) = spanTag "rlap" (highlight ctx text) ++ highlight ctx more
 highlight ctx (x : more) = render x ctx ++ highlight ctx more
 
 renderIndexed :: RenderContext -> Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
