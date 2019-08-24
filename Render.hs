@@ -528,6 +528,7 @@ instance Render LaTeXUnit where
 			else render anchor{
 			    aHref = grammarNameRef section name sec,
 			    aText = TextBuilder.fromText name} sec
+	render (TeXComm "terminal" [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
@@ -798,8 +799,7 @@ instance Render Element where
 	render (Codeblock x) = render x
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
-	render (Bnf e t) = \ctx -> bnf (Text.pack e) $ LazyText.toStrict $ TextBuilder.toLazyText $
-		    highlightLines ctx (trimr $ preprocessPre t)
+	render (Bnf e t) = bnf (Text.pack e) . LazyText.toStrict . TextBuilder.toLazyText . render (trimr $ preprocessPre t)
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
