@@ -387,6 +387,25 @@ parseNumber x
             , parseNonDigit
             ]
 
+parseLiteral :: LaTeX -> Maybe (LaTeX, LaTeX)
+parseLiteral x
+    | Just (number, x') <- parseNumber x = Just ([TeXRaw number], x')
+    | Just (lit, x') <- parseCharLiteral x = Just (lit, x')
+    | Just (lit, x') <- parseStringLiteral x = Just (lit, x')
+    | otherwise = Nothing
+
+parseComment :: LaTeX -> Maybe (LaTeX, LaTeX)
+parseComment x
+    | Just x' <- texStripPrefix "/*" x, Just (comment, x'') <- texStripInfix "*/" x'
+        = Just ([TeXRaw "/*"] ++ comment ++ [TeXRaw "*/"], x'')
+    | Just x' <- texStripPrefix "/*" x
+        = Just ([TeXRaw "/*"], x')
+    | Just x' <- texStripPrefix "*/" x
+        = Just ([TeXRaw "*/"], x')
+    | Just (comment, x') <- parseSingleLineComment x
+        = Just (comment, x')
+    | otherwise = Nothing
+
 highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlightLines ctx x
     | (spaces, x') <- texSpan (== ' ') x, spaces /= "" = TextBuilder.fromText spaces ++ highlightLines ctx x'
@@ -395,27 +414,28 @@ highlightLines ctx x
     | i@(TeXComm cmd _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
     | otherwise = highlight ctx x
 
+highlightUnit :: RenderContext -> LaTeXUnit -> TextBuilder.Builder
+highlightUnit ctx x = case x of
+    TeXComm "rlap" [(FixArg, text)] ->
+        spanTag "rlap" (highlight ctx text)
+    TeXEnv "indexed" [(FixArg, indices)] body ->
+        renderIndexed ctx "div" indices (highlight ctx body)
+    TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] ->
+        renderIndexed ctx "span" indices (highlight ctx text)
+    TeXComm "terminal" [(FixArg, y)] ->
+        spanTag "terminal" (highlight ctx y)
+    TeXComm c []
+        | c `elem` ["%", "&", "caret", "~"] -> spanTag "operator" (render x ctx)
+        | c == "#" -> spanTag "preprocessordirective" (render x ctx)
+        | c `elem` ["{", "}"] -> spanTag "curlybracket" (render x ctx)
+    _ -> render x ctx
+
 highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
-highlight _ [] = ""
-highlight ctx (TeXComm (Text.pack -> c) [(FixArg, x)] : more)
-    | c `elem` ["terminal"] = spanTag c (highlight ctx x) ++ highlight ctx more
-highlight ctx (x@(TeXComm c []) : more)
-    | c `elem` ["%", "&", "caret", "~"] = spanTag "operator" (render x ctx) ++ highlight ctx more
-    | c == "#" = spanTag "preprocessordirective" (render x ctx) ++ highlight ctx more
-    | c `elem` ["{", "}"] = spanTag "curlybracket" (render x ctx) ++ highlight ctx more
 highlight ctx x
     | Just x' <- texStripPrefix "\n" x = "\n" ++ highlightLines ctx x'
     | (TeXRaw "" : t) <- x = highlight ctx t
-    | Just (number, x') <- parseNumber x = spanTag "literal" (TextBuilder.fromText number) ++ highlight ctx x'
-    | Just (lit, x') <- parseCharLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
-    | Just (lit, x') <- parseStringLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
-    -- comments
-    | Just x' <- texStripPrefix "/*" x
-    , Just (comment, x'') <- texStripInfix "*/" x'
-        = spanTag "comment" ("/*" ++ render comment ctx ++ "*/") ++ highlight ctx x''
-    | Just x' <- texStripPrefix "/*" x = spanTag "comment" "/*" ++ highlight ctx x'
-    | Just x' <- texStripPrefix "*/" x = spanTag "comment" "*/" ++ highlight ctx x'
-    | Just (comment, x') <- parseSingleLineComment x = spanTag "comment" (render comment ctx{inComment=True, rawTilde=False}) ++ highlightLines ctx x'
+    | Just (lit, x') <- parseLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
+    | Just (comment, x') <- parseComment x = spanTag "comment" (render comment ctx{inComment=True, rawTilde=False}) ++ highlightLines ctx x'
     -- keywords
     | (a, x') <- texSpan p x, a /= "" = (case () of
         _ | a `elem` keywords -> spanTag "keyword"
@@ -437,12 +457,8 @@ highlight ctx (TeXRaw x : more)
     | (a, x') <- Text.span (\c -> not (isAlphaNum c || c `elem` ("#%_(){}[]<>.*:?'\"+=-/|&!^~\n" :: String))) x, a /= ""
         = render (TeXRaw a) ctx ++ highlight ctx (TeXRaw x' : more)
     | otherwise = error ("shit: " ++ show x)
-highlight ctx (TeXEnv "indexed" [(FixArg, indices)] body : more) =
-    renderIndexed ctx "div" indices (highlight ctx body) ++ highlight ctx more
-highlight ctx (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] : more) =
-    renderIndexed ctx "span" indices (highlight ctx text) ++ highlight ctx more
-highlight ctx (TeXComm "rlap" [(FixArg, text)] : more) = spanTag "rlap" (highlight ctx text) ++ highlight ctx more
-highlight ctx (x : more) = render x ctx ++ highlight ctx more
+highlight ctx (x : more) = highlightUnit ctx x ++ highlight ctx more
+highlight _ [] = ""
 
 renderIndexed :: RenderContext -> Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
 renderIndexed ctx thing indices body = foldl f body indexPaths
