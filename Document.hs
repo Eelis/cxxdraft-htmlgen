@@ -258,6 +258,7 @@ indexCatName "libraryindex" = "Index of library names"
 indexCatName "headerindex" = "Index of library headers"
 indexCatName "generalindex" = "Index"
 indexCatName "grammarindex" = "Index of grammar productions"
+indexCatName "conceptindex" = "Index of library concepts"
 indexCatName x = error $ "indexCatName: " ++ show x
 
 -- Gathering entities:
