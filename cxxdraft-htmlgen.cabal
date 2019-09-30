@@ -12,7 +12,7 @@ cabal-version:       >=1.10
 
 executable cxxdraft-htmlgen
   main-is:             genhtml.hs
-  other-modules:       Load14882, Render, Util, SectionPages, Toc
+  other-modules:       Load14882, Render, Util, SectionPages, Toc, Document, LaTeXBase, LaTeXParser, RawDocument, MathJax, Sentences
   other-extensions:    OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns
   build-depends: base >=4.6
                , text >=1.2

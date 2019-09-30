@@ -28,12 +28,14 @@ data Macros = Macros
 	, counters :: Map Text Int }
 	deriving Show
 
-instance Monoid Macros where
-	mempty = Macros mempty mempty mempty
-	mappend x y = Macros
+instance Semigroup Macros where
+	x <> y = Macros
 		(commands x ++ commands y)
 		(environments x ++ environments y)
 		(counters x ++ counters y)
+
+instance Monoid Macros where
+	mempty = Macros mempty mempty mempty
 
 data Command = Command
 	{ cmdSignature :: Signature
