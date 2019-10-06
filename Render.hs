@@ -498,6 +498,7 @@ instance Render LaTeXUnit where
 		, aText  = TextBuilder.fromText s ++ ":"
 		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
+	render (TeXComm "renontermdef" x) = render (TeXComm "nontermdef" x)
 	render (TeXComm "weblink" [(FixArg, text), (FixArg, href)])
 		= render anchor
 			{ aText = simpleRender2 text

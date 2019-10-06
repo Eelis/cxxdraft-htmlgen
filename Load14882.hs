@@ -319,7 +319,9 @@ nontermdefsInElement (Bnf _ e) = nontermdefs e
 nontermdefsInElement _ = []
 
 nontermdefs :: LaTeX -> [Text]
-nontermdefs t = [name | TeXComm "nontermdef" [(FixArg, [TeXRaw name])] <- allUnits t]
+nontermdefs t =
+    [name | TeXComm cmd [(FixArg, [TeXRaw name])] <- allUnits t
+          , cmd == "nontermdef" || cmd == "renontermdef"]
 
 resolveGrammarterms :: GrammarLinks -> Section -> Section
 resolveGrammarterms links Section{..} =
@@ -363,7 +365,7 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _) | cmd `elem` ["nontermdef", "terminal"] = Just [d]
+		go d@(TeXComm cmd _) | cmd `elem` ["nontermdef", "renontermdef", "terminal"] = Just [d]
 		go n@(TeXRaw name)
 			| Just Section{..} <- Map.lookup name links =
 				Just [TeXComm "grammarterm_" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]

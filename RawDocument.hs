@@ -141,7 +141,7 @@ doParse m t = (x, y)
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition importgraphic itemdescr nontermdef defnx outputblock " ++
+			"drawing definition importgraphic itemdescr nontermdef renontermdef defnx outputblock " ++
 			"indented note defnote example tabular longtable enumeratea commentellip fref"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
@@ -177,7 +177,7 @@ signatures =
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
-			"terminal enlargethispage nontermdef textsl textsc text grammarterm term " ++
+			"terminal enlargethispage nontermdef renontermdef textsl textsc text grammarterm term " ++
 			"tcode noncxxtcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
