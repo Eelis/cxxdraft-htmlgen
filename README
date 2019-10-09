@@ -8,7 +8,6 @@ Prerequisites
   - A filesystem that supports punctuation in filenames
      (this may rule out Windows filesystems)
   - Git
-  - The C++ Standard Draft Sources (https://github.com/cplusplus/draft)
   - The Haskell Platform (https://www.haskell.org/platform/)
   - Graphviz
   - Node.js
@@ -16,7 +15,12 @@ Prerequisites
 
 Usage
 
-  With cabal, do:
+  First, check out the cxxdraft-htmlgen-fixes branch of the draft:
+    git clone https://github.com/Eelis/draft.git
+    cd draft
+    git checkout cxxdraft-htmlgen-fixes
+
+  Next, with cabal, do:
     cabal build
     dist/build/cxxdraft-htmlgen/cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
