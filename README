@@ -20,11 +20,13 @@ Usage
     cd draft
     git checkout cxxdraft-htmlgen-fixes
 
-  Next, with cabal, do:
+  Next, do (in another directory):
+    git clone https://github.com/Eelis/cxxdraft-htmlgen.git
+    cd cxxdraft-htmlgen
     cabal build
     dist/build/cxxdraft-htmlgen/cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
-  Or with stack, do:
+  Or with stack:
     stack build
     stack exec cxxdraft-htmlgen path/to/draft [sectionfilestyle]
 
