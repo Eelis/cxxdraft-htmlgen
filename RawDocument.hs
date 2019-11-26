@@ -78,7 +78,7 @@ data LinearSection = LinearSection
 	deriving Show
 
 bnfEnvs :: [String]
-bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "simplebnf", "ncsimplebnf"]
+bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "simplebnf", "ncsimplebnf", "ncrebnf"]
 
 isBnf :: LaTeXUnit -> Bool
 isBnf (TeXEnv s _ _)
@@ -167,7 +167,7 @@ signatures =
 			"xspace onelineskip textlangle textrangle textunderscore tilde raggedright = " ++
 			"space copyright textregistered textbackslash hsize makebox nocorr br Gamma " ++
 			"frenchspacing list leftmargin listparindent itemindent rmfamily itshape relax " ++
-			"color nonfrenchspacing endlist upshape ttfamily baselineskip nobreak noindent " ++
+			"nonfrenchspacing endlist upshape ttfamily baselineskip nobreak noindent " ++
 			"endfirsthead quad cdot cdots dotsc bnfindentinc footnotemark ldots capsep max min " ++
 			"continuedcaption hline endhead footnotesize le times dotsb rightarrow to equiv " ++
 			"lfloor rfloor pi geq neq ge lceil rceil ell alpha bigl bigr mu lambda beta " ++
@@ -175,16 +175,16 @@ signatures =
 			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
-			"gamma"
+			"gamma widowpenalties sffamily"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
-			"terminal enlargethispage nontermdef renontermdef textsl textsc text grammarterm term " ++
+			"terminal enlargethispage nontermdef renontermdef textsl textsc textsf text grammarterm term " ++
 			"tcode noncxxtcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref"
+			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color"
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
-			"equal setlength"
+			"equal setlength textcolor"
 		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
 			"ifthenelse PackageError"
 		a 4 = "movedxrefiii"
