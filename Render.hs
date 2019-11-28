@@ -542,9 +542,10 @@ instance Render LaTeXUnit where
 			cat "liblinkx" = "lib"
 			cat _ = undefined
 	render (TeXComm "grammarterm_" [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
-		\sec -> xml "i" [] $ if inLink sec
-			then TextBuilder.fromText name
+		\sec -> if inLink sec
+			then spanTag "grammarterm" $ TextBuilder.fromText name
 			else render anchor{
+			    aClass = "grammarterm",
 			    aHref = grammarNameRef section name sec,
 			    aText = TextBuilder.fromText name} sec
 	render (TeXComm "color" _) = const ""

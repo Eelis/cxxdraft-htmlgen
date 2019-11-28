@@ -174,14 +174,13 @@ span.rlap {
 }
 
 span.descr { font-style: normal; font-family: serif; }
-span.grammarterm { font-style: italic; }
+.grammarterm { font: italic sans-serif; }
 span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
-span.nonterminal { font-style: italic; }
 span.tcode { font-family: monospace; font-style: normal; }
 span.textbf { font-weight: bold; }
 span.textsc { font-variant: small-caps; }
-a.nontermdef { font-style: italic; font-family: serif; }
+a.nontermdef { font: italic sans-serif; }
 span.emph { font-style: italic; }
 span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
