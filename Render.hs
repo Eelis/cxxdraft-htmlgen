@@ -549,6 +549,7 @@ instance Render LaTeXUnit where
 			    aHref = grammarNameRef section name sec,
 			    aText = TextBuilder.fromText name} sec
 	render (TeXComm "color" _) = const ""
+	render (TeXComm "textcolor" [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
