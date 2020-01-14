@@ -23,7 +23,7 @@ import Document (
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
-    renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw)
+    renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw, mapTeX)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
@@ -967,12 +967,15 @@ renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
-	| isComplexMath m = renderComplexMath m ctx
+	| isComplexMath m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
 	| otherwise = spanTag s $ renderSimpleMath m ctx
 	where
 		s = mathKind m
 		mathKind [TeXMath Square _] = "mathblock"
 		mathKind _ = "math"
+		replaceNonCxxTcode :: LaTeXUnit -> Maybe LaTeX
+		replaceNonCxxTcode (TeXComm "noncxxtcode" args) = Just [TeXComm "tcode" args]
+		replaceNonCxxTcode _ = Nothing
 
 renderSimpleMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderSimpleMath [] _ = ""
