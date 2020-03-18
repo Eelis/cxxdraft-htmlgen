@@ -680,7 +680,7 @@ instance Render IndexEntry where
 		return $ simpleRender2 anchor
 			{ aHref = "SectionToSection/" ++ urlChars abbr
 				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
-			, aText = squareAbbr abbr }
+			, aText = (if indexEntryKind == Just BfPage then xml "b" [] else id) $ squareAbbr abbr }
 		where
 			extraIdPrefix
 				| isDefinitionIndexEntry && indexEntryKind == Nothing = "def"

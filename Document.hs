@@ -158,7 +158,7 @@ instance Eq IndexComponent where
 
 type IndexPath = [IndexComponent]
 
-data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose
+data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose | BfPage
 	deriving (Eq, Show)
 
 type IndexCategory = Text

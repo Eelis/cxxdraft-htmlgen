@@ -379,7 +379,7 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		go (texStripInfix "|see" -> Just (x, [TeXBraces y])) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
-		go (texStripInfix "|idxbfpage" -> Just (t, _)) = (parseIndexPath t, Nothing)
+		go (texStripInfix "|idxbfpage" -> Just (t, _)) = (parseIndexPath t, Just BfPage)
 		go t = (parseIndexPath t, Nothing)
 
 		unescapeIndexPath :: Text -> LaTeXUnit
