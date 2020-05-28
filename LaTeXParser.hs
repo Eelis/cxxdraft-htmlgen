@@ -196,6 +196,12 @@ parseString c s = (concatRaws x, y, z)
 literal :: String
 literal = " @_{}&,%-#/~>!$;:^"
 
+breakComment :: [Token] -> ([Token], [Token])
+breakComment x@(Token "\n" : _) = ([], x)
+breakComment (Token "%" : Token "\n" : x) = first ((Token "%" :) . (Token "\n" :)) (breakComment x)
+breakComment (x : xs) = first (x:) (breakComment xs)
+breakComment [] = ([], [])
+
 parseCode :: Context -> [Token] -> LaTeX
 parseCode c = concatRaws . go False
 	where
@@ -206,7 +212,7 @@ parseCode c = concatRaws . go False
 		go True (Token "\"" : rest) = TeXRaw "\"" : go False rest
 		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
 			where (lit, rest') = stringLiteral rest
-		go False (Token "/" : Token "/" : (break (== Token "\n") -> (comment, rest')))
+		go False (Token "/" : Token "/" : (breakComment -> (comment, rest')))
 			= TeXComm "comment" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
 		go False (Token "/" : Token "*" : rest)
 		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
