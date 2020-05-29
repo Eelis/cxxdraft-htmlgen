@@ -37,6 +37,7 @@ import Data.List (sort, unfoldr, (\\))
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
+import qualified Control.Monad.Parallel as ParallelMonad
 import Util ((.), (++), mapLast, stripInfix)
 import RawDocument
 import Sentences (splitIntoSentences, isActualSentence)
@@ -476,9 +477,8 @@ load14882 = do
 	stdGramExt <- generateStdGramExt files
 
 	putStrLn "Loading chapters"
-	secs <- forM files $ \c -> do
+	secs <- ParallelMonad.forM files $ \c -> do
 		let p = c ++ ".tex"
-		putStr $ "  " ++ c ++ "... "; hFlush stdout
 
 		stuff <-
 			replace "multicolfloattable" "floattable" .
@@ -495,7 +495,7 @@ load14882 = do
 		let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
 		let r = parseFile macros (stuff ++ extra)
 
-		putStrLn $ show (length r) ++ " sections"
+		putStrLn $ "  " ++ c ++ ": " ++ show (length r) ++ " sections"
 		return r
 
 	xrefDelta <- loadXrefDelta
