@@ -510,9 +510,11 @@ instance Render LaTeXUnit where
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
 	        ++ commasAnd (map f abbrs)
-	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) = render anchor
+	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) =
+		(++ spanTag "ntdefcolon" ":") .
+		render anchor
 		{ aId    = "nt:" ++ s
-		, aText  = TextBuilder.fromText s ++ ":"
+		, aText  = TextBuilder.fromText s
 		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
 	render (TeXComm "renontermdef" x) = render (TeXComm "nontermdef" x)
