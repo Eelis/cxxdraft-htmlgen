@@ -17,6 +17,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_, when)
 import Control.Parallel (par)
+import qualified Control.Monad.Parallel as ParallelMonad
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -172,30 +173,26 @@ writeSingleSectionFile sfs draft abbr = do
 	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
 
-writeSectionFiles :: SectionFileStyle -> Draft -> IO ()
-writeSectionFiles sfs draft = do
-	putStr "  sections..";
-	let
-	  secs = Document.sections draft
-	  renSec section@Section{..} = (Text.unpack abbreviation, sectionFileContent sfs title body)
-	    where
-	      title = squareAbbr abbreviation
-	      body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
-	  fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
-	  fullfile = ("full", sectionFileContent sfs "14882" fullbody)
-	  files = fullfile : map renSec secs
-	  names = fst . files
-	  contents = snd . files
-	parAll contents $ forM_ (zip names contents) $ \(n, content) -> do
-		putStr "."; hFlush stdout
+writeSectionFiles :: SectionFileStyle -> Draft -> [IO ()]
+writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> do
 		when (sfs == InSubdir) $ createDirectoryIfMissing True (outputDir ++ n)
 		writeFile (sectionFilePath n sfs) content
-	putStrLn $ " " ++ show (length secs)
+	where
+		secs = Document.sections draft
+		renSec section@Section{..} = (Text.unpack abbreviation, sectionFileContent sfs title body)
+		  where
+			title = squareAbbr abbreviation
+			body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
+		fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
+		fullfile = ("full", sectionFileContent sfs "14882" fullbody)
+		files = fullfile : map renSec secs
+		names = fst . files
+		contents = snd . files
 
-writeIndexFiles :: SectionFileStyle -> Index -> IO ()
-writeIndexFiles sfs index = forM_ (Map.toList index) $ \(Text.unpack -> cat, i) -> do
-	putStrLn $ "  " ++ cat
-	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $ h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage}
+writeIndexFiles :: SectionFileStyle -> Index -> [IO ()]
+writeIndexFiles sfs index = flip map (Map.toList index) $ \(Text.unpack -> cat, i) ->
+	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $
+		h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage}
 
 writeCssFile :: IO ()
 writeCssFile = do
@@ -222,8 +219,8 @@ writeCssFile = do
 		readProcess "tex2html" ["--css", ""] ""
 	writeFile (outputDir ++ "/14882.css") (base ++ mjx)
 
-writeXrefDeltaFiles :: SectionFileStyle -> Draft -> IO ()
-writeXrefDeltaFiles sfs draft = forM_ (xrefDelta draft) $ \(from, to) ->
+writeXrefDeltaFiles :: SectionFileStyle -> Draft -> [IO ()]
+writeXrefDeltaFiles sfs draft = flip map (xrefDelta draft) $ \(from, to) ->
 	writeSectionFile (Text.unpack from) sfs (squareAbbr from) $
 		if to == []
 			then "Subclause " ++ squareAbbr from ++ " was removed."

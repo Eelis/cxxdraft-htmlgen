@@ -55,7 +55,6 @@ tocHeader date commitUrl =
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
 writeTocFile sfs Draft{..} = do
-	putStrLn "  toc"
 	date <- getCurrentTime
 	tocCss <- readFile "toc.css"
 	let

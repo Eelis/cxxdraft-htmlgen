@@ -8,6 +8,7 @@ import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
 import Control.Monad (forM_)
+import qualified Control.Monad.Parallel as ParallelMonad
 import Util
 
 import Toc (writeTocFile)
@@ -36,19 +37,24 @@ main = do
 	draft@Draft{..} <- load14882
 
 	setCurrentDirectory cwd
-	putStrLn $ "Writing to " ++ outputDir
 	createDirectoryIfMissing True outputDir
 	copyFile "icon.png" (outputDir ++ "/icon.png")
-	writeCssFile
 	forM_ ["expanded.css", "colored.css"] $
-		\f -> copyFile f (outputDir ++ "/" ++ f)
+		\f -> do
+			copyFile f (outputDir ++ "/" ++ f)
 	case sectionToWrite of
 		Just abbr -> writeSingleSectionFile sectionFileStyle draft abbr
 		Nothing -> do
-			writeTocFile sectionFileStyle draft
-			writeIndexFiles sectionFileStyle index
-			writeFiguresFile sectionFileStyle draft
-			writeTablesFile sectionFileStyle draft
-			writeFootnotesFile sectionFileStyle draft
-			writeSectionFiles sectionFileStyle draft
-			writeXrefDeltaFiles sectionFileStyle draft
+			let acts =
+				[ writeTocFile sectionFileStyle draft
+				, writeCssFile
+				, writeFiguresFile sectionFileStyle draft
+				, writeFootnotesFile sectionFileStyle draft
+				, writeTablesFile sectionFileStyle draft
+				] ++
+				writeXrefDeltaFiles sectionFileStyle draft ++
+				writeIndexFiles sectionFileStyle index ++
+				writeSectionFiles sectionFileStyle draft
+
+			((), took) <- measure $ ParallelMonad.sequence_ acts
+			putStrLn $ "Wrote files to " ++ outputDir ++ " in " ++ show (took * 1000) ++ "ms."

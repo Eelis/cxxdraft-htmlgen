@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE
 	OverloadedStrings,
+	ScopedTypeVariables,
 	RecordWildCards,
 	ViewPatterns,
 	LambdaCase,
@@ -38,7 +39,7 @@ import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
 import qualified Control.Monad.Parallel as ParallelMonad
-import Util ((.), (++), mapLast, stripInfix)
+import Util ((.), (++), mapLast, stripInfix, measure)
 import RawDocument
 import Sentences (splitIntoSentences, isActualSentence)
 import Document
@@ -468,16 +469,14 @@ load14882 = do
 
 	commitUrl <- getCommitUrl
 
-	macros@Parser.Macros{..} <- loadMacros
+	(macros@Parser.Macros{..}, took) <- measure loadMacros
 
-	putStrLn $ ("Loaded macros: " ++) $ unwords $ sort $
-		keys commands ++ (Text.unpack . keys environments)
+	putStrLn $ "Loaded macros in " ++ show (took * 1000) ++ "ms."
 
 	files <- getFileList
 	stdGramExt <- generateStdGramExt files
 
-	putStrLn "Loading chapters"
-	secs <- ParallelMonad.forM files $ \c -> do
+	(secs :: [[LinearSection]], took2) <- measure $ ParallelMonad.forM files $ \c -> do
 		let p = c ++ ".tex"
 
 		stuff <-
@@ -494,13 +493,13 @@ load14882 = do
 
 		let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
 		let r = parseFile macros (stuff ++ extra)
+		if length r == 0 then undefined else return r
 
-		putStrLn $ "  " ++ c ++ ": " ++ show (length r) ++ " sections"
-		return r
+	putStrLn $ "Parsed LaTeX in " ++ show (took2 * 1000) ++ "ms."
 
 	xrefDelta <- loadXrefDelta
 
-	if length (show secs) == 0 then undefined else do
+	(r, took3) <- measure $ if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let
 			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 0 1 1 1)
@@ -512,3 +511,6 @@ load14882 = do
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
 
 		return Draft{chapters=chapters', ..}
+	
+	putStrLn $ "Processed in " ++ show (took3 * 1000) ++ "ms."
+	return r

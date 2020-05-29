@@ -5,7 +5,7 @@ module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
 	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix, trimString,
-	spanJust
+	spanJust, measure
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -14,6 +14,7 @@ import Data.List (stripPrefix, intersperse)
 import Data.Char (ord, isDigit, isSpace)
 import Data.Text (Text, replace)
 import Data.Text.IO (writeFile)
+import Data.Time (getCurrentTime, diffUTCTime)
 import Control.Arrow (first)
 import Text.Regex (subRegex, Regex)
 import qualified Data.Text.Lazy.Builder as TextBuilder
@@ -141,3 +142,10 @@ spanJust :: [a] -> (a -> Maybe b) -> ([b], [a])
 spanJust (x : z) f
     | Just y <- f x = first (y :) (spanJust z f)
 spanJust z _ = ([], z)
+
+measure :: IO a -> IO (a, Float)
+measure f = do
+	start <- getCurrentTime
+	r <- f
+	end <- getCurrentTime
+	return (r, realToFrac $ diffUTCTime end start)
