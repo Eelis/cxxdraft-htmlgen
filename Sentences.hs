@@ -7,6 +7,7 @@ import Data.Text (isPrefixOf, isSuffixOf, stripPrefix, Text)
 import qualified Data.Text as Text
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, isDigit, isAlphaNum, isUpper, isLower)
+import Control.Arrow (first)
 import Data.Maybe (isNothing)
 import Util ((++), textStripInfix, dropTrailingWs, (.), trimString)
 import RawDocument
@@ -48,6 +49,7 @@ splitIntoSentences = go []
 breakSentence :: [RawElement] -> Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
 breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
     | f (reverse math) = Just ([e], more)
+    | otherwise = first (e :) . breakSentence more
     where
         f :: LaTeX -> Bool
         f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
@@ -56,7 +58,11 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
 breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
-breakSentence (b@(RawLatexElement (TeXComm "break" [])) : more) = Just ([b], more)
+breakSentence (RawLatexElement (TeXBraces x) : more) = breakSentence (map RawLatexElement x ++ more)
+breakSentence (b@(RawLatexElement (TeXComm cmd _)) : more) =
+	if cmd `elem` ["break"]
+		then Just ([b], more)
+		else (first (b :)) . breakSentence more
 breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") -> pre, post)))) : more)
     = f pre post
   where
@@ -82,8 +88,11 @@ breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") ->
             Just (sentence, more'')
     | Just ((++ ".") -> pre', post') <- textStripInfix "." post = f (pre ++ pre') post'
     | otherwise = Nothing
-breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> last -> RawTexPara (last -> el))) : more)
-    | Just _ <- breakSentence [el] = Just ([enum], more)
+breakSentence (e@(RawLatexElement (TeXRaw _)) : more) = first (e :) . breakSentence more
+breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> (_ : _ : _))) : more)
+    = Just ([enum], more)
+breakSentence (enum@(RawEnumerated x (last -> rawItemContent -> [RawTexPara y])) : more)
+    | Just _ <- breakSentence y = Just ([enum], more)
 breakSentence _ = Nothing
 
 isActualSentence :: [RawElement] -> Bool
