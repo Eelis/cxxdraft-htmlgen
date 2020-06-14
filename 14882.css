@@ -106,7 +106,13 @@ a.enumerated_item_num {
 	width: 3em;
 }
 
-div.para { margin-bottom: 0.6em; margin-top: 0.6em; text-align: justify; }
+div.para {
+	margin-bottom: 0.6em;
+	margin-top: 0.6em;
+	text-align: justify;
+	min-height: 1.2em;
+}
+
 div.section { text-align: justify; }
 div.sentence { display: inline; }
 

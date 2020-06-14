@@ -1290,8 +1290,9 @@ fileContent pathHome title extraHead body =
 			"<title>" ++ title ++ "</title>" ++
 			"<meta charset='UTF-8'/>" ++
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
-			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Notes and examples expanded'/>" ++
+			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Normal'/>" ++
 			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
+			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "normative-only.css' title='Notes and examples hidden'/>" ++
 			"<link rel='icon' href='icon.png'/>" ++
 			extraHead ++
 		"</head>" ++

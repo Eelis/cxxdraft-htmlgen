@@ -39,7 +39,7 @@ main = do
 	setCurrentDirectory cwd
 	createDirectoryIfMissing True outputDir
 	copyFile "icon.png" (outputDir ++ "/icon.png")
-	forM_ ["expanded.css", "colored.css"] $
+	forM_ ["expanded.css", "colored.css", "normative-only.css"] $
 		\f -> do
 			copyFile f (outputDir ++ "/" ++ f)
 	case sectionToWrite of
