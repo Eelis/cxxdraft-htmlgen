@@ -63,8 +63,8 @@ breakSentence (b@(RawLatexElement (TeXComm cmd _)) : more) =
 	if cmd `elem` ["break"]
 		then Just ([b], more)
 		else (first (b :)) . breakSentence more
-breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") -> pre, post)))) : more)
-    = f pre post
+breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") -> pr, po)))) : more)
+    = f pr po
   where
    f pre post
     | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
@@ -91,7 +91,7 @@ breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") ->
 breakSentence (e@(RawLatexElement (TeXRaw _)) : more) = first (e :) . breakSentence more
 breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> (_ : _ : _))) : more)
     = Just ([enum], more)
-breakSentence (enum@(RawEnumerated x (last -> rawItemContent -> [RawTexPara y])) : more)
+breakSentence (enum@(RawEnumerated _ (last -> rawItemContent -> [RawTexPara y])) : more)
     | Just _ <- breakSentence y = Just ([enum], more)
 breakSentence _ = Nothing
 

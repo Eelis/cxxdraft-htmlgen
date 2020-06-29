@@ -40,7 +40,7 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, trimString, spanJust, h, partitionBy)
+    urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy)
 
 kill, literal :: [String]
 kill = words $
@@ -303,7 +303,7 @@ parseStringLiteral x
         f [] = []
         f (TeXComm "~" [] : more) = TeXRaw "~" : f more
         f (TeXBraces [] : more) = f more
-        f (h : t) = h : f t
+        f (hd : t) = hd : f t
         parseBody :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
         parseBody [] = Nothing
         parseBody (TeXComm (dropTrailingWs -> "textbackslash") [] : more) = parseBody $ concatRaws $ TeXRaw "\\" : more
@@ -312,7 +312,7 @@ parseStringLiteral x
             | "\"" <- raw = Just ([], more)
             | '"':t <- raw = Just ([], TeXRaw (Text.pack t) : more)
             | raw == "" = parseBody more
-            | h:t <- raw = first (TeXRaw (Text.pack [h]) :) . parseBody (TeXRaw (Text.pack t) : more)
+            | hd:t <- raw = first (TeXRaw (Text.pack [hd]) :) . parseBody (TeXRaw (Text.pack t) : more)
         parseBody (TeXComm "%" [] : more) = first (TeXComm "%" [] :) . parseBody more
         parseBody (y : more) = first (y :) . parseBody more
 

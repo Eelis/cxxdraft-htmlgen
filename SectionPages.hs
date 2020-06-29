@@ -14,11 +14,8 @@ module SectionPages
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
-import System.IO (hFlush, stdout)
-import Control.Monad (forM_, when)
-import Control.Parallel (par)
+import Control.Monad (when)
 import Control.Arrow (first)
-import qualified Control.Monad.Parallel as ParallelMonad
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -163,9 +160,6 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 	where
 		r :: Section -> Footnote -> TextBuilder.Builder
 		r s fn = render fn defaultRenderContext{draft=draft, nearestEnclosing = Right s, page=FootnotesPage}
-
-parAll :: [a] -> b -> b
-parAll = flip $ foldl $ flip par
 
 writeSingleSectionFile :: SectionFileStyle -> Draft -> String -> IO ()
 writeSingleSectionFile sfs draft abbr = do
