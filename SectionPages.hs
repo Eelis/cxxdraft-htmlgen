@@ -17,6 +17,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.IO (hFlush, stdout)
 import Control.Monad (forM_, when)
 import Control.Parallel (par)
+import Control.Arrow (first)
 import qualified Control.Monad.Parallel as ParallelMonad
 import System.Process (readProcess)
 import qualified Data.Map as Map
@@ -26,7 +27,7 @@ import qualified Data.Text.Lazy.Builder as TextBuilder
 import Render (render, concatRender, simpleRender2, outputDir, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
 	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
-	secnum, Link(..), renderLatexParas, isSectionPage, parentLink)
+	secnum, Link(..), renderLatexParas, isSectionPage, parentLink, renderIndex)
 import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, readFile, intercalateBuilders)
 
@@ -189,10 +190,13 @@ writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> d
 		names = fst . files
 		contents = snd . files
 
-writeIndexFiles :: SectionFileStyle -> Index -> [IO ()]
-writeIndexFiles sfs index = flip map (Map.toList index) $ \(Text.unpack -> cat, i) ->
+writeIndexFile :: SectionFileStyle -> String -> IndexTree -> IO ()
+writeIndexFile sfs cat index =
 	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $
-		h 1 (indexCatName cat) ++ render i defaultRenderContext{page=IndexPage}
+		h 1 (indexCatName cat) ++ renderIndex defaultRenderContext{page=IndexPage} index cat
+
+writeIndexFiles :: SectionFileStyle -> Index -> [IO ()]
+writeIndexFiles sfs index = flip map (Map.toList index) $ uncurry (writeIndexFile sfs) . first Text.unpack
 
 writeCssFile :: IO ()
 writeCssFile = do

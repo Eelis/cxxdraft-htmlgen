@@ -9,7 +9,7 @@
 	FlexibleInstances #-}
 
 module Render (
-	Render(render), concatRender, renderTab, renderFig, simpleRender, simpleRender2, squareAbbr,
+	Render(render), concatRender, renderTab, renderFig, renderIndex, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
 	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
 	RenderContext(..), renderLatexParas
@@ -20,7 +20,7 @@ import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	TeXPara(..), Sentence(..), Abbreviation,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
-	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
+	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), indexHeading,
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
     renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw, mapTeX)
@@ -40,7 +40,7 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
-    urlChars, intercalateBuilders, replaceXmlChars, trimString, spanJust)
+    urlChars, intercalateBuilders, replaceXmlChars, trimString, spanJust, h, partitionBy)
 
 kill, literal :: [String]
 kill = words $
@@ -690,11 +690,11 @@ instance Render IndexEntry where
 				| otherwise = ""
 			abbr = abbreviation indexEntrySection
 
-instance Render IndexTree where
-	render y ctx = go [] y
+instance Render [(IndexComponent, IndexNode)] where
+	render tree ctx = go [] tree
 		where
-			go :: IndexPath -> Map.Map IndexComponent IndexNode -> TextBuilder.Builder
-			go up x = mconcat $ f up . Map.toList x
+			go :: IndexPath -> [(IndexComponent, IndexNode)] -> TextBuilder.Builder
+			go up x = mconcat $ f up . x
 
 			f :: IndexPath -> (IndexComponent, IndexNode) -> TextBuilder.Builder
 			f up (comp, IndexNode{..}) =
@@ -705,7 +705,17 @@ instance Render IndexTree where
 					xml "div" [("class", "indexitems")] $
 					TextBuilder.fromText (
 					Text.intercalate ", " (nub $ filter (/= "") $ map (LazyText.toStrict . TextBuilder.toLazyText) $ render comp ctx : flip render ctx . indexEntries)) ++
-					go up' indexSubnodes
+					go up' (Map.toList indexSubnodes)
+
+renderIndex :: RenderContext -> IndexTree -> String -> TextBuilder.Builder
+renderIndex ctx tree "generalindex" = mconcat $ ["<hr>"] ++ linklines ++ ["<hr>"] ++ map sub p
+	where
+		p = partitionBy (indexHeading . fst) $ Map.toList tree
+		sub (n, ii) = h 2 (render anchor{aText=TextBuilder.fromText $ Text.pack n, aId=Text.pack n} ctx) ++ render ii ctx
+		(symnum, rest) = splitAt 2 p
+		linklines = map (h 2 . mconcat . intersperse " " . map (li . fst)) [symnum, rest]
+		li n = render anchor{aText = TextBuilder.fromText $ Text.pack n, aHref = "#" ++ Text.pack n} ctx
+renderIndex ctx tree _ = render (Map.toList tree) ctx
 
 renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
 renderTab stripTab Table{..} ctx =

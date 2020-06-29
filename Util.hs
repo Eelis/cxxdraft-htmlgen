@@ -5,7 +5,7 @@ module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
 	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix, trimString,
-	spanJust, measure
+	spanJust, measure, partitionBy
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -149,3 +149,10 @@ measure f = do
 	r <- f
 	end <- getCurrentTime
 	return (r, realToFrac $ diffUTCTime end start)
+
+partitionBy :: Eq b => (a -> b) -> [a] -> [(b, [a])]
+partitionBy _ [] = []
+partitionBy f (x:xs) = (v, x : y) : partitionBy f z
+	where
+		v = f x
+		(y, z) = span ((== v) . f) xs

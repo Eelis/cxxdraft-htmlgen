@@ -8,7 +8,7 @@ module Document (
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
-	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
+	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements, indexHeading,
 	LaTeX) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
@@ -18,7 +18,7 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import Data.Function (on)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
-import Data.Char (ord, isAlpha, toLower, isDigit, isUpper)
+import Data.Char (ord, isAlpha, toLower, isDigit, isUpper, toUpper)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
@@ -155,6 +155,12 @@ instance Eq IndexComponent where
 	x == y =
 		distinctIndexSortKey x == distinctIndexSortKey y &&
 		indexKeyContent (indexKey x) == indexKeyContent (indexKey y)
+
+indexHeading :: IndexComponent -> String
+indexHeading (indexSortKey -> indexKeyContent -> Text.head -> c)
+	| isDigit c = "Numbers"
+	| isAlpha c = [toUpper c]
+	| otherwise = "Symbols"
 
 type IndexPath = [IndexComponent]
 
