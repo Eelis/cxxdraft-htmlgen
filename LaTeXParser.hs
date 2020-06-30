@@ -198,6 +198,8 @@ literal = " @_{}&,%-#/~>!$;:^"
 
 breakComment :: [Token] -> ([Token], [Token])
 breakComment x@(Token "\n" : _) = ([], x)
+breakComment (Token ('\\' : cmd) : xs)
+	| (c, r@(_:_)) <- span (/= '\n') cmd = ([Token ('\\':c)], Token r : xs)
 breakComment (Token "%" : Token "\n" : x) = first ((Token "%" :) . (Token "\n" :)) (breakComment x)
 breakComment (x : xs) = first (x:) (breakComment xs)
 breakComment [] = ([], [])
@@ -239,7 +241,7 @@ tokenize :: String -> [Token]
 tokenize "" = []
 tokenize ('\\':'v':'e':'r':'b': delim : (break (== delim) -> (arg, _ : rest))) =
 	Token ("\\verb:" ++ arg) : tokenize rest
-tokenize ('\\' : (span isAlpha -> (cmd@(_:_), (span (== ' ') -> (ws, rest)))))
+tokenize ('\\' : (span isAlpha -> (cmd@(_:_), (span isSpace -> (ws, rest)))))
 	= Token ('\\' : cmd ++ ws) : tokenize rest
 tokenize ('\\' : c : rest) = Token ['\\', c] : tokenize rest
 tokenize x@((isAlpha -> True): _) = let (a, b) = span isAlphaNum x in Token a : tokenize b
