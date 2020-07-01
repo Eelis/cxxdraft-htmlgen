@@ -150,6 +150,8 @@ div.itemdescr {
 	margin-left: 40pt;
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
+	text-indent: -3em;
+	padding-left: 3em;
 }
 
 .ncbnf {
@@ -158,6 +160,8 @@ div.itemdescr {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	margin-left: 40pt;
+	text-indent: -3em;
+	padding-left: 3em;
 }
 
 .ncrebnf {
@@ -166,6 +170,8 @@ div.itemdescr {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	margin-left: 40pt;
+	text-indent: -3em;
+	padding-left: 3em;
 }
 
 .ncsimplebnf {
@@ -185,7 +191,6 @@ span.textnormal {
 	font-style: normal;
 	font-family: serif;
 	white-space: normal;
-	display: inline-block;
 }
 
 span.rlap {

@@ -23,7 +23,7 @@ import Document (
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), indexHeading,
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
-    renderLaTeX, trim, trimr, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw, mapTeX)
+    renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texStripAnyPrefix, texStripInfix, texSpan, unconsRaw, mapTeX)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
@@ -484,7 +484,7 @@ instance Render LaTeXUnit where
 	    $ (if insertBreaks then replace "::" (zwsp ++ "::" ++ zwsp) . replace "_" "_&shy;" else id)
 	    $ (if replXmlChars then replaceXmlChars else id)
 	    $ x
-	render (TeXComm "br" []          ) = return "<br/>"
+	render (TeXComm "br" _           ) = return "<br/>"
 	render  TeXLineBreak               = return "<br/>"
 	render (TeXComm "break" []       ) = return "<br/>"
 	render (TeXBraces t              ) = render t
@@ -833,7 +833,7 @@ instance Render Element where
 	render (Codeblock x) = render x
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
-	render (Bnf e t) = bnf (Text.pack e) . LazyText.toStrict . TextBuilder.toLazyText . render (trimr $ preprocessPre t)
+	render (Bnf e t) = xml "div" [("class", Text.pack e)] . render t
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
@@ -1235,19 +1235,6 @@ preprocessPre = concatMap f
 		f (TeXComm (dropTrailingWs -> "br") []) = []
 		f (TeXEnv e a c) = [TeXEnv e a (preprocessPre c)]
 		f x = [x]
-
-makeTabs :: Text -> Text
-	-- Instead of implementing the internal mechanics of the bnf
-	-- environments for real, we just turn leading whitespace into
-	-- a tab.
-makeTabs = Text.unlines . map f . Text.lines
-	where
-		f :: Text -> Text
-		f x = let (a, b) = Text.span (== ' ') x in
-			if Text.length a >= 2 then "&#9;" ++ b else x
-
-bnf :: Text -> Text -> TextBuilder.Builder
-bnf c x = xml "pre" [("class", c)] $ TextBuilder.fromText $ makeTabs $ Text.strip x
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
