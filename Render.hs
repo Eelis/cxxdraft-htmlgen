@@ -120,7 +120,7 @@ simpleMacros =
 	, ("figurerefname"  , "Figure")
 	, ("newline"        , "<br>")
 	, (">"              , "&#9;")
-	, ("bnfindent"      , "&#9;")
+	, ("bnfindent"      , "&emsp;&emsp;&emsp;")
 	, ("\n"             , "\n")
 	]
 	++ [(n, Text.pack [c]) | (n, c) <- greekAlphabet]
