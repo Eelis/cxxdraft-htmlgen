@@ -797,12 +797,12 @@ noWrapSpace = "&nbsp;"
 instance Render Note where
 	render Note{..} ctx =
 			xml "div" [("id", i), ("class", "note")]
-				("[" ++ noWrapSpace ++ render link ctx
+				("[" ++ render link ctx
 				++ xml "div" [("class", "noteBody")] (
 					"<span class='textit'>:</span> "
 					++ renderLatexParas noteContent ctx
 					++ " —" ++ noWrapSpace ++ "<i>end note</i>")
-				++ noWrapSpace ++ "]")
+				++ "]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
@@ -814,12 +814,12 @@ instance Render Note where
 instance Render Example where
 	render Example{..} ctx =
 			xml "div" [("id", i), ("class", "example")]
-				("[" ++ noWrapSpace ++ render link ctx
+				("[" ++ render link ctx
 				++ xml "div" [("class", "exampleBody")] (
 					"<span class='textit'>:</span> "
 					++ renderLatexParas exampleContent ctx
 					++ " —" ++ noWrapSpace ++ "<i>end example</i>")
-				++ noWrapSpace ++ "]")
+				++ "]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
