@@ -162,6 +162,7 @@ div.itemdescr {
 	margin-left: 40pt;
 	text-indent: -3em;
 	padding-left: 3em;
+	background: inherit;
 }
 
 .ncrebnf {
