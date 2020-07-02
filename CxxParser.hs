@@ -21,7 +21,7 @@ import Util ((.), (++), Text, dropTrailingWs)
 texStripHash :: LaTeX -> Maybe LaTeX
 texStripHash x
     | Just x' <- texStripPrefix "#" x = Just x'
-    | TeXComm "#" [] : x' <- x = Just x'
+    | TeXComm "#" _ [] : x' <- x = Just x'
     | otherwise = Nothing
 
 cppDirectives :: [Text]
@@ -48,10 +48,10 @@ parseSingleLineComment x
     | Just x' <- texStripPrefix "//" x = Just $ case texStripInfix "\n" x' of
         Just (commentLine, moreLines) -> (TeXRaw "//" : commentLine, TeXRaw "\n" : moreLines)
         Nothing -> (x, [])
-    | rlap@(TeXComm "rlap" [(FixArg, [TeXComm "textnormal" [(FixArg,[TeXComm "textit" [(FixArg,[TeXRaw "//"])]])]])]) : more <- x
+    | rlap@(TeXComm "rlap" _ [(FixArg, [TeXComm "textnormal" _ [(FixArg,[TeXComm "textit" _ [(FixArg,[TeXRaw "//"])]])]])]) : more <- x
     , Just (commentLine, moreLines) <- texStripInfix "\n" more
-        = Just ([rlap, TeXComm "tcode" [(FixArg, commentLine)]], TeXRaw "\n" : moreLines)
-    | TeXComm "comment" [(FixArg, c)] : x' <- x = Just (c, x')
+        = Just ([rlap, TeXComm "tcode" "" [(FixArg, commentLine)]], TeXRaw "\n" : moreLines)
+    | TeXComm "comment" _ [(FixArg, c)] : x' <- x = Just (c, x')
     | otherwise = Nothing
 
 fromTeXRaw :: LaTeXUnit -> Text
@@ -75,19 +75,19 @@ parseStringLiteral x
     where
         f :: LaTeX -> LaTeX
         f [] = []
-        f (TeXComm "~" [] : more) = TeXRaw "~" : f more
+        f (TeXComm "~" _ [] : more) = TeXRaw "~" : f more
         f (TeXBraces [] : more) = f more
         f (hd : t) = hd : f t
         parseBody :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
         parseBody [] = Nothing
-        parseBody (TeXComm (dropTrailingWs -> "textbackslash") [] : more) = parseBody $ concatRaws $ TeXRaw "\\" : more
+        parseBody (TeXComm "textbackslash" _ [] : more) = parseBody $ concatRaws $ TeXRaw "\\" : more
         parseBody (TeXRaw (Text.unpack -> raw) : more)
             | '\\':'"':t <- raw = first (TeXRaw "\\\"" :) . parseBody (TeXRaw (Text.pack t) : more)
             | "\"" <- raw = Just ([], more)
             | '"':t <- raw = Just ([], TeXRaw (Text.pack t) : more)
             | raw == "" = parseBody more
             | hd:t <- raw = first (TeXRaw (Text.pack [hd]) :) . parseBody (TeXRaw (Text.pack t) : more)
-        parseBody (TeXComm "%" [] : more) = first (TeXComm "%" [] :) . parseBody more
+        parseBody (TeXComm "%" ws [] : more) = first (TeXComm "%" ws [] :) . parseBody more
         parseBody (y : more) = first (y :) . parseBody more
 
 parseNumber :: LaTeX -> Maybe (Text, LaTeX)

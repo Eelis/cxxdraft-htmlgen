@@ -39,7 +39,7 @@ import Data.List (find, nub, intersperse, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
-import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet, dropTrailingWs,
+import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet,
     urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy)
 import CxxParser (parseCppDirective, parseLiteral, parseComment)
 
@@ -159,15 +159,15 @@ asId = mconcat . map f
 	where
 		f :: LaTeXUnit -> Text
 		f (TeXRaw t) = replace "\n" "_" $ replace " " "_" t
-		f (TeXComm "tcode" [(_, x)]) = asId x
-		f (TeXComm "noncxxtcode" [(_, x)]) = asId x
-		f (TeXComm "texttt" [(_, x)]) = asId x
-		f (TeXComm "textit" [(_, x)]) = asId x
-		f (TeXComm "mathsf" [(_, x)]) = asId x
-		f (TeXComm "xspace" []) = "_"
+		f (TeXComm "tcode" _ [(_, x)]) = asId x
+		f (TeXComm "noncxxtcode" _ [(_, x)]) = asId x
+		f (TeXComm "texttt" _ [(_, x)]) = asId x
+		f (TeXComm "textit" _ [(_, x)]) = asId x
+		f (TeXComm "mathsf" _ [(_, x)]) = asId x
+		f (TeXComm "xspace" _ []) = "_"
 		f (TeXBraces x) = asId x
 		f (TeXMath Dollar x) = asId x
-		f (TeXComm "texorpdfstring" [_, (_, x)]) = asId x
+		f (TeXComm "texorpdfstring" _ [_, (_, x)]) = asId x
 		f x = error $ "asId: unexpected: " ++ show x
 
 instance Render Anchor where
@@ -204,7 +204,7 @@ renderCodeblock env args code ctx =
   where
     expandTcode :: LaTeX -> LaTeX
     expandTcode [] = []
-    expandTcode (TeXComm "tcode" [(FixArg, x)] : y) = expandTcode (x ++ y)
+    expandTcode (TeXComm "tcode" _ [(FixArg, x)] : y) = expandTcode (x ++ y)
     expandTcode (x : y) = x : expandTcode y
 
 renderOutputblock :: LaTeX -> RenderContext -> TextBuilder.Builder
@@ -239,30 +239,30 @@ indexOccurrenceSuffix c indexNum = Text.pack $ replicate numPre '_'
 		numPre = IntMap.size $ IntMap.filter p pre
 
 instance Render LaTeX where
-	render ( gt@(TeXComm "grammarterm_" [(FixArg, [TeXRaw termSec]),  _])
-	       : ps@(TeXComm "textit" [(FixArg, [TeXRaw "s"])])
-	       : TeXComm "nolinebreak" _
+	render ( gt@(TeXComm "grammarterm_" _ [(FixArg, [TeXRaw termSec]),  _])
+	       : ps@(TeXComm "textit" _ [(FixArg, [TeXRaw "s"])])
+	       : TeXComm "nolinebreak" _ _
 	       : TeXRaw openParen
-	       : TeXComm "ref" [(FixArg, [TeXRaw refSec])]
+	       : TeXComm "ref" _ [(FixArg, [TeXRaw refSec])]
 	       : (texStripPrefix ")" -> Just rest))
 		| refSec == termSec
 		, redundantOpen openParen
 		= render (gt : ps : rest)
-	render ( gt@(TeXComm "grammarterm_" [(FixArg, [TeXRaw termSec]),  _])
-	       : TeXComm "nolinebreak" _
+	render ( gt@(TeXComm "grammarterm_" _ [(FixArg, [TeXRaw termSec]),  _])
+	       : TeXComm "nolinebreak" _ _
 	       : TeXRaw openParen
-	       : TeXComm "ref" [(FixArg, [TeXRaw refSec])]
+	       : TeXComm "ref" _ [(FixArg, [TeXRaw refSec])]
 	       : (texStripPrefix ")" -> Just rest))
 		| refSec == termSec
 		, redundantOpen openParen
 		= render (gt : rest)
-	render (TeXComm "textbackslash" [] : y)
+	render (TeXComm "textbackslash" _ [] : y)
 		| (TeXRaw s : rest) <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
 		where
 			unspace s
 				| Just (c, cc) <- Text.uncons s, isSpace c = cc
 				| otherwise = s
-	render (TeXComm "itshape" [] : x) = ("<i>" ++) . (++ "</i>") . render x
+	render (TeXComm "itshape" _ [] : x) = ("<i>" ++) . (++ "</i>") . render x
 	render (x : y) = render x ++ render y
 	render [] = return ""
 
@@ -280,21 +280,21 @@ highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlightLines ctx x
     | (spaces, x') <- texSpan (== ' ') x, spaces /= "" = TextBuilder.fromText spaces ++ highlightLines ctx x'
     | Just (directive, x') <- parseCppDirective x = spanTag "preprocessordirective" (render directive ctx) ++ highlight ctx x'
-    | TeXComm (Text.pack -> c) [(FixArg, y)] : more <- x, c `elem` ["terminal"] = spanTag c (highlightLines ctx y) ++ highlight ctx more
-    | i@(TeXComm cmd _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
+    | TeXComm (Text.pack -> c) _ [(FixArg, y)] : more <- x, c `elem` ["terminal"] = spanTag c (highlightLines ctx y) ++ highlight ctx more
+    | i@(TeXComm cmd _ _) : more <- x, cmd `elem` ["index", "obeyspaces"] = render i ctx ++ highlightLines ctx more
     | otherwise = highlight ctx x
 
 highlightUnit :: RenderContext -> LaTeXUnit -> TextBuilder.Builder
 highlightUnit ctx x = case x of
-    TeXComm "rlap" [(FixArg, text)] ->
+    TeXComm "rlap" _ [(FixArg, text)] ->
         spanTag "rlap" (highlight ctx text)
     TeXEnv "indexed" [(FixArg, indices)] body ->
         renderIndexed ctx "div" indices (highlight ctx body)
-    TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)] ->
+    TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)] ->
         renderIndexed ctx "span" indices (highlight ctx text)
-    TeXComm "terminal" [(FixArg, y)] ->
+    TeXComm "terminal" _ [(FixArg, y)] ->
         spanTag "terminal" (highlight ctx y)
-    TeXComm c []
+    TeXComm c _ []
         | c `elem` ["%", "&", "caret", "~"] -> spanTag "operator" (render x ctx)
         | c == "#" -> spanTag "preprocessordirective" (render x ctx)
         | c `elem` ["{", "}"] -> spanTag "curlybracket" (render x ctx)
@@ -353,20 +353,20 @@ instance Render LaTeXUnit where
 	    $ (if insertBreaks then replace "::" (zwsp ++ "::" ++ zwsp) . replace "_" "_&shy;" else id)
 	    $ (if replXmlChars then replaceXmlChars else id)
 	    $ x
-	render (TeXComm "br" _           ) = return "<br/>"
+	render (TeXComm "br" _ _         ) = return "<br/>"
 	render  TeXLineBreak               = return "<br/>"
-	render (TeXComm "break" []       ) = return "<br/>"
+	render (TeXComm "break" _ []     ) = return "<br/>"
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath [m]
-	render (TeXComm "commentellip" []) = const $ spanTag "comment" "/* ... */"
-	render (TeXComm "ensuremath" [(FixArg, x)]) = renderMath x
-	render (TeXComm "fref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
+	render (TeXComm "commentellip" _ []) = const $ spanTag "comment" "/* ... */"
+	render (TeXComm "ensuremath" _ [(FixArg, x)]) = renderMath x
+	render (TeXComm "fref" _ [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
 			linkText = TextBuilder.fromString $ ("Figure " ++) $ show $ figureNumber $ figureByAbbr draft ("fig:" ++ abbr)
 		in
 			simpleRender2 anchor{aHref = abbrHref ("fig:" ++ abbr) ctx, aText = linkText}
-	render (TeXComm "ref" [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
+	render (TeXComm "ref" _ [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
 			linkText
@@ -375,29 +375,29 @@ instance Render LaTeXUnit where
 				| otherwise = squareAbbr abbr
 		in
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText}
-	render (TeXComm "nopnumdiffref" [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
+	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
 	        ++ commasAnd (map f abbrs)
-	render (TeXComm "nontermdef" [(FixArg, [TeXRaw s])]) =
+	render (TeXComm "nontermdef" _ [(FixArg, [TeXRaw s])]) =
 		(++ spanTag "ntdefcolon" ":") .
 		render anchor
 		{ aId    = "nt:" ++ s
 		, aText  = TextBuilder.fromText s
 		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
-	render (TeXComm "renontermdef" x) = render (TeXComm "nontermdef" x)
-	render (TeXComm "weblink" [(FixArg, text), (FixArg, href)])
+	render (TeXComm "renontermdef" _ x) = render (TeXComm "nontermdef" "" x)
+	render (TeXComm "weblink" _ [(FixArg, text), (FixArg, href)])
 		= render anchor
 			{ aText = simpleRender2 text
 			, aHref = simpleRender href}
-	render (TeXComm "url" [(FixArg, u)])
+	render (TeXComm "url" _ [(FixArg, u)])
 		= render anchor
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
-	render (TeXComm "link" [(FixArg, txt), (FixArg, [TeXRaw abbr])])
+	render (TeXComm "link" _ [(FixArg, txt), (FixArg, [TeXRaw abbr])])
 		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
-	render (TeXComm comm
+	render (TeXComm comm _
 				[ (FixArg, txt)
 				, (FixArg, (parseIndex -> (p, _)))
 				, (FixArg, [TeXRaw abbr])])
@@ -412,27 +412,27 @@ instance Render LaTeXUnit where
 			cat "deflinkx" = "def"
 			cat "liblinkx" = "lib"
 			cat _ = undefined
-	render (TeXComm "grammarterm_" [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
+	render (TeXComm "grammarterm_" _ [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
 		\sec -> if inLink sec
 			then spanTag "grammarterm" $ TextBuilder.fromText name
 			else render anchor{
 			    aClass = "grammarterm",
 			    aHref = grammarNameRef section name sec,
 			    aText = TextBuilder.fromText name} sec
-	render (TeXComm "color" _) = const ""
-	render (TeXComm "textcolor" [_, (FixArg, x)]) = render x
-	render (TeXComm "terminal" [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
-	render (TeXComm "texttt" [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
-	render (TeXComm "tcode" [(FixArg, x)]) = \ctx ->
+	render (TeXComm "color" _ _) = const ""
+	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
+	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
+	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
+	render (TeXComm "tcode" _ [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 		    if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
 		    then highlightLines ctx{rawHyphens=True, insertBreaks=True} x
 		    else render x ctx{rawHyphens=True, insertBreaks=True}
-	render (TeXComm "noncxxtcode" [(FixArg, x)]) = \ctx ->
+	render (TeXComm "noncxxtcode" _ [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 		    render x ctx{rawHyphens=True, insertBreaks=True}
-	render (TeXComm "textbf" [(FixArg, x)]) = ("<b>" ++) . (++ "</b>") . render x
-	render (TeXComm "index"
+	render (TeXComm "textbf" _ [(FixArg, x)]) = ("<b>" ++) . (++ "</b>") . render x
+	render (TeXComm "index" _
 			[ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
 			, (OptArg, [TeXRaw category])
 			, (FixArg, (parseIndex -> (p, kind)))
@@ -445,7 +445,7 @@ instance Render LaTeXUnit where
 					spanTag "indexparent" $ render anchor
 						{ aId = indexPathId2 ctx entryNr category p
 						, aClass = "index"} ctx
-	render (TeXComm "defnx"
+	render (TeXComm "defnx" _
 		[ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
 		, (FixArg, txt)
 		, (FixArg, (parseIndex -> (p, _))) ])
@@ -455,30 +455,30 @@ instance Render LaTeXUnit where
 				, aId    = "def" ++ indexPathId2 ctx entryNr "generalindex" p
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
-	render (TeXComm "indexedspan" [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
+	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
 	render (TeXEnv "indexed" [(FixArg, indices)] content) = \ctx -> renderIndexed ctx "div" indices $ render content ctx
-	render (TeXComm "discretionary" _) = const (TextBuilder.fromText zwsp)
-	render (TeXComm "ifthenelse" [_, _, (FixArg, x)]) = render x
-	render (TeXComm "multicolumn" [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
-	render (TeXComm "leftshift" [(FixArg, content)]) =
+	render (TeXComm "discretionary" _ _) = const (TextBuilder.fromText zwsp)
+	render (TeXComm "ifthenelse" _ [_, _, (FixArg, x)]) = render x
+	render (TeXComm "multicolumn" _ [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
+	render (TeXComm "leftshift" _ [(FixArg, content)]) =
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
-	render (TeXComm "verb" [(FixArg, a)]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
-	render (TeXComm "footnoteref" [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
+	render (TeXComm "verb" _ [(FixArg, a)]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
+	render (TeXComm "footnoteref" _ [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
 		{ aClass = "footnotenum"
 		, aText  = TextBuilder.fromText n
 		, aId    = "footnoteref-" ++ n
 		, aHref  =
 			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
-	render (TeXComm "raisebox" args)
+	render (TeXComm "raisebox" _ args)
 		| (FixArg, [TeXRaw d]) <- head args
 		, (FixArg, content) <- Prelude.last args =
 			let neg s
 				| Text.head s == '-' = Text.tail s
 				| otherwise = "-" ++ s
 			in xml "span" [("style", "position: relative; top: " ++ neg d)] . render content
-	render (TeXComm "parbox" [_, (FixArg, x)]) = render x
-	render (TeXComm "term" [(FixArg, x)]) =
+	render (TeXComm "parbox" _ [_, (FixArg, x)]) = render x
+	render (TeXComm "term" _ [(FixArg, x)]) =
 		\sec ->
 			let
 				i = "def:" ++ asId x
@@ -489,24 +489,24 @@ instance Render LaTeXUnit where
 				, aId    = i
 				, aHref  = "#" ++ urlChars i
 				, aClass = "hidden_link" } sec
-	render (TeXComm "texorpdfstring" [_, (FixArg, x)]) = render x
-	render (TeXComm " " [])            = return "&nbsp;"
-	render (TeXComm "\n" [])           = return "\n"
-	render (TeXComm "textit" [(FixArg, x)]) = \c -> spanTag "textit" $ render x c{rawTilde = False}
-	render (TeXComm (dropTrailingWs -> s) [])
+	render (TeXComm "texorpdfstring" _ [_, (FixArg, x)]) = render x
+	render (TeXComm " " _ [])            = return "&nbsp;"
+	render (TeXComm "\n" _ [])           = return "\n"
+	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> spanTag "textit" $ render x c{rawTilde = False}
+	render (TeXComm s _ [])
 	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s
 	    | Just x <-
 	       lookup s simpleMacros       = return $ TextBuilder.fromText x
 	    | s `elem` kill                = return ""
 	    | otherwise                    = return $ spanTag (Text.pack s) ""
-	render (TeXComm "class" [(FixArg, [TeXRaw cls]), (FixArg, [TeXComm "href" [(FixArg, [TeXRaw href]), (FixArg, text)]])])
+	render (TeXComm "class" _ [(FixArg, [TeXRaw cls]), (FixArg, [TeXComm "href" _ [(FixArg, [TeXRaw href]), (FixArg, text)]])])
 	    = \ctx -> render anchor{aHref=href, aText=render text ctx, aClass=cls} ctx
-	render (TeXComm "class" [(FixArg, [TeXRaw cls]), (FixArg, x)])
+	render (TeXComm "class" _ [(FixArg, [TeXRaw cls]), (FixArg, x)])
 	    = \ctx -> spanTag cls $ render x ctx
-	render (TeXComm "href" [(FixArg, [TeXRaw href]), (FixArg, text)])
+	render (TeXComm "href" _ [(FixArg, [TeXRaw href]), (FixArg, text)])
 	    = \ctx -> render anchor{aHref=href, aText=render text ctx} ctx
-	render (TeXComm (dropTrailingWs -> x) s)
+	render (TeXComm x _ s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-
 	       lookup x simpleMacros       = return $ TextBuilder.fromText y
@@ -719,7 +719,7 @@ instance Render Element where
 
 allText :: LaTeXUnit -> [Text]
 allText (TeXRaw x) = [x]
-allText (TeXComm _ args) = concatMap (concatMap allText . snd) args
+allText (TeXComm _ _ args) = concatMap (concatMap allText . snd) args
 allText (TeXEnv _ _ x) = x >>= allText
 allText (TeXBraces x) = x >>= allText
 allText (TeXMath _ x) = x >>= allText
@@ -820,24 +820,24 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
   where
     cleanupText :: LaTeX -> LaTeX -- MathJax does not support \, in \text
     cleanupText [] = []
-    cleanupText (TeXComm "," [] : x) = TeXRaw " " : cleanupText x
+    cleanupText (TeXComm "," _ [] : x) = TeXRaw " " : cleanupText x
     cleanupText (x : y) = cleanup x ++ cleanupText y
 
     cleanup :: LaTeXUnit -> LaTeX
-    cleanup (TeXComm "texttt" [(FixArg, [TeXComm "textit" x])]) =
-        [TeXComm "class" [(FixArg, [TeXRaw "textit"]), (FixArg, [TeXComm "texttt" x])]]
+    cleanup (TeXComm "texttt" _ [(FixArg, [TeXComm "textit" "" x])]) =
+        [TeXComm "class" "" [(FixArg, [TeXRaw "textit"]), (FixArg, [TeXComm "texttt" "" x])]]
         -- MathJax does not support \textit inside \texttt
-    cleanup (TeXComm "tcode" x) = cleanup (TeXComm "texttt" (map (second (>>= cleanup)) x))
-    cleanup (TeXComm "nontcode" x) = [TeXComm "texttt" (map (second (>>= cleanup)) x)]
-    cleanup (TeXComm "ensuremath" [(FixArg, x)]) = x >>= cleanup
-    cleanup (TeXComm "discretionary" _) = []
-    cleanup (TeXComm "hfill" []) = []
-    cleanup (TeXComm "text" [(FixArg, x)]) = [TeXComm "text" [(FixArg, cleanupText x)]]
-    cleanup (TeXComm "break" []) = []
-    cleanup (TeXComm "br" []) = []
-    cleanup (TeXComm "-" []) = []
-    cleanup (TeXComm "quad " []) = [TeXRaw " "] -- because MathJax does not support \quad
-    cleanup (TeXComm x y) = [TeXComm x (map (second (>>= cleanup)) y)]
+    cleanup (TeXComm "tcode" _ x) = cleanup (TeXComm "texttt" "" (map (second (>>= cleanup)) x))
+    cleanup (TeXComm "nontcode" _ x) = [TeXComm "texttt" "" (map (second (>>= cleanup)) x)]
+    cleanup (TeXComm "ensuremath" _ [(FixArg, x)]) = x >>= cleanup
+    cleanup (TeXComm "discretionary" _ _) = []
+    cleanup (TeXComm "hfill" _ []) = []
+    cleanup (TeXComm "text" ws [(FixArg, x)]) = [TeXComm "text" ws [(FixArg, cleanupText x)]]
+    cleanup (TeXComm "break" _ []) = []
+    cleanup (TeXComm "br" _ []) = []
+    cleanup (TeXComm "-" _ []) = []
+    cleanup (TeXComm "quad" _ []) = [TeXRaw " "] -- because MathJax does not support \quad
+    cleanup (TeXComm x ws y) = [TeXComm x ws (map (second (>>= cleanup)) y)]
     cleanup x@(TeXRaw _) = [x]
     cleanup (TeXBraces x) = [TeXBraces (x >>= cleanup)]
     cleanup (TeXEnv x y z) = [TeXEnv x (map (second (>>= cleanup)) y) (z >>= cleanup)]
@@ -845,7 +845,7 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
     cleanup x@TeXLineBreak = [x]
 
 renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _) : more)] ctx =
+renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _ _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
 	| isComplexMath m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
@@ -855,7 +855,7 @@ renderMath m ctx
 		mathKind [TeXMath Square _] = "mathblock"
 		mathKind _ = "math"
 		replaceNonCxxTcode :: LaTeXUnit -> Maybe LaTeX
-		replaceNonCxxTcode (TeXComm "noncxxtcode" args) = Just [TeXComm "tcode" args]
+		replaceNonCxxTcode (TeXComm "noncxxtcode" _ args) = Just [TeXComm "tcode" "" args]
 		replaceNonCxxTcode _ = Nothing
 
 renderSimpleMath :: LaTeX -> RenderContext -> TextBuilder.Builder
@@ -876,7 +876,7 @@ renderSimpleMath (TeXRaw s : rest) sec
 		(content, rest') = case rest of
 			(a : b) -> ([a], b)
 			other -> (other, [])
-renderSimpleMath (TeXComm "frac" [(FixArg, num)] : rest) sec =
+renderSimpleMath (TeXComm "frac" _ [(FixArg, num)] : rest) sec =
 	"[" ++ renderSimpleMath num sec ++ "] / [" ++ renderSimpleMath den sec ++ "]" ++ renderSimpleMath rest' sec
 	where
 		(den, rest') = findDenum rest
@@ -915,7 +915,7 @@ renderSimpleMathUnit (TeXRaw s) sec =
 		entities '<' = "&lt;"
 		entities '>' = "&gt;"
 		entities c = TextBuilder.singleton c
-renderSimpleMathUnit (TeXComm "mathtt" [(FixArg, x)]) ctx = spanTag "mathtt" (highlight ctx x)
+renderSimpleMathUnit (TeXComm "mathtt" _ [(FixArg, x)]) ctx = spanTag "mathtt" (highlight ctx x)
 renderSimpleMathUnit (TeXBraces x) sec = renderSimpleMath x sec
 renderSimpleMathUnit (TeXMath Dollar m) sec = renderSimpleMath (trim m) sec
 renderSimpleMathUnit (TeXMath _ m) sec = renderSimpleMath m sec
@@ -1065,9 +1065,9 @@ instance Render Sentence where
 			i = case sentenceNumber of
 				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
 				Nothing -> Nothing
-			link = TeXComm "class"
+			link = TeXComm "class" ""
 			    [ (FixArg, [TeXRaw "hidden_link"])
-			    , (FixArg, [TeXComm "href" [(FixArg, [TeXRaw ("#" ++ fromJust i)]), (FixArg, [TeXRaw "."])]])
+			    , (FixArg, [TeXComm "href" "" [(FixArg, [TeXRaw ("#" ++ fromJust i)]), (FixArg, [TeXRaw "."])]])
 			    ] -- in math, \class and \href are recognized by mathjax
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
@@ -1091,7 +1091,7 @@ needsBreak (TeXPara (Sentence s (x : y) : z))
 	| ExampleElement _ <- x = True
 	| otherwise = False
 	where
-		noise (LatexElement (TeXComm "index" _)) = True
+		noise (LatexElement (TeXComm "index" _ _)) = True
 		noise (LatexElement (TeXRaw t)) = all isSpace (Text.unpack t)
 		noise _ = False
 
@@ -1101,7 +1101,7 @@ preprocessPre :: LaTeX -> LaTeX
 preprocessPre = concatMap f
 	where
 		f TeXLineBreak = []
-		f (TeXComm (dropTrailingWs -> "br") []) = []
+		f (TeXComm "br" _ []) = []
 		f (TeXEnv e a c) = [TeXEnv e a (preprocessPre c)]
 		f x = [x]
 

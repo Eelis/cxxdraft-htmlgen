@@ -102,19 +102,19 @@ instance AssignNumbers LaTeXUnit LaTeXUnit where
 		put n{itemDeclNr = itemDeclNr n + 1}
 		TeXEnv "itemdecl" [(FixArg, [TeXRaw $ Text.pack $ show $ itemDeclNr n])] . assignNumbers s x
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
-	assignNumbers _ (TeXComm "index" args) = do
+	assignNumbers _ (TeXComm "index" ws args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
-		return $ TeXComm "index" $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
-	assignNumbers _ (TeXComm "defnx" args) = do
+		return $ TeXComm "index" ws $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
+	assignNumbers _ (TeXComm "defnx" ws args) = do
 		n <- get
 		put n{nextIndexEntryNr = nextIndexEntryNr n + 1}
-		return $ TeXComm "defnx" $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
-	assignNumbers _ (TeXComm "footnoteref" []) = do
+		return $ TeXComm "defnx" ws $ (FixArg, [TeXRaw $ Text.pack $ show $ nextIndexEntryNr n]) : args
+	assignNumbers _ (TeXComm "footnoteref" ws []) = do
 		Numbers{..} <- get
 		put Numbers{footnoteRefNr = footnoteRefNr+1, ..}
-		return $ TeXComm "footnoteref" [(FixArg, [TeXRaw $ Text.pack $ show footnoteRefNr])]
-	assignNumbers s (TeXComm x args) = TeXComm x . assignNumbers s args
+		return $ TeXComm "footnoteref" ws [(FixArg, [TeXRaw $ Text.pack $ show footnoteRefNr])]
+	assignNumbers s (TeXComm x ws args) = TeXComm x ws . assignNumbers s args
 	assignNumbers _ x = return x
 
 instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
@@ -321,7 +321,7 @@ nontermdefsInElement _ = []
 
 nontermdefs :: LaTeX -> [Text]
 nontermdefs t =
-    [name | TeXComm cmd [(FixArg, [TeXRaw name])] <- allUnits t
+    [name | TeXComm cmd _ [(FixArg, [TeXRaw name])] <- allUnits t
           , cmd == "nontermdef" || cmd == "renontermdef"]
 
 resolveGrammarterms :: GrammarLinks -> Section -> Section
@@ -347,9 +347,9 @@ resolveGrammarterms links Section{..} =
 grammarterms :: GrammarLinks -> LaTeX -> LaTeX
 grammarterms links = mapTeX (go links)
 	where
-		go g (TeXComm "grammarterm" args@((FixArg, [TeXRaw name]) : _))
+		go g (TeXComm "grammarterm" ws args@((FixArg, [TeXRaw name]) : _))
 			| Just Section{..} <- Map.lookup (Text.toLower name) g =
-				Just [TeXComm "grammarterm_" ((FixArg, [TeXRaw abbreviation]) : args)]
+				Just [TeXComm "grammarterm_" ws ((FixArg, [TeXRaw abbreviation]) : args)]
 		go _ _ = Nothing
 
 bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
@@ -366,10 +366,10 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal"] = Just [d]
+		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal"] = Just [d]
 		go n@(TeXRaw name)
 			| Just Section{..} <- Map.lookup name links =
-				Just [TeXComm "grammarterm_" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]
+				Just [TeXComm "grammarterm_" "" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]
 		go _ = Nothing
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)

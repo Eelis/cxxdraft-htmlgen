@@ -24,7 +24,7 @@ type TeXArg = (ArgKind, LaTeX)
 
 data LaTeXUnit
 	= TeXRaw Text
-	| TeXComm String [TeXArg]
+	| TeXComm String String [TeXArg] -- first string is command name, second is trailing whitespace
 	| TeXEnv String [TeXArg] LaTeX
 	| TeXMath MathType LaTeX
 	| TeXLineBreak
@@ -47,12 +47,12 @@ allUnits (x : y) = x : z ++ allUnits y
 		z = case x of
 			TeXMath _ l -> allUnits l
 			TeXBraces l -> allUnits l
-			TeXComm _ a -> (snd . a) >>= allUnits
+			TeXComm _ _ a -> (snd . a) >>= allUnits
 			TeXEnv _ a l -> (l : snd . a) >>= allUnits
 			_ -> []
 
 matchCommand :: (String -> Bool) -> LaTeX -> [(String,[TeXArg])]
-matchCommand f x = [(str, as) | TeXComm str as <- allUnits x, f str]
+matchCommand f x = [(str, as) | TeXComm str _ as <- allUnits x, f str]
 
 hasCommand :: (String -> Bool) -> LaTeX -> Bool
 hasCommand f = not . null . matchCommand f
@@ -65,7 +65,7 @@ mapTeX f = concatMap g
 	where
 		g :: LaTeXUnit -> LaTeX
 		g (f -> Just x) = x
-		g (TeXComm c a) = [TeXComm c (h . a)]
+		g (TeXComm c ws a) = [TeXComm c ws (h . a)]
 		g (TeXBraces x) = [TeXBraces (mapTeX f x)]
 		g (TeXMath t b) = [TeXMath t (mapTeX f b)]
 		g (TeXEnv n a b) = [TeXEnv n (h . a) (mapTeX f b)]
@@ -77,11 +77,11 @@ renderLaTeX = mconcat . (renderUnit .)
 
 renderUnit :: LaTeXUnit -> Text
 renderUnit (TeXRaw t) = t
-renderUnit (TeXComm "right" [(FixArg, [TeXRaw "."])]) = "\\right."
-renderUnit (TeXComm name [])
-	| dropTrailingWs name `elem` ["left", "sum", "int", "sin", "cos", "right", "bigl", "bigr", "big", "small", "smaller"] = pack $ "\\" <> name
+renderUnit (TeXComm "right" _ [(FixArg, [TeXRaw "."])]) = "\\right."
+renderUnit (TeXComm name ws [])
+	| name `elem` ["left", "sum", "int", "sin", "cos", "right", "bigl", "bigr", "big", "small", "smaller"] = pack $ "\\" <> name <> ws
 	| otherwise = "\\" <> fromString name <> "{}"
-renderUnit (TeXComm name args) = "\\" <> pack (fromString name) <> renderArgs args
+renderUnit (TeXComm name ws args) = "\\" <> pack (fromString name) <> pack (fromString ws) <> renderArgs args
 renderUnit (TeXEnv name args c) =
 	"\\begin{" <> fromString name <> "}"
 	<> renderArgs args
@@ -105,7 +105,7 @@ mapTeXRaw f = map go
 	where
 		go :: LaTeXUnit -> LaTeXUnit
 		go (TeXRaw t) = f t
-		go (TeXComm s args) = TeXComm s (second (go .) . args)
+		go (TeXComm s ws args) = TeXComm s ws (second (go .) . args)
 		go (TeXEnv s args body) = TeXEnv s (second (go .) . args) (go . body)
 		go (TeXBraces l) = TeXBraces $ go . l
 		go t@(TeXMath _ _) = t
@@ -113,7 +113,7 @@ mapTeXRaw f = map go
 
 concatRaws :: LaTeX -> LaTeX
 concatRaws (TeXRaw a : TeXRaw b : more) = concatRaws (TeXRaw (a ++ b) : more)
-concatRaws (TeXComm s args : more) = TeXComm s (second concatRaws . args) : concatRaws more
+concatRaws (TeXComm s ws args : more) = TeXComm s ws (second concatRaws . args) : concatRaws more
 concatRaws (TeXEnv s args bd : more) = TeXEnv s (second concatRaws . args) (concatRaws bd) : concatRaws more
 concatRaws (TeXBraces x : more) = TeXBraces (concatRaws x) : concatRaws more
 concatRaws (x : more) = x : concatRaws more
@@ -155,7 +155,7 @@ texSpan p (TeXRaw x : y) = case Text.span p x of
 texSpan _ x = ("", x)
 
 invisible :: LaTeXUnit -> Bool
-invisible (TeXComm "index" _) = True
+invisible (TeXComm "index" _ _) = True
 invisible _ = False
 
 dropWhileEnd :: (Char -> Bool) -> LaTeX -> LaTeX
@@ -179,7 +179,7 @@ triml x = x
 
 isMath :: LaTeXUnit -> Bool
 isMath (TeXMath _ _) = True
-isMath (TeXComm "ensuremath" _) = True
+isMath (TeXComm "ensuremath" _ _) = True
 isMath (TeXEnv "eqnarray*" _ _) = True
 isMath _ = False
 

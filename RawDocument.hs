@@ -27,7 +27,7 @@ import LaTeXParser (Macros(..), Signature(..))
 import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
 import Data.List (transpose, take)
-import Util ((.), (++), mapHead, dropTrailingWs, textStripInfix, textSubRegex, splitOn)
+import Util ((.), (++), mapHead, textStripInfix, textSubRegex, splitOn)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
@@ -99,25 +99,25 @@ isParaEnd :: LaTeXUnit -> Bool
 isParaEnd (TeXEnv "indexed" _ (x:_)) = isParaEnd x
 isParaEnd (TeXEnv "itemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True
-isParaEnd (TeXComm "pnum" _) = True
+isParaEnd (TeXComm "pnum" _ _) = True
 isParaEnd x = isParasEnd x
 
 isParasEnd :: LaTeXUnit -> Bool
-isParasEnd (TeXComm "definition" _) = True
-isParasEnd (TeXComm "rSec" _) = True
-isParasEnd (TeXComm "infannex" _) = True
-isParasEnd (TeXComm "normannex" _) = True
+isParasEnd (TeXComm "definition" _ _) = True
+isParasEnd (TeXComm "rSec" _ _) = True
+isParasEnd (TeXComm "infannex" _ _) = True
+isParasEnd (TeXComm "normannex" _ _) = True
 isParasEnd _ = False
 
 isJunk :: LaTeXUnit -> Bool
 isJunk (TeXRaw x) = all isSpace (Text.unpack x)
-isJunk (TeXComm "index" _) = True
-isJunk (TeXComm "setlength" _) = True
+isJunk (TeXComm "index" _ _) = True
+isJunk (TeXComm "setlength" _ _) = True
 isJunk _ = False
 
 isItem :: LaTeXUnit -> Maybe LaTeX
-isItem (TeXComm (dropTrailingWs -> "item") []) = Just []
-isItem (TeXComm (dropTrailingWs -> "item") [(_, label)]) = Just label
+isItem (TeXComm "item" _ []) = Just []
+isItem (TeXComm "item" _ [(_, label)]) = Just label
 isItem _ = Nothing
 
 parseItems :: LaTeX -> [RawItem]
@@ -223,8 +223,8 @@ isOnlySpace _ = False
 parsePara :: LaTeX -> [RawTexPara]
 parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (filter (not . kill) u))
 	where
-		kill (TeXComm "hline" []) = True
-		kill (TeXComm "capsep" []) = True
+		kill (TeXComm "hline" _ []) = True
+		kill (TeXComm "capsep" _ []) = True
 		kill _ = False
 		f :: LaTeXUnit -> RawElement
 		f e@(TeXEnv k a stuff)
@@ -267,14 +267,14 @@ instance ExtractFootnotes a => ExtractFootnotes [a] where
 		where x = extractFootnotes . l
 
 instance ExtractFootnotes LaTeXUnit where
-	extractFootnotes (TeXComm "footnote" [(_, content)]) =
-		(TeXComm "footnoteref" [], [RawFootnote $ parsePara content])
-	extractFootnotes (TeXComm "footnotemark" []) =
-		(TeXComm "footnoteref" [], [])
-	extractFootnotes (TeXComm "footnotetext" [(_, content)]) =
+	extractFootnotes (TeXComm "footnote" _ [(_, content)]) =
+		(TeXComm "footnoteref" "" [], [RawFootnote $ parsePara content])
+	extractFootnotes (TeXComm "footnotemark" _ []) =
+		(TeXComm "footnoteref" "" [], [])
+	extractFootnotes (TeXComm "footnotetext" _ [(_, content)]) =
 		(TeXRaw "" {- todo.. -}, [RawFootnote $ parsePara content])
-	extractFootnotes (TeXComm a [(FixArg, content)]) =
-		first (\c -> TeXComm a [(FixArg, c)]) (extractFootnotes content)
+	extractFootnotes (TeXComm a ws [(FixArg, content)]) =
+		first (\c -> TeXComm a ws [(FixArg, c)]) (extractFootnotes content)
 	extractFootnotes (TeXEnv env args content) = first (TeXEnv env args) (extractFootnotes content)
 	extractFootnotes other = (other, [])
 
@@ -288,12 +288,12 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 		collectParas (TeXEnv "itemdescr" _ desc : more) =
 			map (\p -> p{rawParaInItemdescr=True}) (collectParas desc)
 			++ collectParas more
-		collectParas (TeXComm "pnum"
+		collectParas (TeXComm "pnum" _
 			[ (FixArg, [TeXRaw (Text.unpack -> file)])
 			, (FixArg, [TeXRaw (Text.unpack -> read -> lineNr)])] : more) =
 				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Just (SourceLocation file lineNr)} : x)
 				(collectParas more)
-		collectParas (TeXComm "pnum" [] : more) =
+		collectParas (TeXComm "pnum" _ [] : more) =
 				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Nothing} : x)
 				(collectParas more)
 		collectParas [] = []
@@ -304,7 +304,7 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 
 parseSections :: Int -> LaTeX -> [LinearSection]
 parseSections level
-	(TeXComm c args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
+	(TeXComm c _ args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
 	| ((FixArg, isJustRaw -> fromJust -> lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
 		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
 		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
@@ -335,9 +335,9 @@ parseTable latex
 				(row', rest') = break (== TeXLineBreak) l
 
 columnBreakCell :: Cell [RawTexPara]
-columnBreakCell = Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" [])]]
+columnBreakCell = Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" "" [])]]
 isColumnBreakCell :: Cell [RawTexPara] -> Bool
-isColumnBreakCell (Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" [])]]) = True
+isColumnBreakCell (Cell Normal [RawTexPara [RawLatexElement (TeXComm "columnbreak" _ [])]]) = True
 isColumnBreakCell _ = False
 
 makeRectangular :: a -> [[a]] -> [[a]]
@@ -356,7 +356,7 @@ breakMultiCols rows
         separateColumnBreaks = concatMap f
             where
                 f :: Cell [RawTexPara] -> [Cell [RawTexPara]]
-                f c@Cell{..} | [RawTexPara (RawLatexElement (TeXComm "columnbreak" []) : rest)] <- content =
+                f c@Cell{..} | [RawTexPara (RawLatexElement (TeXComm "columnbreak" _ []) : rest)] <- content =
                         [columnBreakCell, c{content = [RawTexPara rest]}]
                     | otherwise = [c]
 
@@ -430,9 +430,9 @@ loadXrefDelta = do
 	return $
 		[ (fromJust $ isJustRaw $ snd from, [snd to])
 			| [from, to] <- lfc "movedxrefs" ] ++
-		[ (fromJust $ isJustRaw $ snd from, (:[]) . TeXComm "ref" . (:[]) . tos)
+		[ (fromJust $ isJustRaw $ snd from, (:[]) . TeXComm "ref" "" . (:[]) . tos)
 			| from : tos <- lfc "movedxref" ++ lfc "movedxrefii" ++ lfc "movedxrefiii" ] ++
 		[ (abbr, [])
 			| [(_, [TeXRaw abbr])] <- lfc "removedxref" ] ++
-		[ (abbr, [[TeXComm "ref" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
+		[ (abbr, [[TeXComm "ref" "" [(FixArg, [TeXRaw ("depr." ++ abbr)])]]])
 			| [(_, [TeXRaw abbr])] <- lfc "deprxref" ]

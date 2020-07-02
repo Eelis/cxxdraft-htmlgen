@@ -215,10 +215,10 @@ parseCode c = concatRaws . go False
 		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
 			where (lit, rest') = stringLiteral rest
 		go False (Token "/" : Token "/" : (breakComment -> (comment, rest')))
-			= TeXComm "comment" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
+			= TeXComm "comment" "" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
 		go False (Token "/" : Token "*" : rest)
 		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
-		    = TeXComm "comment" [(FixArg, [TeXRaw "/*"] ++ noncode comment ++ [TeXRaw "*/"])] : go False rest'
+		    = TeXComm "comment" "" [(FixArg, [TeXRaw "/*"] ++ noncode comment ++ [TeXRaw "*/"])] : go False rest'
 		go b (Token "/" : rest) = TeXRaw "/" : go b rest
 		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) : go b rest
 			where (code, rest) = break (`elem` [Token "@", Token "/", Token "\""]) s
@@ -227,7 +227,7 @@ parseCode c = concatRaws . go False
 		  fullParse c nc ++ case more of
 		    [] -> []
 		    Token "@" : (break (== Token "@") -> (code, _ : rest)) ->
-		        TeXComm "tcode" [(FixArg, fullParse c code)] : noncode rest
+		        TeXComm "tcode" "" [(FixArg, fullParse c code)] : noncode rest
 		    _ -> error "no"
 		    where (nc, more) = span (/= Token "@") toks
 		stringLiteral :: [Token] -> ([Token], [Token])
@@ -327,7 +327,7 @@ parseCmd c@Context{..} cmd ws rest
 					Just x -> [(OptArg, fullParse c x)]
 				++ [(FixArg, fullParse c a2)]
 		in
-			prependContent [TeXComm "raisebox" args] (parse c rest''')
+			prependContent [TeXComm "raisebox" "" args] (parse c rest''')
 
 	| cmd == "def"
 	, (Token ('\\' : name) : rest') <- rest
@@ -344,7 +344,7 @@ parseCmd c@Context{..} cmd ws rest
 	| Just signature <- lookup cmd signatures =
 		let
 			(args, rest') = parseArgs2 c signature rest
-			content = TeXComm (cmd ++ ws) args
+			content = TeXComm cmd ws args
 		in
 			(if cmd `elem` kill then id else prependContent [content])
 			(parse c rest')
@@ -376,17 +376,17 @@ parse c (Token "%" : x)
 parse _ [] = ParseResult mempty mempty mempty
 parse c (Token "\\\\" : x) = prependContent [TeXLineBreak] (parse c x)
 parse c (Token ['\\', ch] : x)
-	| ch `elem` literal = prependContent [TeXComm [ch] []] (parse c x)
+	| ch `elem` literal = prependContent [TeXComm [ch] "" []] (parse c x)
 parse c (Token ('\\':'v':'e':'r':'b':':':arg) : rest) =
-	prependContent [TeXComm "verb" [(FixArg, [TeXRaw $ Text.pack arg])]] (parse c rest)
+	prependContent [TeXComm "verb" "" [(FixArg, [TeXRaw $ Text.pack arg])]] (parse c rest)
 parse c (Token "\\let" : _ : _ : s) = parse c s -- todo
 parse c (Token "\\newcommand" : Token "{" : s) = parseNewCmd c s
-parse c (Token "\\right" : Token "." : more) = prependContent [TeXComm "right" [(FixArg, [TeXRaw "."])]] (parse c more)
+parse c (Token "\\right" : Token "." : more) = prependContent [TeXComm "right" "" [(FixArg, [TeXRaw "."])]] (parse c more)
 parse c (Token "\\renewcommand" : Token "{" : s) = parseNewCmd c s
 parse c (Token "\\newenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\lstnewenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\rSec" : Token [getDigit -> Just i] : s)
-		= prependContent [TeXComm "rSec" args] $ parse c s''
+		= prependContent [TeXComm "rSec" "" args] $ parse c s''
 	where
 		Just (a, s') = parseOptArg s
 		Just (b, s'') = parseFixArg c s'

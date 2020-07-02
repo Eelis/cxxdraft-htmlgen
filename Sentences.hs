@@ -18,7 +18,7 @@ startsSentence (RawLatexElement e) | [TeXRaw x] <- triml [e], x /= "" = isUpper 
 startsSentence _ = False
 
 unitContinuesSentence :: LaTeXUnit -> Bool
-unitContinuesSentence (TeXComm " " []) = True
+unitContinuesSentence (TeXComm " " _ []) = True
 unitContinuesSentence (TeXRaw txt) = "," `isPrefixOf` txt
 unitContinuesSentence _ = False
 
@@ -43,7 +43,7 @@ splitIntoSentences = go []
 		go x z@(e : y)
 			| Just (s, rest) <- breakSentence z = (x ++ s) : go [] rest
 			| otherwise = go (x ++ [e]) y
-		rmIndices (RawLatexElement (TeXRaw "\n") : RawLatexElement (TeXComm "index" _) : x) = rmIndices x
+		rmIndices (RawLatexElement (TeXRaw "\n") : RawLatexElement (TeXComm "index" _ _) : x) = rmIndices x
 		rmIndices x = x
 
 breakSentence :: [RawElement] -> Maybe ([RawElement] {- sentence -}, [RawElement] {- remainder -})
@@ -53,13 +53,13 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
     where
         f :: LaTeX -> Bool
         f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
-        f (TeXComm "text" [(FixArg, a)] : _) = f (reverse a)
-        f (TeXComm "mbox" [(FixArg, a)] : _) = f (reverse a)
+        f (TeXComm "text" _ [(FixArg, a)] : _) = f (reverse a)
+        f (TeXComm "mbox" _ [(FixArg, a)] : _) = f (reverse a)
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
 breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
 breakSentence (RawLatexElement (TeXBraces x) : more) = breakSentence (map RawLatexElement x ++ more)
-breakSentence (b@(RawLatexElement (TeXComm cmd _)) : more) =
+breakSentence (b@(RawLatexElement (TeXComm cmd _ _)) : more) =
 	if cmd `elem` ["break"]
 		then Just ([b], more)
 		else (first (b :)) . breakSentence more
@@ -81,7 +81,7 @@ breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") ->
                 Nothing -> (pre, post')
             more' = if post'' == "" then more else RawLatexElement (TeXRaw post'') : more
             (maybefootnote, more'') = case more' of
-                fn@(RawLatexElement (TeXComm "footnoteref" _)) : z -> ([fn], z)
+                fn@(RawLatexElement (TeXComm "footnoteref" _ _)) : z -> ([fn], z)
                 _ -> ([], more')
             sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
         in
@@ -105,7 +105,7 @@ isActualSentence l = any p l
 
 		q :: LaTeXUnit -> Bool
 		q (TeXRaw s) = not $ all isSpace $ Text.unpack s
-		q (TeXComm c _) | c `elem` yes = True
+		q (TeXComm c _ _) | c `elem` yes = True
 		q (TeXEnv c _ _) | c `elem` yes = True
 		q (TeXEnv "indexed" _ body) = any q body
 		q (TeXBraces body) = any q body
@@ -131,11 +131,11 @@ instance LinkifyFullStop LaTeX where
             | Just body' <- linkifyFullStop link body = Just [TeXEnv "array" args body']
         inUnit (TeXEnv "indented" [] body)
             | Just body' <- linkifyFullStop link body = Just [TeXEnv "indented" [] body']
-        inUnit (TeXComm "text" [(FixArg, x)])
-            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "text" [(FixArg, x')]))
+        inUnit (TeXComm "text" ws [(FixArg, x)])
+            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "text" ws [(FixArg, x')]))
             | otherwise = Nothing
-        inUnit (TeXComm "mbox" [(FixArg, x)])
-            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "mbox" [(FixArg, x')]))
+        inUnit (TeXComm "mbox" ws [(FixArg, x)])
+            | Just x' <- linkifyFullStop link x = Just (moveStuffOutsideText (TeXComm "mbox" ws [(FixArg, x')]))
             | otherwise = Nothing
         inUnit (TeXMath kind m)
             | Just m' <- linkifyFullStop link m = Just [TeXMath kind m']
@@ -167,12 +167,12 @@ instance LinkifyFullStop [Element] where
 moveStuffOutsideText :: LaTeXUnit -> LaTeX
     -- Turns \text{ \class{bla} } into \text{ }\class{\text{bla}}\text{ }, and similar for \href,
     -- because MathJax does not support \class and \href in \text.
-moveStuffOutsideText (TeXComm parent [(FixArg, [TeXComm nested [x, y]])])
+moveStuffOutsideText (TeXComm parent pws [(FixArg, [TeXComm nested nws [x, y]])])
     | parent `elem` ["text", "mbox"]
-    , nested `elem` ["class", "href"] = [TeXComm nested [x, (FixArg, moveStuffOutsideText (TeXComm parent [y]))]]
-moveStuffOutsideText (TeXComm parent [(FixArg, t)])
+    , nested `elem` ["class", "href"] = [TeXComm nested nws [x, (FixArg, moveStuffOutsideText (TeXComm parent pws [y]))]]
+moveStuffOutsideText (TeXComm parent pws [(FixArg, t)])
     | parent `elem` ["text", "mbox"]
-    , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent [(FixArg, [u])]) t
+    , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent pws [(FixArg, [u])]) t
 moveStuffOutsideText u = [u]
 
 justText :: [Element] -> Text
@@ -188,14 +188,14 @@ justText = Text.concat . map g
         f (TeXEnv "codeblock" _ _) = "code"
         f (TeXBraces x) = ff x
         f (TeXMath _ x) = ff x
-        f (TeXComm " " _) = ""
-        f (TeXComm c _)
+        f (TeXComm " " _ _) = ""
+        f (TeXComm c _ _)
             | trimString c `elem` words ("left right dotsc cdots lceil rceil lfloor rfloor cdot phantom index & { } # @ - ; " ++
                                          "linebreak ~ textunderscore leq geq lfloor rfloor footnoteref discretionary nolinebreak setlength") = ""
             | c == "ref" = "bla"
             | c == "nolinebreak" = ""
-        f (TeXComm c ((FixArg, x) : _))
+        f (TeXComm c _ ((FixArg, x) : _))
             | trimString c `elem` words "deflinkx link liblinkx tcode noncxxtcode textsc mathscr term mathsf mathit text textit texttt mathtt grammarterm ensuremath textsc mathbin url" = ff x
-        f (TeXComm c (_ : (FixArg, x) : _))
+        f (TeXComm c _ (_ : (FixArg, x) : _))
             | c `elem` ["defnx", "grammarterm_"] = ff x
         f _ = {-trace ("justText: " ++ show x)-} ""
