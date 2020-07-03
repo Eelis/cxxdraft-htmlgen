@@ -298,6 +298,7 @@ highlightUnit ctx x = case x of
         | c `elem` ["%", "&", "caret", "~"] -> spanTag "operator" (render x ctx)
         | c == "#" -> spanTag "preprocessordirective" (render x ctx)
         | c `elem` ["{", "}"] -> spanTag "curlybracket" (render x ctx)
+    TeXBraces y -> highlight ctx y
     _ -> render x ctx
 
 highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
