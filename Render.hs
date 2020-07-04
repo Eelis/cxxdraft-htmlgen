@@ -383,8 +383,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "nontermdef" _ [(FixArg, [TeXRaw s])]) =
 		(++ spanTag "ntdefcolon" ":") .
 		render anchor
-		{ aId    = "nt:" ++ s
-		, aText  = TextBuilder.fromText s
+		{ aText  = TextBuilder.fromText s
 		, aHref  = "#nt:" ++ s
 		, aClass = "nontermdef" }
 	render (TeXComm "renontermdef" _ x) = render (TeXComm "nontermdef" "" x)
@@ -698,12 +697,21 @@ instance Render Example where
 				aClass = "example_link",
 				aText = "<span class='textit'>Example</span>" }
 
+nontermDef :: LaTeX -> Maybe Text
+nontermDef t
+	| [[(FixArg, [TeXRaw nt])]] <- (snd .) $ matchCommand (`elem` ["nontermdef", "renontermdef"]) t = Just nt
+	| otherwise = Nothing
+
 instance Render Element where
 	render (LatexElement x) = render x
 	render (Codeblock x) = render x
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
-	render (Bnf e t) = xml "div" [("class", Text.pack e)] . render t
+	render (Bnf e t) = xml "div" ([("class", Text.pack e)] ++ idattr) . render t
+		where
+			idattr
+				| Just nt <- nontermDef t = [("id", "nt:" ++ nt)]
+				| otherwise = []
 	render (TableElement t) = renderTab False t
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
