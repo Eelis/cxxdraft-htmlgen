@@ -1120,7 +1120,7 @@ htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
 grammarNameRef :: Abbreviation -> Text -> RenderContext -> Text
 grammarNameRef section name RenderContext{..} =
     (if abbrIsOnPage section page then "" else "SectionToSection/" ++ section)
-    ++ "#nt:" ++ (Text.toLower name)
+    ++ "#nt:" ++ name
 
 data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
