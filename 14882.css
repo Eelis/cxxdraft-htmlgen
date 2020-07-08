@@ -1,10 +1,13 @@
 body {
-	margin: 5em;
 	font-family: serif;
 		/* Necessary because operators such as 'xor' and 'lshift' stand out
 		   from surrounding text by virtue of being sans serif. */
 	hyphens: auto;
 	line-height: 1.35;
+	margin-left: 5em;
+	margin-right: 4em;
+	margin-top: 3em;
+	margin-bottom: 3em;
 }
 
 div.wrapper {
