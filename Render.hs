@@ -577,14 +577,15 @@ instance Render [(IndexComponent, IndexNode)] where
 					go up' (Map.toList indexSubnodes)
 
 renderIndex :: RenderContext -> IndexTree -> String -> TextBuilder.Builder
-renderIndex ctx tree "generalindex" = mconcat $ ["<hr>"] ++ linklines ++ ["<hr>"] ++ map sub p
+renderIndex ctx tree name
+	| name `elem` ["generalindex", "libraryindex"] = mconcat $ ["<hr>"] ++ linklines ++ ["<hr>"] ++ map sub p
+	| otherwise = render (Map.toList tree) ctx
 	where
 		p = partitionBy (indexHeading . fst) $ Map.toList tree
 		sub (n, ii) = h 2 (render anchor{aText=TextBuilder.fromText $ Text.pack n, aId=Text.pack n} ctx) ++ render ii ctx
 		(symnum, rest) = splitAt 2 p
 		linklines = map (h 2 . mconcat . intersperse " " . map (li . fst)) [symnum, rest]
 		li n = render anchor{aText = TextBuilder.fromText $ Text.pack n, aHref = "#" ++ Text.pack n} ctx
-renderIndex ctx tree _ = render (Map.toList tree) ctx
 
 renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
 renderTab stripTab Table{..} ctx =
