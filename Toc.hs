@@ -16,24 +16,24 @@ import Render (
 import Util
 import Document (Section(..), Draft(..), SectionKind(..), indexCatName, isDefinitionSection)
 
-tocSection :: Section -> TextBuilder.Builder
-tocSection Section{sectionKind=DefinitionSection _} = ""
-tocSection s@Section{..} =
+tocSection :: Draft -> Section -> TextBuilder.Builder
+tocSection _ Section{sectionKind=DefinitionSection _} = ""
+tocSection draft s@Section{..} =
 	xml "div" [("id", abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
 		render ( sectionName ++ [TeXRaw " "]
-		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage, inSectionTitle=True}) ++
-	mconcat (tocSection . subsections)
+		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage, inSectionTitle=True, draft=draft}) ++
+	mconcat (tocSection draft . subsections)
 
-tocChapter :: Section -> TextBuilder.Builder
-tocChapter s@Section{abbreviation, sectionName, subsections, parents} =
+tocChapter :: Draft -> Section -> TextBuilder.Builder
+tocChapter draft s@Section{abbreviation, sectionName, subsections, parents} =
 	xml "div" [("id", abbreviation)] $
 	h (min 4 $ 2 + length parents) (
 		secnum "" s ++ " " ++
-		render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True} ++
+		render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True, draft=draft} ++
 		simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
-	xml "div" [("class", "tocChapter")] (mconcat (tocSection . subsections))
+	xml "div" [("class", "tocChapter")] (mconcat (tocSection draft . subsections))
   where
 	href = (if any (not . isDefinitionSection . sectionKind) subsections then "#" else "TocToSection/")
 	    ++ urlChars abbreviation
@@ -54,7 +54,7 @@ tocHeader date commitUrl =
 	++ " for<span style='position:relative;left:-3pt'>matti<span style='position:relative;bottom:0.15ex'>n</span>g.</span></b>"
 
 writeTocFile :: SectionFileStyle -> Draft -> IO ()
-writeTocFile sfs Draft{..} = do
+writeTocFile sfs draft@Draft{..} = do
 	date <- getCurrentTime
 	tocCss <- readFile "toc.css"
 	let
@@ -65,7 +65,7 @@ writeTocFile sfs Draft{..} = do
 			"<h1 style='text-align:center; hyphens:none'>Working Draft, Standard for Programming Language C++</h1>" ++
 			"<br>" ++ xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
 			"<br><h1>Contents</h1>" ++
-			mconcat (tocChapter . chapters) ++
+			mconcat (tocChapter draft . chapters) ++
 			mconcat (h 2
 				. (\cat -> simpleRender2 anchor{aHref="TocToSection/" ++ cat, aText=indexCatName cat})
 				. ["generalindex", "headerindex", "libraryindex", "conceptindex", "impldefindex"])

@@ -18,7 +18,7 @@ module Render (
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
-	TeXPara(..), Sentence(..), Abbreviation,
+	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), indexHeading,
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -175,6 +175,7 @@ instance Render Anchor where
 		xml "a" ([("class", aClass) | aClass /= ""] ++
 		         [("href" , aHref ) | aHref  /= ""] ++
 		         [("id"   , aId   ) | aId    /= ""] ++
+		         [("title", aTitle) | aTitle /= ""] ++
 		         [("style", aStyle) | aStyle /= ""]) aText
 
 class Render a where render :: a -> RenderContext -> TextBuilder.Builder
@@ -347,6 +348,17 @@ commasAnd [x, y] = x ++ " and " ++ y
 commasAnd [x, y, z] = x ++ ", " ++ y ++ ", and " ++ z
 commasAnd (x : y) = x ++ ", " ++ commasAnd y
 
+abbrTitle :: Text -> Bool -> RenderContext -> Text
+abbrTitle abbr includeAbbr ctx
+	| "tab:" `isPrefixOf` abbr
+	, Just Table{..} <- tableByAbbr (draft ctx) abbr = Text.pack (show tableNumber) -- todo: bad
+	| Just sec@Section{..} <- sectionByAbbr (draft ctx) abbr =
+		LazyText.toStrict $ TextBuilder.toLazyText $
+			secnumText sec ++ "&emsp;" ++
+			render sectionName ctx{noTags=True} ++
+			TextBuilder.fromText (if includeAbbr then "&emsp;[" ++ abbr ++ "]" else "")
+	| otherwise = ""
+
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
@@ -375,7 +387,7 @@ instance Render LaTeXUnit where
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
 				| otherwise = squareAbbr abbr
 		in
-			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText}
+			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
 	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
@@ -396,7 +408,10 @@ instance Render LaTeXUnit where
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
 	render (TeXComm "link" _ [(FixArg, txt), (FixArg, [TeXRaw abbr])])
-		= \ctx -> render anchor{aHref=abbrHref abbr ctx, aText = render txt ctx{inLink=True}} ctx
+		= \ctx -> render anchor{
+			aHref = abbrHref abbr ctx,
+			aText = render txt ctx{inLink=True},
+			aTitle = abbrTitle abbr True ctx} ctx
 	render (TeXComm comm _
 				[ (FixArg, txt)
 				, (FixArg, (parseIndex -> (p, _)))
@@ -406,6 +421,7 @@ instance Render LaTeXUnit where
 			{ aText = render txt ctx{inLink=True}
 			, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
 				++ "#" ++ cat comm ++ indexPathHref p
+			, aTitle = abbrTitle abbr True ctx
 			} ctx
 		where
 			cat "linkx" = ""
@@ -424,10 +440,11 @@ instance Render LaTeXUnit where
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "tcode" _ [(FixArg, x)]) = \ctx ->
-		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
-		    if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
-		    then highlightLines ctx{rawHyphens=True, insertBreaks=True} x
-		    else render x ctx{rawHyphens=True, insertBreaks=True}
+		if noTags ctx then render x ctx{rawHyphens=True, insertBreaks=True}
+		else spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
+			if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
+			then highlightLines ctx{rawHyphens=True, insertBreaks=True} x
+			else render x ctx{rawHyphens=True, insertBreaks=True}
 	render (TeXComm "noncxxtcode" _ [(FixArg, x)]) = \ctx ->
 		spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 		    render x ctx{rawHyphens=True, insertBreaks=True}
@@ -492,7 +509,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "texorpdfstring" _ [_, (FixArg, x)]) = render x
 	render (TeXComm " " _ [])            = return "&nbsp;"
 	render (TeXComm "\n" _ [])           = return "\n"
-	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> spanTag "textit" $ render x c{rawTilde = False}
+	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> (if noTags c then id else spanTag "textit") $ render x c{rawTilde = False}
 	render (TeXComm s _ [])
 	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s
@@ -512,7 +529,7 @@ instance Render LaTeXUnit where
 	       lookup x simpleMacros       = return $ TextBuilder.fromText y
 	    | [(FixArg, z)] <- s, Just y <-
 	       lookup x simpleMacros       = (TextBuilder.fromText y ++) . render z
-	    | otherwise                    = spanTag (Text.pack x) . render (s >>= snd)
+	    | otherwise                    = \ctx -> (if noTags ctx then id else spanTag (Text.pack x)) $ render (s >>= snd) ctx
 	render (TeXEnv "itemdecl" [(FixArg, [TeXRaw num])] t) = \c ->
 		let
 			i = idPrefix c ++ "itemdecl:" ++ num
@@ -522,7 +539,7 @@ instance Render LaTeXUnit where
 			xml "div" [("class", "marginalizedparent")] (render link c) ++
 			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ highlightLines c{rawTilde=True, rawHyphens=True} t)
 	render env@(TeXEnv e args t)
-	    | e `elem` makeSpan            = spanTag (Text.pack e) . render t
+	    | e `elem` makeSpan            = \ctx -> (if noTags ctx then id else spanTag (Text.pack e)) (render t ctx)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath [env] = renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock e args t
@@ -768,6 +785,7 @@ data RenderContext = RenderContext
 	, inSentence :: Bool -- inside a sentence, we shouldn't generate nested sentence divs
 	                     -- (which would happen for sentences inside items inside lists inside sentences)
 	, replXmlChars :: Bool -- replace < with &lt;, etc
+	, noTags :: Bool -- means we're rendering the contents of e.g. a "title" attribute which cannot contain tags/elements
 	, extraIndentation :: Int -- in em
 	, idPrefix :: Text }
 
@@ -786,6 +804,7 @@ defaultRenderContext = RenderContext
 	, inSectionTitle = False
 	, inSentence = False
 	, replXmlChars = True
+	, noTags = False
 	, extraIndentation = 0
 	, idPrefix = "" }
 
@@ -1142,17 +1161,20 @@ simpleRender2 :: Render a => a -> TextBuilder.Builder
 simpleRender2 = flip render defaultRenderContext
 
 secnum :: Text -> Section -> TextBuilder.Builder
-secnum href Section{sectionNumber=n,..} =
-	simpleRender2 (anchor{aClass=c, aHref=href, aText=text, aStyle=Text.pack style})
+secnum href se@Section{..} =
+	simpleRender2 (anchor{aClass=c, aHref=href, aText=secnumText se, aStyle=Text.pack style})
 	where
 		style = "min-width:" ++ show (73 + length parents * 15) ++ "pt"
-		text
-			| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
-			| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
-			| otherwise = intercalateBuilders "." (chap : simpleRender2 . tail ns)
-		ns = reverse $ n : sectionNumber . parents
 		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
+
+secnumText :: Section -> TextBuilder.Builder
+secnumText Section{sectionNumber=n,..}
+	| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
+	| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
+	| otherwise = intercalateBuilders "." (chap : simpleRender2 . tail ns)
+	where
+		ns = reverse $ n : sectionNumber . parents
 		chap :: TextBuilder.Builder
 		chap
 			| chapter == NormalChapter = simpleRender2 (head ns)

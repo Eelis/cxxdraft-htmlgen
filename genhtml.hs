@@ -53,7 +53,7 @@ main = do
 				, writeTablesFile sectionFileStyle draft
 				] ++
 				writeXrefDeltaFiles sectionFileStyle draft ++
-				writeIndexFiles sectionFileStyle index ++
+				writeIndexFiles sectionFileStyle draft index ++
 				writeSectionFiles sectionFileStyle draft
 
 			((), took) <- measure $ ParallelMonad.sequence_ acts

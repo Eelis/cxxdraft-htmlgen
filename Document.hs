@@ -334,7 +334,5 @@ figureByAbbr d a = case [ f | (_, f) <- figures d, a == figureAbbr f ] of
 	[f] -> f
 	_ -> error $ "figureByAbbr: " ++ show a
 
-sectionByAbbr :: Draft -> Abbreviation -> Section
-sectionByAbbr d a = case [ s | s <- sections d, a == abbreviation s ] of
-	[s] -> s
-	_ -> error $ "sectionByAbbr: " ++ show a
+sectionByAbbr :: Draft -> Abbreviation -> Maybe Section
+sectionByAbbr d a = listToMaybe [ s | s <- sections d, a == abbreviation s ]

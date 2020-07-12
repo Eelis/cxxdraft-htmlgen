@@ -139,7 +139,7 @@ writeFiguresFile sfs draft = writeSectionFile "fig" sfs "14882: Figures" $
 			"<hr>" ++
 			sectionHeader 4 s "" anchor{
 				aHref = "SectionToSection/" ++ urlChars abbreviation
-					++ "#" ++ urlChars figureAbbr } defaultRenderContext
+					++ "#" ++ urlChars figureAbbr } defaultRenderContext{draft=draft}
 			++ renderFig True f defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=FiguresPage}
 
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
@@ -150,7 +150,7 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 		r :: Paragraph -> Table -> TextBuilder.Builder
 		r p t@Table{tableSection=s@Section{..}, ..} =
 			"<hr>" ++
-			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext
+			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext{draft=draft}
 			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=TablesPage}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
@@ -163,7 +163,7 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 
 writeSingleSectionFile :: SectionFileStyle -> Draft -> String -> IO ()
 writeSingleSectionFile sfs draft abbr = do
-	let section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
+	let Just section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
 	let baseFilename = Text.unpack abbreviation
 	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
@@ -184,13 +184,13 @@ writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> d
 		names = fst . files
 		contents = snd . files
 
-writeIndexFile :: SectionFileStyle -> String -> IndexTree -> IO ()
-writeIndexFile sfs cat index =
+writeIndexFile :: SectionFileStyle -> Draft -> String -> IndexTree -> IO ()
+writeIndexFile sfs draft cat index =
 	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $
-		h 1 (indexCatName cat) ++ renderIndex defaultRenderContext{page=IndexPage} index cat
+		h 1 (indexCatName cat) ++ renderIndex defaultRenderContext{page=IndexPage, draft=draft} index cat
 
-writeIndexFiles :: SectionFileStyle -> Index -> [IO ()]
-writeIndexFiles sfs index = flip map (Map.toList index) $ uncurry (writeIndexFile sfs) . first Text.unpack
+writeIndexFiles :: SectionFileStyle -> Draft -> Index -> [IO ()]
+writeIndexFiles sfs draft index = flip map (Map.toList index) $ uncurry (writeIndexFile sfs draft) . first Text.unpack
 
 writeCssFile :: IO ()
 writeCssFile = do

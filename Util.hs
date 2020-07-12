@@ -39,13 +39,13 @@ h = flip xml [] . ("h" ++) . Text.pack . show
 data Anchor = Anchor
     { aClass, aId, aHref :: Text
     , aText :: TextBuilder.Builder
-    , aStyle :: Text }
+    , aStyle, aTitle :: Text }
 
 intercalateBuilders :: TextBuilder.Builder -> [TextBuilder.Builder] -> TextBuilder.Builder
 intercalateBuilders x y = mconcat $ intersperse x y
 
 anchor :: Anchor
-anchor = Anchor{aClass="", aId="", aHref="", aText=TextBuilder.fromText "", aStyle=""}
+anchor = Anchor{aClass="", aId="", aHref="", aText=TextBuilder.fromText "", aStyle="", aTitle=""}
 
 greekAlphabet :: [(String, Char)]
 greekAlphabet =
