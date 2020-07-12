@@ -237,6 +237,16 @@ parseCode c = concatRaws . go False
 		stringLiteral (y : x) = first (y :) (stringLiteral x)
 		stringLiteral [] = ([], [])
 
+parseOutputBlock :: Context -> [Token] -> LaTeX
+parseOutputBlock c = concatRaws . go
+	where
+		go :: [Token] -> LaTeX
+		go [] = []
+		go (Token "@" : rest) = fullParse c cmd ++ go rest'
+			where (cmd, Token "@" : rest') = break (== Token "@") rest
+		go s = TeXRaw (Text.pack $ concatMap tokenChars code) : go rest
+			where (code, rest) = break (== Token "@") s
+
 tokenize :: String -> [Token]
 tokenize "" = []
 tokenize ('\\':'v':'e':'r':'b': delim : (break (== delim) -> (arg, _ : rest))) =
@@ -277,7 +287,7 @@ parseBegin c env t
 	= prependContent [TeXEnv env [(FixArg, fullParse c title)] (parseCode c code)] (parse c rest)
 parseBegin c "outputblock" t
     | Just (content, rest) <- stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] t
-	= prependContent [TeXEnv "outputblock" [] [TeXRaw $ Text.pack $ concatMap tokenChars content]] (parse c rest)
+	= prependContent [TeXEnv "outputblock" [] (parseOutputBlock c content)] (parse c rest)
 parseBegin c@Context{..} envname rest
 	| Just Environment{..} <- Map.lookup (Text.pack envname) (environments macros)
 	, not (envname `elem` dontEval) =
