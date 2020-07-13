@@ -351,7 +351,9 @@ commasAnd (x : y) = x ++ ", " ++ commasAnd y
 abbrTitle :: Text -> Bool -> RenderContext -> Text
 abbrTitle abbr includeAbbr ctx
 	| "tab:" `isPrefixOf` abbr
-	, Just Table{..} <- tableByAbbr (draft ctx) abbr = Text.pack (show tableNumber) -- todo: bad
+	, Just Table{..} <- tableByAbbr (draft ctx) abbr =
+			"Table " ++ Text.pack (show tableNumber) ++ ": " ++
+			LazyText.toStrict (TextBuilder.toLazyText $ render tableCaption ctx{noTags=True})
 	| Just sec@Section{..} <- sectionByAbbr (draft ctx) abbr =
 		LazyText.toStrict $ TextBuilder.toLazyText $
 			secnumText sec ++ "&emsp;" ++
