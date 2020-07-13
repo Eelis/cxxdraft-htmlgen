@@ -18,7 +18,7 @@ module Render (
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
-	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr,
+	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr, footnotes,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), indexHeading,
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -359,6 +359,9 @@ abbrTitle abbr includeAbbr ctx
 			TextBuilder.fromText (if includeAbbr then "&emsp;[" ++ abbr ++ "]" else "")
 	| otherwise = ""
 
+renderBreak :: RenderContext -> TextBuilder.Builder
+renderBreak ctx = if noTags ctx then "\n" else "<br/>"
+
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
@@ -366,9 +369,9 @@ instance Render LaTeXUnit where
 	    $ (if insertBreaks then replace "::" (zwsp ++ "::" ++ zwsp) . replace "_" "_&shy;" else id)
 	    $ (if replXmlChars then replaceXmlChars else id)
 	    $ x
-	render (TeXComm "br" _ _         ) = return "<br/>"
-	render  TeXLineBreak               = return "<br/>"
-	render (TeXComm "break" _ []     ) = return "<br/>"
+	render (TeXComm "br" _ _         ) = renderBreak
+	render  TeXLineBreak               = renderBreak
+	render (TeXComm "break" _ []     ) = renderBreak
 	render (TeXBraces t              ) = render t
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" _ []) = const $ spanTag "comment" "/* ... */"
@@ -386,7 +389,7 @@ instance Render LaTeXUnit where
 				| "tab:" `isPrefixOf` abbr
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
 				| otherwise = squareAbbr abbr
-		in
+		in if noTags then linkText else
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
 	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
@@ -408,7 +411,7 @@ instance Render LaTeXUnit where
 			{ aText = simpleRender2 u
 			, aHref = simpleRender u }
 	render (TeXComm "link" _ [(FixArg, txt), (FixArg, [TeXRaw abbr])])
-		= \ctx -> render anchor{
+		= \ctx -> if noTags ctx then render txt ctx else render anchor{
 			aHref = abbrHref abbr ctx,
 			aText = render txt ctx{inLink=True},
 			aTitle = abbrTitle abbr True ctx} ctx
@@ -429,7 +432,9 @@ instance Render LaTeXUnit where
 			cat "liblinkx" = "lib"
 			cat _ = undefined
 	render (TeXComm "grammarterm_" _ [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
-		\sec -> if inLink sec
+		\sec -> if noTags sec then TextBuilder.fromText name else
+
+		  if inLink sec
 			then spanTag "grammarterm" $ TextBuilder.fromText name
 			else render anchor{
 			    aClass = "grammarterm",
@@ -454,10 +459,10 @@ instance Render LaTeXUnit where
 			, (OptArg, [TeXRaw category])
 			, (FixArg, (parseIndex -> (p, kind)))
 			])
-		= case kind of
-			Just IndexClose -> const ""
-			Just (See _ _) -> const ""
-			_ -> \ctx ->
+		= \ctx -> if noTags ctx then "" else case kind of
+			Just IndexClose -> ""
+			Just (See _ _) -> ""
+			_ ->
 					if category == "headerindex" then "" else -- needed to prevent duplicate id because \indexhdr also generates a generalindex entry
 					spanTag "indexparent" $ render anchor
 						{ aId = indexPathId2 ctx entryNr category p
@@ -484,6 +489,13 @@ instance Render LaTeXUnit where
 		{ aClass = "footnotenum"
 		, aText  = TextBuilder.fromText n
 		, aId    = "footnoteref-" ++ n
+		, aTitle = (!! 3) $ iterate (Text.replace "  " " ")
+				 $ Text.replace "\n" " "
+				 $ Text.replace "'" "&apos;"
+				 $ LazyText.toStrict $ TextBuilder.toLazyText
+				 $ mconcat $ map (flip render ctx{noTags = True})
+				 $ footnoteContent $ snd
+				 $ footnotes (draft ctx) !! ((read (Text.unpack n) :: Int) - 1)
 		, aHref  =
 			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
@@ -699,7 +711,12 @@ instance Render Note where
 				aText = spanTag "textit" (TextBuilder.fromText noteLabel) }
 
 instance Render Example where
-	render Example{..} ctx =
+	render Example{..} ctx
+		| noTags ctx =
+			"[Example: "
+			++ renderLatexParas exampleContent ctx
+			++ " —&nbsp;end&nbsp;example] "
+		| otherwise =
 			xml "div" [("id", i), ("class", "example")]
 				("[" ++ render link ctx
 				++ xml "div" [("class", "exampleBody")] (
@@ -877,6 +894,7 @@ renderMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _ _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
+	| noTags ctx = renderSimpleMath m ctx
 	| isComplexMath m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
 	| otherwise = spanTag s $ renderSimpleMath m ctx
 	where
@@ -890,7 +908,7 @@ renderMath m ctx
 renderSimpleMath :: LaTeX -> RenderContext -> TextBuilder.Builder
 renderSimpleMath [] _ = ""
 renderSimpleMath (TeXRaw s : rest) sec
-	| tlast `elem` ["^", "_"] =
+	| tlast `elem` ["^", "_"] = if noTags sec then "�" else
 		renderSimpleMathUnit (TeXRaw $ Text.reverse $ Text.drop 1 s') sec
 		++ xml tag [] (renderSimpleMath content sec)
 		++ renderSimpleMath rest' sec
@@ -917,8 +935,8 @@ renderSimpleMath (x : y) ctx = renderSimpleMathUnit x ctx ++ renderSimpleMath y 
 renderSimpleMathUnit :: LaTeXUnit -> RenderContext -> TextBuilder.Builder
 renderSimpleMathUnit (TeXRaw s) sec =
 	case suffix of
-		Just ('^', rest) -> italicise prefix ++ output "sup" rest
-		Just ('_', rest) -> italicise prefix ++ output "sub" rest
+		Just ('^', rest) -> if noTags sec then "�" else italicise prefix ++ output "sup" rest
+		Just ('_', rest) -> if noTags sec then "�" else italicise prefix ++ output "sub" rest
 		_ -> italicise s
 	where
 		(prefix, suffix') = Text.break (`elem` ['^', '_']) s
@@ -931,7 +949,7 @@ renderSimpleMathUnit (TeXRaw s) sec =
 				Nothing -> error "Malformed math"
 
 		italicise :: Text -> TextBuilder.Builder
-		italicise t =
+		italicise t = if noTags sec then TextBuilder.fromText t else
 			case Text.span isAlpha t of
 				("", "") -> TextBuilder.fromString ""
 				("", rest) ->
