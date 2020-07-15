@@ -31,6 +31,22 @@ elemsContinueSentence (RawLatexElement (TeXRaw "") : more) = elemsContinueSenten
 elemsContinueSentence (x : _) = elemContinuesSentence x
 elemsContinueSentence _ = False
 
+simpleHead :: [RawElement] -> Maybe Char
+simpleHead [] = Nothing
+simpleHead (RawLatexElement (TeXRaw x) : more)
+	| x == "" = simpleHead more
+	| otherwise = Just (Text.head x)
+simpleHead (RawLatexElement (TeXComm " " "" []) : more) = Just ' '
+simpleHead (RawLatexElement (TeXComm "tcode" _ [(_, x)]) : more) = simpleHead (map RawLatexElement x ++ more)
+simpleHead (RawLatexElement (TeXComm "index" _ _) : more) = simpleHead more
+simpleHead (RawLatexElement (TeXComm "footnoteref" _ _) : _) = Nothing -- hmm
+simpleHead (RawLatexElement TeXLineBreak : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "br" _ _) : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "newline" _ _) : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "par" _ _) : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "nolinebreak" _ _) : _) = Nothing
+simpleHead x = error $ "simpleHead: " ++ show x
+
 splitIntoSentences :: [RawElement] -> [[RawElement]]
 splitIntoSentences = go []
 	where
@@ -66,9 +82,15 @@ breakSentence (b@(RawLatexElement (TeXComm cmd _ _)) : more) =
 breakSentence (RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".") -> pr, po)))) : more)
     = f pr po
   where
+   f :: Text -> Text -> Maybe ([RawElement], [RawElement])
    f pre post
+    | "”" `isPrefixOf` post = f (pre ++ "”") (Text.drop 1 post)
     | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
-    , not (Text.length post > 0 && isLower (Text.head post))
+    , not ("" == post && maybe False (\c -> isLower c || isDigit c) (simpleHead more))
+    , not ("" == post && length more /= 0 && head more == RawLatexElement (TeXComm " " "" []))
+    , not (Text.length post > 0 && ((Text.head post == '.')
+                                    || isLower (Text.head post)
+                                    || isDigit (Text.head post)))
     , not (Text.length pre > 1 && Text.length post > 0 && isAlphaNum (Text.last $ Text.init pre) && isDigit (Text.head post))
     , not (elemsContinueSentence (RawLatexElement (TeXRaw post) : more))
     , not (Text.length pre >= 2 && ("." `isSuffixOf` pre) && isUpper (Text.last $ Text.init pre))

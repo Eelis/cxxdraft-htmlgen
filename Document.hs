@@ -27,10 +27,10 @@ import Util ((.), (++), greekAlphabet)
 
 -- Document structure:
 
-data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving Show
-data Cell a = Cell { cellSpan :: CellSpan, content :: a } deriving Show
+data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
+data Cell a = Cell { cellSpan :: CellSpan, content :: a } deriving (Eq, Show)
 data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving (Eq, Show)
-data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving Show
+data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving (Eq, Show)
 
 data Table = Table
 	{ tableNumber :: Int

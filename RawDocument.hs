@@ -38,7 +38,7 @@ import LaTeXBase
 data RawItem = RawItem
 	{ rawItemLabel :: LaTeX
 	, rawItemContent :: [RawTexPara] }
-	deriving Show
+	deriving (Eq, Show)
 
 data RawElement
 	= RawLatexElement LaTeXUnit
@@ -54,10 +54,10 @@ data RawElement
 		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: Abbreviation, rawFigureSvg :: Text }
-	deriving Show
+	deriving (Eq, Show)
 
 newtype RawTexPara = RawTexPara { rawTexParaElems :: [RawElement] }
-	deriving Show
+	deriving (Eq, Show)
 
 newtype RawFootnote = RawFootnote [RawTexPara]
 	deriving Show
