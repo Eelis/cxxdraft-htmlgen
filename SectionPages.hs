@@ -125,7 +125,7 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
     | otherwise = h hLevel $ num ++ " " ++ name ++ " " ++ abbrR
   where
     num = secnum secnumHref s
-    abbrR = simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr abbreviation}
+    abbrR = simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr False abbreviation}
     name = render sectionName ctx{inSectionTitle=True}
     isDef = isDefinitionSection sectionKind
 
@@ -165,7 +165,7 @@ writeSingleSectionFile :: SectionFileStyle -> Draft -> String -> IO ()
 writeSingleSectionFile sfs draft abbr = do
 	let Just section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
 	let baseFilename = Text.unpack abbreviation
-	writeSectionFile baseFilename sfs (squareAbbr abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
+	writeSectionFile baseFilename sfs (squareAbbr False abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
 
 writeSectionFiles :: SectionFileStyle -> Draft -> [IO ()]
@@ -176,7 +176,7 @@ writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> d
 		secs = Document.sections draft
 		renSec section@Section{..} = (Text.unpack abbreviation, sectionFileContent sfs title body)
 		  where
-			title = squareAbbr abbreviation
+			title = squareAbbr False abbreviation
 			body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 		fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
 		fullfile = ("full", sectionFileContent sfs "14882" fullbody)
@@ -219,8 +219,8 @@ writeCssFile = do
 
 writeXrefDeltaFiles :: SectionFileStyle -> Draft -> [IO ()]
 writeXrefDeltaFiles sfs draft = flip map (xrefDelta draft) $ \(from, to) ->
-	writeSectionFile (Text.unpack from) sfs (squareAbbr from) $
+	writeSectionFile (Text.unpack from) sfs (squareAbbr False from) $
 		if to == []
-			then "Subclause " ++ squareAbbr from ++ " was removed."
+			then "Subclause " ++ squareAbbr False from ++ " was removed."
 			else "See " ++ intercalateBuilders ", " (flip render ctx . to) ++ "."
 	where ctx = defaultRenderContext{draft=draft, page=XrefDeltaPage}

@@ -390,11 +390,11 @@ instance Render LaTeXUnit where
 			linkText
 				| "tab:" `isPrefixOf` abbr
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
-				| otherwise = squareAbbr abbr
+				| otherwise = squareAbbr True abbr
 		in if noTags then linkText else
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
 	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
-	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr abbr}
+	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr True abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
 	        ++ commasAnd (map f abbrs)
 	render (TeXComm "nontermdef" _ [(FixArg, [TeXRaw s])]) =
@@ -582,7 +582,7 @@ instance Render IndexEntry where
 		return $ simpleRender2 anchor
 			{ aHref = "SectionToSection/" ++ urlChars abbr
 				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
-			, aText = (if indexEntryKind == Just BfPage then xml "b" [] else id) $ squareAbbr abbr }
+			, aText = (if indexEntryKind == Just BfPage then xml "b" [] else id) $ squareAbbr True abbr }
 		where
 			extraIdPrefix
 				| isDefinitionIndexEntry && indexEntryKind == Nothing = "def"
@@ -631,7 +631,7 @@ renderFig stripFig Figure{..} ctx =
 	xml "div" [("class", "figure"), ("id", id_)] $
 		TextBuilder.fromText figureSvg ++ "<br>" ++
 		"Figure " ++ render anchor{aText = render figureNumber ctx, aHref="#" ++ id_} ctx ++ ": " ++
-		render figureName ctx ++ "&emsp;&ensp;" ++ squareAbbr figureAbbr
+		render figureName ctx ++ "&emsp;&ensp;" ++ squareAbbr False figureAbbr
 	where id_ = (if stripFig then replace "fig:" "" else id) figureAbbr
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
@@ -827,8 +827,11 @@ defaultRenderContext = RenderContext
 	, extraIndentation = 0
 	, idPrefix = "" }
 
-squareAbbr :: Abbreviation -> TextBuilder.Builder
-squareAbbr x = "[" ++ TextBuilder.fromText x ++ "]"
+squareAbbr :: Bool -> Abbreviation -> TextBuilder.Builder
+squareAbbr softHyphens =
+	("[" ++) . (++ "]") .
+	TextBuilder.fromText .
+	(if softHyphens then Text.replace "." ".<span class='shy'/>" else id)
 
 remoteTableHref :: Table -> Text
 remoteTableHref Table{tableSection=Section{..}, ..} =
@@ -1169,7 +1172,7 @@ linkToSectionHref :: Link -> Abbreviation -> Text
 linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ urlChars abbr
 
 linkToSection :: Link -> Abbreviation -> Anchor
-linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr abbr }
+linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr True abbr }
 
 --url :: Text -> Text
 --url = urlChars . LazyText.toStrict . TextBuilder.toLazyText . flip render defaultRenderContext{replXmlChars = False}

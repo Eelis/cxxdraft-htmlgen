@@ -45,6 +45,14 @@ ul > li:before {
 	margin-left: -1.5em; 
 }
 
+.shy:before {
+	content: "\00ad";
+	/* This is U+00AD SOFT HYPHEN, same as &shy, but we put it in :before
+	to stop it from being included when the text is copied to the clipboard
+	with Firefox, which is especially annoying when copying to a terminal,
+	where the hyphen characters will show up. */
+}
+
 :target { background-color: #C9FBC9; }
 :target .codeblock { background-color: #C9FBC9; }
 :target ul { background-color: #C9FBC9; }
