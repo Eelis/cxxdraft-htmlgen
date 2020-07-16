@@ -831,7 +831,7 @@ squareAbbr :: Bool -> Abbreviation -> TextBuilder.Builder
 squareAbbr softHyphens =
 	("[" ++) . (++ "]") .
 	TextBuilder.fromText .
-	(if softHyphens then Text.replace "." ".<span class='shy'/>" else id)
+	(if softHyphens then Text.replace "." ".<span class='shy'></span>" else id)
 
 remoteTableHref :: Table -> Text
 remoteTableHref Table{tableSection=Section{..}, ..} =
