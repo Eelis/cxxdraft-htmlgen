@@ -36,7 +36,7 @@ simpleHead [] = Nothing
 simpleHead (RawLatexElement (TeXRaw x) : more)
 	| x == "" = simpleHead more
 	| otherwise = Just (Text.head x)
-simpleHead (RawLatexElement (TeXComm " " "" []) : more) = Just ' '
+simpleHead (RawLatexElement (TeXComm " " "" []) : _) = Just ' '
 simpleHead (RawLatexElement (TeXComm "tcode" _ [(_, x)]) : more) = simpleHead (map RawLatexElement x ++ more)
 simpleHead (RawLatexElement (TeXComm "index" _ _) : more) = simpleHead more
 simpleHead (RawLatexElement (TeXComm "footnoteref" _ _) : _) = Nothing -- hmm

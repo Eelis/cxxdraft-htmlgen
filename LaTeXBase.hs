@@ -11,7 +11,7 @@ import Prelude hiding ((.), (++), writeFile, dropWhile)
 import Data.Text (Text, pack)
 import qualified Data.Text as Text
 import Data.Char (isSpace)
-import Util ((.), (++), textStripInfix, dropTrailingWs)
+import Util ((.), (++), textStripInfix)
 import Control.Arrow (first, second)
 
 data MathType = Parentheses | Square | Dollar

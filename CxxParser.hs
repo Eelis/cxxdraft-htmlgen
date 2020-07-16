@@ -16,7 +16,7 @@ import qualified Data.Text as Text
 import Data.Char (isAlpha, isSpace, isAlphaNum, isDigit)
 import Control.Arrow (first)
 import Prelude hiding ((.), (++))
-import Util ((.), (++), Text, dropTrailingWs)
+import Util ((.), (++), Text)
 
 texStripHash :: LaTeX -> Maybe LaTeX
 texStripHash x
