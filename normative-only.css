@@ -3,3 +3,6 @@ div.note { display: none; }
 
 div.exampleBody { display: none; }
 div.noteBody { display: none; }
+
+a.footnotenum { display: none; }
+div.footnote { display: none; }
