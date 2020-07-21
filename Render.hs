@@ -390,7 +390,7 @@ instance Render LaTeXUnit where
 			linkText
 				| "tab:" `isPrefixOf` abbr
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
-				| otherwise = squareAbbr True abbr
+				| otherwise = squareAbbr (not noTags) abbr
 		in if noTags then linkText else
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
 	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
