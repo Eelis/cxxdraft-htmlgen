@@ -68,15 +68,16 @@ Output
 
     Since sections nest, content is duplicated at every level.
     This allows one to specify more or less context for a given
-    section or paragraph citation. For example, one can link to:
+    citation. For example, one can link to:
 
-      temp.dep            (section 14.6.2 "Dependent names")
+      basic.scope.hiding   (section 6.4.10 "Name hiding" on
+                            a page of its own)
 
-      temp.res#temp.dep   (the same section highlighted on the
-                           page for section 14.6 "Name resolution")
+      basic.scope#hiding   (the same section highlighted on
+                            the page for section 6.4 "Scope")
 
-      temp#dep            (the same section highlighted on the
-                           page for chapter 14 "Templates")
+      basic#scope.hiding   (the same section highlighted on
+                            the page for chapter 6 "Basics")
 
   - full         The entire document (~24 mbyte, or ~2 mbyte compressed).
 
