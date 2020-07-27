@@ -105,4 +105,3 @@ Todo
     wide due to lack of hyphenation
   - don't generate anchors with duplicate ids for index entries with
     the same key
-  - don't highlight % in description of format strings (e.g. time#cal.month.nonmembers-11.sentence-3)
