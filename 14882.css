@@ -299,6 +299,8 @@ span.parenthesis { color: #af1915; }
 span.curlybracket { color: #af1915; }
 span.squarebracket { color: #af1915; }
 span.literal { color: #9F6807; }
+span.literalterminal { color: #9F6807; font-family: monospace; font-style: normal; }
+span.literaltcode { color: #9F6807; font-family: monospace; font-style: normal; }
 span.operator { color: #570057; }
 span.anglebracket { color: #570057; }
 span.preprocessordirective { color: #6F4E37; }
