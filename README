@@ -5,8 +5,6 @@ Introduction
 
 Prerequisites
 
-  - A filesystem that supports punctuation in filenames
-     (this may rule out Windows filesystems)
   - Git
   - The Haskell Platform (https://www.haskell.org/platform/)
   - Graphviz
