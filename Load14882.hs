@@ -366,7 +366,7 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal", "literalterminal"] = Just [d]
+		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
 		go n@(TeXRaw name)
 			| Just Section{..} <- Map.lookup name links =
 				Just [TeXComm "grammarterm_" "" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]

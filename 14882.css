@@ -215,6 +215,7 @@ span.descr { font-style: normal; font-family: serif; }
 .ncrebnf .grammarterm { font-style: italic; font-family: serif; }
 span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
+span.noncxxterminal { font-family: monospace; font-style: normal; }
 span.tcode { font-family: monospace; font-style: normal; }
 span.textbf { font-weight: bold; }
 span.textsf { font-family: sans-serif; }

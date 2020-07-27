@@ -177,7 +177,7 @@ signatures =
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
-			"terminal literalterminal enlargethispage nontermdef renontermdef textsl textsc textsf text grammarterm term " ++
+			"terminal literalterminal noncxxterminal enlargethispage nontermdef renontermdef textsl textsc textsf text grammarterm term " ++
 			"tcode noncxxtcode literaltcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
