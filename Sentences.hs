@@ -164,6 +164,7 @@ instance LinkifyFullStop LaTeX where
             | Just m' <- linkifyFullStop link m = Just [TeXMath kind m']
         inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
         inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
+        inUnit (TeXRaw (Text.stripSuffix ".”" -> Just s)) = Just [TeXRaw s, link, TeXRaw "”"]
         inUnit _ = Nothing
 
 instance LinkifyFullStop Item where
