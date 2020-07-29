@@ -9,7 +9,7 @@ module Document (
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements, indexHeading,
-	LaTeX) where
+	LaTeX, makeAbbrMap) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
 import Data.Text (Text, replace)
@@ -21,7 +21,6 @@ import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (ord, isAlpha, toLower, isDigit, isUpper, toUpper)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (listToMaybe)
 import Data.String (IsString)
 import Util ((.), (++), greekAlphabet)
 
@@ -141,14 +140,29 @@ instance Eq Section where
 
 type XrefDelta = [(Abbreviation, [LaTeX])]
 
+data StablyNamedItem
+	= StablyNamedTable Table
+	| StablyNamedSection Section
+	| StablyNamedFigure Figure
+
 data Draft = Draft
 	{ commitUrl :: Text
 	, chapters  :: [Section]
 	, index     :: Index
 	, indexEntryMap :: IntMap IndexEntry
-	, xrefDelta :: XrefDelta }
+	, xrefDelta :: XrefDelta
+	, abbrMap :: Abbreviation -> Maybe StablyNamedItem }
 
 -- (The index entry maps are derivable but stored for efficiency.)
+
+stablyNamedItems :: Draft -> [(Abbreviation, StablyNamedItem)]
+stablyNamedItems d =
+	[(abbreviation s, StablyNamedSection s) | s <- sections d] ++
+	[(head (tableAbbrs t), StablyNamedTable t) | p <- allParagraphs d, TableElement t <- allParaElems p] ++ -- head?
+	[(figureAbbr f, StablyNamedFigure f) | p <- allParagraphs d, FigureElement f <- allParaElems p]
+
+makeAbbrMap :: Draft -> Abbreviation -> Maybe StablyNamedItem
+makeAbbrMap = flip Map.lookup . Map.fromList . stablyNamedItems
 
 -- Indices:
 
@@ -339,12 +353,16 @@ elemTex (FigureElement _) = []
 
 tableByAbbr :: Draft -> Abbreviation -> Maybe Table
 	-- only returns Maybe because some of our tables are broken
-tableByAbbr d a = listToMaybe [ t | (_, t) <- tables d, a `elem` tableAbbrs t ]
+tableByAbbr d a = case abbrMap d a of
+	Just (StablyNamedTable t) -> Just t
+	_ -> Nothing
 
 figureByAbbr :: Draft -> Abbreviation -> Figure
-figureByAbbr d a = case [ f | (_, f) <- figures d, a == figureAbbr f ] of
-	[f] -> f
+figureByAbbr d a = case abbrMap d a of
+	Just (StablyNamedFigure f) -> f
 	_ -> error $ "figureByAbbr: " ++ show a
 
 sectionByAbbr :: Draft -> Abbreviation -> Maybe Section
-sectionByAbbr d a = listToMaybe [ s | s <- sections d, a == abbreviation s ]
+sectionByAbbr d a = case abbrMap d a of
+	Just (StablyNamedSection s) -> Just s
+	_ -> Nothing

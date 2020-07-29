@@ -536,8 +536,9 @@ load14882 = do
 			allEntries = chapters' >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
-
-		return Draft{chapters=chapters', ..}
+			abbrMap = makeAbbrMap dr
+			dr = Draft{chapters=chapters', ..}
+		return dr
 	
 	putStrLn $ "Processed in " ++ show (took3 * 1000) ++ "ms."
 	return r
