@@ -9,6 +9,7 @@ Prerequisites
   - The Haskell Platform (https://www.haskell.org/platform/)
   - Graphviz
   - Node.js
+  - The 'split' NPM package
   - mathjax-node-cli (https://github.com/mathjax/mathjax-node-cli/)
 
 Usage
