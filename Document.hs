@@ -56,8 +56,12 @@ instance Show Figure where
 data Item = Item
 	{ itemNumber :: Maybe [String]
 	, itemLabel :: Maybe LaTeX
-	, itemContent :: [TeXPara] }
+	, itemInlineContent :: [Element]
+	, itemBlockContent :: [TeXPara] }
 	deriving Show
+
+itemElements :: Item -> [Element]
+itemElements Item{..} = itemInlineContent ++ allElements itemBlockContent
 
 data Footnote = Footnote
 	{ footnoteNumber :: Int
@@ -294,7 +298,7 @@ allElements x = x >>= sentences >>= sentenceElems >>= f
 	where
 		f :: Element -> [Element]
 		f e = e : case e of
-			Enumerated {..} -> allElements $ enumItems >>= itemContent
+			Enumerated {..} -> enumItems >>= itemElements
 			TableElement Table{..} -> allElements $ tableBody >>= cells >>= content
 			NoteElement Note{..} -> allElements noteContent
 			Codeblock y -> [LatexElement y]
@@ -311,11 +315,14 @@ texParaElems = (>>= sentenceElems) . sentences
 texParaTex :: TeXPara -> LaTeX
 texParaTex = (>>= elemTex) . texParaElems
 
+itemTex :: Item -> LaTeX
+itemTex Item{..} = (itemInlineContent >>= elemTex) ++ (itemBlockContent >>= texParaTex)
+
 elemTex :: Element -> LaTeX
 elemTex (NoteElement n) = noteContent n >>= texParaTex
 elemTex (ExampleElement x) = exampleContent x >>= texParaTex
 elemTex (LatexElement l) = [l]
-elemTex (Enumerated _ e) = e >>= itemContent >>= texParaTex
+elemTex (Enumerated _ e) = e >>= itemTex
 elemTex (Bnf _ l) = l
 elemTex (Tabbing t) = t
 elemTex (Codeblock t) = [t]

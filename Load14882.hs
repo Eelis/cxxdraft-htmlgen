@@ -32,6 +32,7 @@ import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isAlpha)
 import Control.Arrow (first)
 import Data.Map (Map)
+import Data.Maybe (isJust)
 import qualified Data.Map as Map
 import Data.List (unfoldr, (\\))
 import System.Process (readProcess)
@@ -40,7 +41,7 @@ import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
 import qualified Control.Monad.Parallel as ParallelMonad
 import Util ((.), (++), mapLast, stripInfix, measure)
 import RawDocument
-import Sentences (splitIntoSentences, isActualSentence)
+import Sentences (splitIntoSentences, isActualSentence, breakSentence)
 import Document
 
 getCommitUrl :: IO Text
@@ -138,12 +139,27 @@ instance AssignNumbers RawTexPara TeXPara where
 				put n{nextSentenceNr = nextSentenceNr n + (if actual then 1 else 0)}
 				(Sentence (if actual then Just (nextSentenceNr n) else Nothing) h' :) . f t
 
-instance AssignNumbers RawItem Item where
-	assignNumbers s (RawItem label content) = do
-		n <- get
-		put n{nextSentenceNr = 1}
-		Item Nothing (if null label then Nothing else Just label) . assignNumbers s content
-	
+assignNonInlineItem :: (MonadState Numbers m, MonadFix m) => Section -> RawItem -> m Item
+assignNonInlineItem s (RawItem label content) = do
+	n <- get
+	put n{nextSentenceNr = 1}
+	Item Nothing (if null label then Nothing else Just label) [] . assignNumbers s content
+
+breakFirstSentence :: [TeXPara] -> (Sentence, [TeXPara])
+breakFirstSentence (TeXPara (x:y) : z) = (x, TeXPara y : z)
+breakFirstSentence x = error $ "breakFirstSentence: " ++ show x
+
+assignInlineItem :: (MonadState Numbers m, MonadFix m) => Section -> RawItem -> m Item
+assignInlineItem s (RawItem label content) = do
+	n <- get
+	put n{nextSentenceNr = 1}
+	content' <- assignNumbers s content
+	let (Sentence _ x, y) = breakFirstSentence content'
+	return $ Item Nothing (if null label then Nothing else Just label) x y
+
+endsWithFullStop :: [RawElement] -> Bool
+endsWithFullStop = isJust . breakSentence
+
 instance AssignNumbers RawElement Element where
 	assignNumbers section RawFigure{..} = do
 		Numbers{..} <- get
@@ -167,9 +183,10 @@ instance AssignNumbers RawElement Element where
 			, .. }
 	assignNumbers s (RawEnumerated x p) = do
 		origNum <- nextSentenceNr . get
-		r <- Enumerated x . mapM (assignNumbers s) p
+		let c = length (filter (any (endsWithFullStop . rawTexParaElems) . rawItemContent) p)
+		r <- mapM (if c > 1 then assignNonInlineItem s else assignInlineItem s) p
 		modify $ \y -> y{nextSentenceNr = origNum}
-		return r
+		return $ Enumerated x r
 	assignNumbers s (RawLatexElement x) = LatexElement . assignNumbers s x
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
@@ -267,7 +284,8 @@ assignItemNumbers p
 					Item
 						(Just (h $ mapLast (+i) nn))
 						itemLabel
-						(fst $ goParas (mapLast (+i) nn ++ [1]) itemContent)
+						(fst $ goElems (mapLast (+i) nn ++ [1]) itemInlineContent)
+						(fst $ goParas (mapLast (+i) nn ++ [1]) itemBlockContent)
 					) (zip [0..] enumItems)
 		goElem nn (NoteElement (Note nr label paras)) = (NoteElement (Note nr label paras'), nn')
 			where (paras', nn') = goParas nn paras
@@ -338,7 +356,9 @@ resolveGrammarterms links Section{..} =
 		resolve :: Element -> Element
 		resolve (LatexElement e) = LatexElement $ head $ grammarterms links [e]
 		resolve (Enumerated s ps) = Enumerated s $ map f ps
-			where f i@Item{..} = i{itemContent = resolveParas itemContent}
+			where f i@Item{itemInlineContent, itemBlockContent, ..} =
+				i{ itemInlineContent = map resolve itemInlineContent
+				 , itemBlockContent = resolveParas itemBlockContent }
 		resolve (Bnf n b) = Bnf n $ grammarterms links $ bnfGrammarterms links b
 		resolve (NoteElement n@Note{..}) = NoteElement n{noteContent = resolveParas noteContent}
 		resolve (ExampleElement e@Example{..}) = ExampleElement e{exampleContent = resolveParas exampleContent}

@@ -637,14 +637,15 @@ renderFig stripFig Figure{..} ctx =
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
 instance Render RenderItem where
-	render RenderItem{item=Item Nothing _ elems} ctx = xml "li" [] $ renderLatexParas elems ctx
-	render RenderItem{item=Item (Just nn) mlabel elems, ..} ctx =
+	render RenderItem{item=Item Nothing _ elems paras} ctx = xml "li" [] $ render elems ctx ++ renderLatexParas paras ctx
+	render RenderItem{item=Item (Just nn) mlabel elems paras, ..} ctx =
 			xml "li" [("id", thisId)] $ case mlabel of
-				Nothing -> itemLink ++ renderLatexParas elems ctx'
+				Nothing -> itemLink ++ content
 				Just label ->
 					render anchor{aHref = linkHref, aText=simpleRender2 label} ctx'
-					++ " " ++ renderLatexParas elems ctx'
+					++ " " ++ content
 		where
+			content = render elems ctx' ++ renderLatexParas paras ctx'
 			left
 				| listOrdered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
@@ -801,8 +802,6 @@ data RenderContext = RenderContext
 	, inCodeBlock :: Bool -- in codeblocks, some commands like \tcode have a different meaning
 	, inComment :: Bool -- in comments, \tcode should not be highlighted
 	, inSectionTitle :: Bool -- in section titles, there should be no highlighting
-	, inSentence :: Bool -- inside a sentence, we shouldn't generate nested sentence divs
-	                     -- (which would happen for sentences inside items inside lists inside sentences)
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, noTags :: Bool -- means we're rendering the contents of e.g. a "title" attribute which cannot contain tags/elements
 	, extraIndentation :: Int -- in em
@@ -821,7 +820,6 @@ defaultRenderContext = RenderContext
 	, inCodeBlock = False
 	, inComment = False
 	, inSectionTitle = False
-	, inSentence = False
 	, replXmlChars = True
 	, noTags = False
 	, extraIndentation = 0
@@ -1109,9 +1107,9 @@ instance Render [Element] where
 instance Render Sentence where
 	render Sentence{..} ctx
 			| (Enumerated _ _ : _) <- sentenceElems = render sentenceElems ctx -- not a real sentence
-			| not (inSentence ctx), Just v <- i =
-					xml "div" [("id", v), ("class", "sentence")] $
-						render (case linkifyFullStop link sentenceElems of Just x -> x; Nothing -> sentenceElems) ctx{inSentence = True}
+			| not (noTags ctx), Just v <- i
+				= xml "div" [("id", v), ("class", "sentence")] $
+					render (case linkifyFullStop link sentenceElems of Just x -> x; Nothing -> sentenceElems) ctx
 			| otherwise = render sentenceElems ctx
 		where
 			i = case sentenceNumber of

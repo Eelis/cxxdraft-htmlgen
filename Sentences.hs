@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, ViewPatterns, LambdaCase, TypeSynonymInstances, FlexibleInstances #-}
 
-module Sentences (splitIntoSentences, isActualSentence, linkifyFullStop) where
+module Sentences (splitIntoSentences, isActualSentence, linkifyFullStop, breakSentence) where
 
 import LaTeXBase (LaTeXUnit(..), triml, LaTeX, ArgKind(FixArg))
 import Data.Text (isPrefixOf, isSuffixOf, stripPrefix, Text)
@@ -9,7 +9,7 @@ import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isSpace, isDigit, isAlphaNum, isUpper, isLower)
 import Control.Arrow (first)
 import Data.Maybe (isNothing)
-import Util ((++), textStripInfix, dropTrailingWs, (.), trimString)
+import Util ((++), textStripInfix, dropTrailingWs, (.))
 import RawDocument
 import Document
 
@@ -75,6 +75,7 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f _ = False
 breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
 breakSentence (RawLatexElement (TeXBraces x) : more) = breakSentence (map RawLatexElement x ++ more)
+breakSentence (e@(RawLatexElement (TeXEnv "eqnarray*" _ _)) : more) = first (e :) . breakSentence more
 breakSentence (b@(RawLatexElement (TeXComm cmd _ _)) : more) =
 	if cmd `elem` ["break"]
 		then Just ([b], more)
@@ -166,11 +167,9 @@ instance LinkifyFullStop LaTeX where
         inUnit _ = Nothing
 
 instance LinkifyFullStop Item where
-    linkifyFullStop link it@Item{itemContent=[TeXPara (s@Sentence{sentenceElems=e} : ss)]}
-        | (x:_) <- Text.unpack (Text.dropWhile isSpace (justText e))
-        , isLower x
-        , Just y <- linkifyFullStop link e
-            = Just it{itemContent=[TeXPara (s{sentenceElems = y} : ss)]}
+    linkifyFullStop link it@Item{itemInlineContent=e}
+        | Just y <- linkifyFullStop link e
+            = Just it{itemInlineContent=y}
     linkifyFullStop _ _ = Nothing
 
 instance LinkifyFullStop [Element] where
@@ -196,28 +195,3 @@ moveStuffOutsideText (TeXComm parent pws [(FixArg, t)])
     | parent `elem` ["text", "mbox"]
     , length t >= 2 = concatMap (\u -> moveStuffOutsideText $ TeXComm parent pws [(FixArg, [u])]) t
 moveStuffOutsideText u = [u]
-
-justText :: [Element] -> Text
-justText = Text.concat . map g
-    where
-        g :: Element -> Text
-        g = ff . elemTex
-        ff :: LaTeX -> Text
-        ff = Text.concat . map f
-        f :: LaTeXUnit -> Text
-        f (TeXRaw x) = x
-        f TeXLineBreak = ""
-        f (TeXEnv "codeblock" _ _) = "code"
-        f (TeXBraces x) = ff x
-        f (TeXMath _ x) = ff x
-        f (TeXComm " " _ _) = ""
-        f (TeXComm c _ _)
-            | trimString c `elem` words ("left right dotsc cdots lceil rceil lfloor rfloor cdot phantom index & { } # @ - ; " ++
-                                         "linebreak ~ textunderscore leq geq lfloor rfloor footnoteref discretionary nolinebreak setlength") = ""
-            | c == "ref" = "bla"
-            | c == "nolinebreak" = ""
-        f (TeXComm c _ ((FixArg, x) : _))
-            | trimString c `elem` words "deflinkx link liblinkx tcode noncxxtcode textsc mathscr term mathsf mathit text textit texttt mathtt grammarterm ensuremath textsc mathbin url" = ff x
-        f (TeXComm c _ (_ : (FixArg, x) : _))
-            | c `elem` ["defnx", "grammarterm_"] = ff x
-        f _ = {-trace ("justText: " ++ show x)-} ""
