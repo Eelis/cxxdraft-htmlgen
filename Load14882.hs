@@ -38,7 +38,6 @@ import Data.List (unfoldr, (\\))
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
-import qualified Control.Monad.Parallel as ParallelMonad
 import Util ((.), (++), mapLast, stripInfix, measure)
 import RawDocument
 import Sentences (splitIntoSentences, isActualSentence, breakSentence)
@@ -483,37 +482,42 @@ generateStdGramExt files =
     Text.pack . unlines . grabBnf . lines . Text.unpack .
     Text.concat . mapM readFile ((++ ".tex") . files)
 
+parseFiles :: Parser.Macros -> IO ([[LinearSection]], Parser.Macros)
+parseFiles m = do
+	files <- getFileList
+	stdGramExt <- generateStdGramExt files
+	let
+		go [] macros = return ([], macros)
+		go (c:cc) macros = do
+			let p = c ++ ".tex"
+
+			stuff <-
+				replace "multicolfloattable" "floattable" .
+				replace "\\indeximpldef{" "\\index[impldefindex]{" .
+				Text.unlines . moveIndexEntriesIntoSecs . moveIndexEntriesIntoDefs . Text.lines .
+				trackPnums p .
+				replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
+				replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
+					-- Done here because (1) the real \nodiffref is defined with \def in a way
+					-- we don't support yet, and (2) this way a source link is generated for the pnum.
+				replace "\\makebox[0pt][l]" "" . -- handled here because we don't support multiple optional args yet
+				readFile p
+
+			let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
+			let (r, macros') = parseFile macros (stuff ++ extra)
+			if length r == 0 then undefined else
+				first (r:) . go cc (macros ++ macros')
+	go files m
+
 load14882 :: IO Draft
 load14882 = do
 
 	commitUrl <- getCommitUrl
 
 	(macros@Parser.Macros{..}, took) <- measure loadMacros
-
 	putStrLn $ "Loaded macros in " ++ show (took * 1000) ++ "ms."
 
-	files <- getFileList
-	stdGramExt <- generateStdGramExt files
-
-	(secs :: [[LinearSection]], took2) <- measure $ ParallelMonad.forM files $ \c -> do
-		let p = c ++ ".tex"
-
-		stuff <-
-			replace "multicolfloattable" "floattable" .
-			replace "\\indeximpldef{" "\\index[impldefindex]{" .
-			Text.unlines . moveIndexEntriesIntoSecs . moveIndexEntriesIntoDefs . Text.lines .
-			trackPnums p .
-			replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
-			replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
-				-- Done here because (1) the real \nodiffref is defined with \def in a way
-				-- we don't support yet, and (2) this way a source link is generated for the pnum.
-			replace "\\makebox[0pt][l]" "" . -- handled here because we don't support multiple optional args yet
-			readFile p
-
-		let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
-		let r = parseFile macros (stuff ++ extra)
-		if length r == 0 then undefined else return r
-
+	(secs :: [[LinearSection]], took2) <- measure $ fst . parseFiles macros
 	putStrLn $ "Parsed LaTeX in " ++ show (took2 * 1000) ++ "ms."
 
 	xrefDelta <- loadXrefDelta

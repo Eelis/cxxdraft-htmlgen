@@ -14,12 +14,7 @@ Prerequisites
 
 Usage
 
-  First, check out the cxxdraft-htmlgen-fixes branch of the draft:
-    git clone https://github.com/Eelis/draft.git
-    cd draft
-    git checkout cxxdraft-htmlgen-fixes
-
-  Next, do (in another directory):
+  Do:
     git clone https://github.com/Eelis/cxxdraft-htmlgen.git
     cd cxxdraft-htmlgen
     cabal build
@@ -49,6 +44,19 @@ Usage
 
     temp.res/#temp.dep
     temp.dep/#3
+
+Custom draft branch
+
+  While cxxdraft-htmlgen works with the official draft sources as-is,
+  better results can be obtained by using the following branch:
+
+    https://github.com/Eelis/draft/tree/cxxdraft-htmlgen-fixes
+
+  This branch tracks the official draft sources, but makes some changes to:
+    - improve syntax highlighting
+    - clean up hyperlinks
+    - work around MathJax limitations
+    - work around cxxdraft-htmlgen limitations
 
 Output
 

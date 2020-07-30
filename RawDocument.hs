@@ -190,10 +190,9 @@ signatures =
 		a 4 = "movedxrefiii"
 		a _ = undefined
 
-parseFile :: Macros -> Text -> [LinearSection]
+parseFile :: Macros -> Text -> ([LinearSection], Macros)
 parseFile macros =
-	parseSections 0
-	. fst
+	first (parseSections 0)
 	. doParse macros
 	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
