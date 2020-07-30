@@ -636,6 +636,12 @@ renderFig stripFig Figure{..} ctx =
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
+spacedJoin :: TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder
+spacedJoin x y
+	| TextBuilder.toLazyText x == "" = y
+	| TextBuilder.toLazyText y == "" = x
+	| otherwise = x ++ " " ++ y
+
 instance Render RenderItem where
 	render RenderItem{item=Item Nothing _ elems paras} ctx = xml "li" [] $ render elems ctx ++ renderLatexParas paras ctx
 	render RenderItem{item=Item (Just nn) mlabel elems paras, ..} ctx =
@@ -645,7 +651,7 @@ instance Render RenderItem where
 					render anchor{aHref = linkHref, aText=simpleRender2 label} ctx'
 					++ " " ++ content
 		where
-			content = render elems ctx' ++ renderLatexParas paras ctx'
+			content = spacedJoin (render elems ctx') (renderLatexParas paras ctx')
 			left
 				| listOrdered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
