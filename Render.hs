@@ -706,11 +706,9 @@ instance Render Note where
 	render Note{..} ctx =
 			xml "div" [("id", i), ("class", "note")]
 				("[" ++ render link ctx
-				++ xml "div" [("class", "noteBody")] (
-					"<span class='textit'>:</span> "
-					++ renderLatexParas noteContent ctx
-					++ " —" ++ noWrapSpace ++ "<i>end note</i>")
-				++ "]")
+				++ "<span class='textit'>:</span> "
+				++ renderLatexParas noteContent ctx
+				++ " —" ++ noWrapSpace ++ "<i>end note</i>]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
@@ -728,11 +726,9 @@ instance Render Example where
 		| otherwise =
 			xml "div" [("id", i), ("class", "example")]
 				("[" ++ render link ctx
-				++ xml "div" [("class", "exampleBody")] (
-					"<span class='textit'>:</span> "
-					++ renderLatexParas exampleContent ctx
-					++ " —" ++ noWrapSpace ++ "<i>end example</i>")
-				++ "]")
+				++ "<span class='textit'>:</span> "
+				++ renderLatexParas exampleContent ctx
+				++ " —" ++ noWrapSpace ++ "<i>end example</i>]")
 			++ " "
 		where
 			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
