@@ -223,6 +223,11 @@ mergeIndexNodes x y = IndexNode
 	{ indexEntries = indexEntries x ++ indexEntries y
 	, indexSubnodes = Map.unionWith mergeIndexNodes (indexSubnodes x) (indexSubnodes y) }
 
+mathMono :: Text -> Text
+mathMono x = foldr (\(h,b) -> Text.replace (Text.pack [h]) (Text.pack [b])) x repls
+	where repls = zip ['a'..'z'] ['𝚊'..] ++ zip ['A'..'Z'] ['𝙰'..]
+	-- Using mathmono lets us distinguish the index entries for "template" and for "𝚝𝚎𝚖𝚙𝚕𝚊𝚝𝚎".
+
 indexKeyContent :: LaTeX -> Text
 indexKeyContent txt = mconcat (map ikc txt)
 	where
@@ -230,7 +235,7 @@ indexKeyContent txt = mconcat (map ikc txt)
 		ikc (TeXRaw t) = replace "\n" " " t
 		ikc (TeXComm "tcode" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "noncxxtcode" _ [(_, x)]) = indexKeyContent x
-		ikc (TeXComm "texttt" _ [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "texttt" _ [(_, x)]) = mathMono $ indexKeyContent x
 		ikc (TeXComm "textit" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textsc" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "mathsf" _ [(_, x)]) = indexKeyContent x
