@@ -296,10 +296,8 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 				(\(p : x) -> p{paraNumbered=True, rawParaSourceLoc=Nothing} : x)
 				(collectParas more)
 		collectParas [] = []
-		collectParas x = (RawParagraph False False (parsePara p) Nothing : ps)
-			where
-				ps = collectParas more
-				(p, more) = break isParaEnd x
+		collectParas x = (if null p then id else (RawParagraph False False p Nothing :)) (collectParas more)
+			where (parsePara -> p, more) = break isParaEnd x
 
 parseSections :: Int -> LaTeX -> [LinearSection]
 parseSections level
