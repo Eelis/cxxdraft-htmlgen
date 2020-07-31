@@ -27,7 +27,7 @@ import LaTeXBase
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isAlpha)
 import Control.Arrow (first)
@@ -295,8 +295,9 @@ assignItemNumbers p
 instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
 	assignNumbers paraSection (paraNumber, RawParagraph{..}) = do
 		nums <- get
-		put nums{noteNr=1, exampleNr=1, nextSentenceNr=1}
+		put nums{noteNr=1, exampleNr=1, nextSentenceNr=if paraNumbered then 1 else nextSentenceNr nums}
 		paraElems <- assignNumbers paraSection rawParaElems
+		when paraNumbered $ modify $ \newnums -> newnums{nextSentenceNr = nextSentenceNr nums}
 		return $ assignItemNumbers Paragraph
 		  { paraInItemdescr = rawParaInItemdescr
 		  , paraSourceLoc = rawParaSourceLoc
@@ -318,6 +319,7 @@ treeizeSections sectionNumber chapter parents
 		nums <- get
 		put nums{itemDeclNr=1}
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
+		modify $ \n -> n{nextSentenceNr=1}
 		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter (newSec : parents) lsubsections
 		(newSec :) . treeizeSections (sectionNumber + 1) chapter parents more'
