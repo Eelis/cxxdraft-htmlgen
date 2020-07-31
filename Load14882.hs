@@ -288,6 +288,8 @@ assignItemNumbers p
 					) (zip [0..] enumItems)
 		goElem nn (NoteElement (Note nr label paras)) = (NoteElement (Note nr label paras'), nn')
 			where (paras', nn') = goParas nn paras
+		goElem nn (ExampleElement (Example nr paras)) = (ExampleElement (Example nr paras'), nn')
+			where (paras', nn') = goParas nn paras
 		goElem nn x = (x, nn)
 
 instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
