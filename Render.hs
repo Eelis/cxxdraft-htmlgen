@@ -82,7 +82,6 @@ simpleMacros =
 	, ("$"              , "&#36;")
 	, ("backslash"      , "\\")
 	, ("textbackslash"  , "\\")
-	, ("textunderscore" , "_")
 	, ("colcol"         , "::")
 	, ("tilde"          , "~")
 	, ("hspace"         , " ")
@@ -368,7 +367,11 @@ instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
 	    $ (if rawTilde then id else replace "~" " ")
-	    $ (if insertBreaks then replace "::" (zwsp ++ "::" ++ zwsp) . replace "_" "_&shy;" else id)
+	    $ (if not insertBreaks then id else
+	    	replace "::" (zwsp ++ "::" ++ zwsp) .
+	    	replace "\1" "__" .
+	    	replace "_" "_&shy;" .
+	    	replace "__" "\1")
 	    $ (if replXmlChars then replaceXmlChars else id)
 	    $ x
 	render (TeXComm "br" _ _         ) = renderBreak

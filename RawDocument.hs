@@ -164,7 +164,7 @@ signatures =
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
 			"textup edef x itcorrwidth itletterwidth small BnfIndent par leq " ++
 			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++
-			"xspace onelineskip textlangle textrangle textunderscore tilde raggedright = " ++
+			"xspace onelineskip textlangle textrangle tilde raggedright = " ++
 			"space copyright textregistered textbackslash hsize makebox nocorr br Gamma " ++
 			"frenchspacing list leftmargin listparindent itemindent rmfamily itshape relax " ++
 			"nonfrenchspacing endlist upshape ttfamily baselineskip nobreak noindent " ++
@@ -415,6 +415,7 @@ loadMacros =
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+{}") ""
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
+	. ("\\newcommand{\\textunderscore}{_}\n" ++)
 	. rmExplSyntax
 	. mconcat
 	. mapM readFile
