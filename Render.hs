@@ -1230,23 +1230,20 @@ doLink :: SectionFileStyle -> Link -> Text -> Text
 doLink sfs l = LazyText.toStrict . TextBuilder.toLazyText . go . Text.splitOn (Text.pack (show l) ++ "/")
 	where
 		go :: [Text] -> TextBuilder.Builder
-		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = TextBuilder.fromText x ++ f a ++ go (b : z)
+		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = TextBuilder.fromText x ++ f (TextBuilder.fromText a) ++ go (b : z)
 		go [x] = TextBuilder.fromText x
 		go _ = undefined
-		f :: Text -> TextBuilder.Builder
+		f :: TextBuilder.Builder -> TextBuilder.Builder
 		f = case (sfs, l) of
-			(Bare, SectionToToc) -> ("./#" ++) . TextBuilder.fromText
-			(Bare, TocToSection) -> dotSlashForColon
-			(Bare, SectionToSection) -> dotSlashForColon
-			(InSubdir, SectionToToc) -> ("../#" ++) . TextBuilder.fromText
-			(InSubdir, TocToSection) -> (++ "/") . TextBuilder.fromText
-			(InSubdir, SectionToSection) -> ("../" ++) . TextBuilder.fromText
-			(WithExtension, SectionToToc) -> ("index.html#" ++) . TextBuilder.fromText
-			(WithExtension, TocToSection) -> (++ ".html") . dotSlashForColon
-			(WithExtension, SectionToSection) -> (++ ".html") . dotSlashForColon
-		dotSlashForColon x = (if Text.any (== ':') x then ("./" ++) else id) (TextBuilder.fromText x)
-			-- Without dotSlashForColon, we generate urls like "string::replace.html",
-			-- in which "string" is parsed as the protocol.
+			(Bare, SectionToToc) -> ("./#" ++)
+			(Bare, TocToSection) -> id
+			(Bare, SectionToSection) -> id
+			(InSubdir, SectionToToc) -> ("../#" ++)
+			(InSubdir, TocToSection) -> (++ "/")
+			(InSubdir, SectionToSection) -> ("../" ++)
+			(WithExtension, SectionToToc) -> ("index.html#" ++)
+			(WithExtension, TocToSection) -> (++ ".html")
+			(WithExtension, SectionToSection) -> (++ ".html")
 
 applySectionFileStyle :: SectionFileStyle -> Text -> Text
 applySectionFileStyle sfs =
