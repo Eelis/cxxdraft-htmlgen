@@ -228,15 +228,18 @@ indexOccurrenceSuffix :: RenderContext -> Int -> Text
 	-- Returns the _ that distinguishes expr#def:object_expression from
 	-- expr#def:object_expression_ ([expr] has two definitions of 'object expression',
 	-- one for E1.E2 and one for E1.*E2.)
-indexOccurrenceSuffix c indexNum = Text.pack $ replicate numPre '_'
+indexOccurrenceSuffix c indexNum = underscores
 	where
-		(pre, Just theEntry, _post) = IntMap.splitLookup indexNum (pageIndexEntries c)
-		p :: IndexEntry -> Bool
-		p e = indexPath e == indexPath theEntry &&
-			indexCategory e == indexCategory theEntry &&
-			isDefinitionIndexEntry e == isDefinitionIndexEntry theEntry &&
-			sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
-		numPre = IntMap.size $ IntMap.filter p pre
+		Just theEntry = IntMap.lookup indexNum (pageIndexEntries c)
+		ies
+			| SectionPage s <- page c = secIndexEntriesByPath s
+			| otherwise = indexEntriesByPath (draft c)
+		underscores = Text.pack
+			[ '_' | (i, e) <- fromJust (Map.lookup (indexPath theEntry) ies)
+			     , indexCategory e == indexCategory theEntry
+			     , isDefinitionIndexEntry e == isDefinitionIndexEntry theEntry
+			     , sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
+			     , i < indexNum ]
 
 instance Render LaTeX where
 	render ( gt@(TeXComm "grammarterm_" _ [(FixArg, [TeXRaw termSec]),  _])

@@ -132,6 +132,7 @@ data Section = Section
 	, parents :: [Section] -- if empty, this is the chapter
 	, sectionKind :: SectionKind
 	, secIndexEntries :: IntMap IndexEntry
+	, secIndexEntriesByPath :: Map IndexPath [(Int, IndexEntry)]
 	}
 	deriving Show
 
@@ -150,6 +151,7 @@ data Draft = Draft
 	, chapters  :: [Section]
 	, index     :: Index
 	, indexEntryMap :: IntMap IndexEntry
+	, indexEntriesByPath :: Map IndexPath [(Int, IndexEntry)]
 	, xrefDelta :: XrefDelta
 	, abbrMap :: Abbreviation -> Maybe StablyNamedItem }
 

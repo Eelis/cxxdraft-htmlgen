@@ -225,7 +225,9 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 treeizeChapters _ _ [] = return []
 treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
-		let newSec = Section{sectionKind=lsectionKind, secIndexEntries=rawIndexEntriesForSec newSec, ..}
+		let
+			ie = rawIndexEntriesForSec newSec
+			newSec = Section{sectionKind=lsectionKind, secIndexEntries=ie, secIndexEntriesByPath=reverseIndexEntryMap ie, ..}
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
@@ -245,6 +247,9 @@ treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 rawIndexEntriesForSec :: Section -> IntMap IndexEntry
 rawIndexEntriesForSec s = IntMap.fromList
 	[(n, e) | e@IndexEntry{indexEntryNr=Just n} <- sectionIndexEntries s]
+
+reverseIndexEntryMap :: IntMap IndexEntry -> Map IndexPath [(Int, IndexEntry)]
+reverseIndexEntryMap m = Map.fromListWith (++) [(indexPath x, [(i, x)])  | (i, x) <- IntMap.assocs m]
 
 mapTexPara :: ([Element] -> [Element]) -> (TeXPara -> TeXPara)
 mapTexPara f (TeXPara x) = TeXPara (map g x)
@@ -309,9 +314,12 @@ treeizeSections :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 treeizeSections _ _ _ [] = return []
 treeizeSections sectionNumber chapter parents
 	(s@LinearSection{..} : (span ((> lsectionLevel s) . lsectionLevel) -> (lsubsections, more'))) = mdo
-		let newSec = Section
+		let
+		  ie = rawIndexEntriesForSec newSec
+		  newSec = Section
 			{ sectionKind = lsectionKind
-			, secIndexEntries = rawIndexEntriesForSec newSec
+			, secIndexEntries = ie
+			, secIndexEntriesByPath = reverseIndexEntryMap ie
 			, sectionName = lsectionName
 			, abbreviation = lsectionAbbreviation
 			, .. }
@@ -536,6 +544,7 @@ load14882 = do
 			allEntries = chapters' >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
+			indexEntriesByPath = reverseIndexEntryMap indexEntryMap
 			abbrMap = makeAbbrMap dr
 			dr = Draft{chapters=chapters', ..}
 		return dr

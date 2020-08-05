@@ -15,10 +15,10 @@ import Util ((.), (++), textStripInfix)
 import Control.Arrow (first, second)
 
 data MathType = Parentheses | Square | Dollar
-	deriving (Eq, Show)
+	deriving (Eq, Show, Ord)
 
 data ArgKind = FixArg | OptArg
-	deriving (Eq, Show)
+	deriving (Eq, Show, Ord)
 
 type TeXArg = (ArgKind, LaTeX)
 
@@ -29,7 +29,7 @@ data LaTeXUnit
 	| TeXMath MathType LaTeX
 	| TeXLineBreak
 	| TeXBraces LaTeX
-	deriving (Eq, Show)
+	deriving (Eq, Show, Ord)
 
 isTeXEnv :: String -> LaTeXUnit -> Bool
 isTeXEnv x (TeXEnv y _ _) = x == y
