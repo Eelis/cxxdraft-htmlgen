@@ -10,6 +10,7 @@ module Util (
 
 import Prelude hiding ((.), (++), writeFile)
 import qualified Data.Text as Text
+import qualified Data.Map as Map
 import Data.List (stripPrefix, intersperse)
 import Data.Char (ord, isDigit, isSpace)
 import Data.Text (Text, replace)
@@ -150,9 +151,5 @@ measure f = do
 	end <- getCurrentTime
 	return (r, realToFrac $ diffUTCTime end start)
 
-partitionBy :: Eq b => (a -> b) -> [a] -> [(b, [a])]
-partitionBy _ [] = []
-partitionBy f (x:xs) = (v, x : y) : partitionBy f z
-	where
-		v = f x
-		(y, z) = span ((== v) . f) xs
+partitionBy :: (Ord b, Eq b) => (a -> b) -> [a] -> [(b, [a])]
+partitionBy f l = Map.assocs $ Map.fromListWith (flip (++)) [(f x, [x]) | x <- l]

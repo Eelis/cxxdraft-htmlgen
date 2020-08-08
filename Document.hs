@@ -8,7 +8,7 @@ module Document (
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
-	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements, indexHeading,
+	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
 	LaTeX, makeAbbrMap) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
@@ -169,18 +169,12 @@ makeAbbrMap = flip Map.lookup . Map.fromList . stablyNamedItems
 -- Indices:
 
 data IndexComponent = IndexComponent { distinctIndexSortKey, indexKey :: LaTeX }
-	deriving Show
+	deriving (Ord, Show)
 
 instance Eq IndexComponent where
 	x == y =
 		distinctIndexSortKey x == distinctIndexSortKey y &&
 		indexKeyContent (indexKey x) == indexKeyContent (indexKey y)
-
-indexHeading :: IndexComponent -> String
-indexHeading (indexSortKey -> indexKeyContent -> Text.head -> c)
-	| isDigit c = "Numbers"
-	| isAlpha c = [toUpper c]
-	| otherwise = "Symbols"
 
 type IndexPath = [IndexComponent]
 
@@ -199,11 +193,6 @@ instance Show IndexEntry where
 		++ ",indexPath=" ++ show indexPath
 		++ "}"
 
-indexSortKey :: IndexComponent -> LaTeX
-indexSortKey IndexComponent{..}
-	| distinctIndexSortKey /= [] = distinctIndexSortKey
-	| otherwise = indexKey
-
 data IndexEntry = IndexEntry
 	{ indexEntrySection :: Section
 	, indexEntryKind :: Maybe IndexKind
@@ -218,18 +207,6 @@ type IndexTree = Map IndexComponent IndexNode
 data IndexNode = IndexNode
 	{ indexEntries :: [IndexEntry]
 	, indexSubnodes :: IndexTree }
-
-instance Ord IndexComponent where
-	compare = compare `on` (\c -> (f (indexSortKey c), f (indexKey c)))
-		where
-			g :: Char -> (Int, Int)
-			g c
-				| isDigit c = (1, ord c)
-				| isAlpha c = (2, ord (toLower c))
-				| otherwise = (0, ord c)
-			h :: String -> ([(Int, Int)], Int)
-			h x = (map g x, if isUpper (head x) then 0 else 1)
-			f = h . Text.unpack . indexKeyContent
 
 mergeIndices :: [Index] -> Index
 mergeIndices = Map.unionsWith (Map.unionWith mergeIndexNodes)

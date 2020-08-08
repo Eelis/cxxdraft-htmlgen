@@ -20,7 +20,7 @@ import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr, footnotes,
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
-	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), indexHeading,
+	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
     renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texSpan, mapTeX)
@@ -30,12 +30,12 @@ import qualified Data.Text.Lazy.Builder as TextBuilder
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Text.HTML.TagSoup as Soup
-import Data.Char (isAlpha, isSpace, isAlphaNum)
+import Data.Char (isAlpha, isSpace, isAlphaNum, toLower, isUpper, ord, isDigit, toUpper)
 import Control.Arrow (second)
 import qualified Prelude
 import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
-import Data.List (find, nub, intersperse, (\\))
+import Data.List (find, nub, intersperse, (\\), elemIndex, sortOn)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
@@ -597,11 +597,33 @@ instance Render IndexEntry where
 				| otherwise = ""
 			abbr = abbreviation indexEntrySection
 
+indexDisplayOrder :: IndexComponent -> (([(Int, Int)], Int), ([(Int, Int)], Int))
+indexDisplayOrder y = (f (indexSortKey y), f (indexKey y))
+	where
+		g :: Char -> (Int, Int)
+		g c
+			| isDigit c = (1, ord c)
+			| Just c' <- unmathMono c = (2, ord (toLower c'))
+			| isAlpha c = (2, ord (toLower c))
+			| otherwise = (0, ord c)
+		he :: String -> ([(Int, Int)], Int)
+		he x = (map g x, if isUpper (head x) then 0 else 1)
+		f = he . Text.unpack . indexKeyContent
+
+unmathMono :: Char -> Maybe Char
+unmathMono c
+	| Just i <- elemIndex c lowerMathMono = Just $ ['a'..] !! i
+	| Just i <- elemIndex c upperMathMono = Just $ ['A'..] !! i
+	| otherwise = Nothing
+	where
+		lowerMathMono = ['𝚊'..'𝚣']
+		upperMathMono = ['𝙰'..'𝚉']
+
 instance Render [(IndexComponent, IndexNode)] where
 	render tree ctx = go [] tree
 		where
 			go :: IndexPath -> [(IndexComponent, IndexNode)] -> TextBuilder.Builder
-			go up x = mconcat $ f up . x
+			go up x = mconcat $ f up . (sortOn (indexDisplayOrder . fst) x)
 
 			f :: IndexPath -> (IndexComponent, IndexNode) -> TextBuilder.Builder
 			f up (comp, IndexNode{..}) =
@@ -614,16 +636,40 @@ instance Render [(IndexComponent, IndexNode)] where
 					Text.intercalate ", " (nub $ filter (/= "") $ map (LazyText.toStrict . TextBuilder.toLazyText) $ render comp ctx : flip render ctx . indexEntries)) ++
 					go up' (Map.toList indexSubnodes)
 
+data IndexHeading = Symbols | Numbers | Letter Char
+	deriving (Eq, Ord)
+
+instance Show IndexHeading where
+	show Symbols = "Symbols"
+	show Numbers = "Numbers"
+	show (Letter c) = [c]
+
+indexHeading :: IndexComponent -> IndexHeading
+indexHeading (indexSortKey -> indexKeyContent -> Text.head -> c)
+	| isDigit c = Numbers
+	| Just i <- elemIndex c lowerMathMono = Letter $ ['A'..] !! i
+	| Just i <- elemIndex c upperMathMono = Letter $ ['A'..] !! i
+	| isAlpha c = Letter (toUpper c)
+	| otherwise = Symbols
+	where
+		lowerMathMono = ['𝚊'..'𝚣']
+		upperMathMono = ['𝙰'..'𝚉']
+
+indexSortKey :: IndexComponent -> LaTeX
+indexSortKey IndexComponent{..}
+	| distinctIndexSortKey /= [] = distinctIndexSortKey
+	| otherwise = indexKey
+
 renderIndex :: RenderContext -> IndexTree -> String -> TextBuilder.Builder
 renderIndex ctx tree name
 	| name `elem` ["generalindex", "libraryindex"] = mconcat $ ["<hr>"] ++ linklines ++ ["<hr>"] ++ map sub p
 	| otherwise = render (Map.toList tree) ctx
 	where
 		p = partitionBy (indexHeading . fst) $ Map.toList tree
-		sub (n, ii) = h 2 (render anchor{aText=TextBuilder.fromText $ Text.pack n, aId=Text.pack n} ctx) ++ render ii ctx
+		sub (n, ii) = h 2 (render anchor{aText=TextBuilder.fromText $ Text.pack (show n), aId=Text.pack (show n)} ctx) ++ render ii ctx
 		(symnum, rest) = splitAt 2 p
 		linklines = map (h 2 . mconcat . intersperse " " . map (li . fst)) [symnum, rest]
-		li n = render anchor{aText = TextBuilder.fromText $ Text.pack n, aHref = "#" ++ Text.pack n} ctx
+		li n = render anchor{aText = TextBuilder.fromText $ Text.pack (show n), aHref = "#" ++ Text.pack (show n)} ctx
 
 renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
 renderTab stripTab Table{..} ctx =
