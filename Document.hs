@@ -245,12 +245,13 @@ mathMono x = foldr (\(h,b) -> Text.replace (Text.pack [h]) (Text.pack [b])) x re
 	-- Using mathmono lets us distinguish the index entries for "template" and for "𝚝𝚎𝚖𝚙𝚕𝚊𝚝𝚎".
 
 indexKeyContent :: LaTeX -> Text
-indexKeyContent txt = mconcat (map ikc txt)
+indexKeyContent = mconcat . map ikc
 	where
 		ikc :: LaTeXUnit -> Text
 		ikc (TeXRaw t) = replace "\n" " " t
-		ikc (TeXComm "tcode" _ [(_, x)]) = indexKeyContent x
-		ikc (TeXComm "noncxxtcode" _ [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "tcode" _ [(_, x)]) = mathMono $ indexKeyContent x
+		ikc (TeXComm "idxcode" _ [(_, x)]) = mathMono $ indexKeyContent x
+		ikc (TeXComm "noncxxtcode" _ [(_, x)]) = mathMono $ indexKeyContent x
 		ikc (TeXComm "texttt" _ [(_, x)]) = mathMono $ indexKeyContent x
 		ikc (TeXComm "textit" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textsc" _ [(_, x)]) = indexKeyContent x

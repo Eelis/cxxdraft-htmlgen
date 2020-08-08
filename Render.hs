@@ -452,7 +452,8 @@ instance Render LaTeXUnit where
 	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
-	render (TeXComm "tcode" _ [(FixArg, x)]) = \ctx ->
+	render (TeXComm cmd _ [(FixArg, x)])
+		| cmd `elem` ["tcode", "idxcode"] = \ctx ->
 		if noTags ctx then render x ctx{rawHyphens=True, insertBreaks=True}
 		else spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
