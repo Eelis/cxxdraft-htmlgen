@@ -139,8 +139,10 @@ a.index {
 	display: none;
 }
 
-a.index:before { content: "⟵"; }
-	/* this way the content is not selectable */
+a.index:before {
+	content: "⟵";
+	background-color: #C9FBC9;
+}
 
 a.index:target {
 	display: inline;
