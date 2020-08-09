@@ -19,12 +19,14 @@ import Document (Section(..), Draft(..), SectionKind(..), indexCatName, isDefini
 tocSection :: Draft -> Section -> TextBuilder.Builder
 tocSection _ Section{sectionKind=DefinitionSection _} = ""
 tocSection draft s@Section{..} =
-	xml "div" [("id", abbreviation)] $
-	h (min 4 $ 2 + length parents) (
-		secnum "" s ++ " " ++
-		render ( sectionName ++ [TeXRaw " "]
-		       , (linkToSection TocToSection abbreviation){aClass="abbr_ref"}) defaultRenderContext{page=TocPage, inSectionTitle=True, draft=draft}) ++
-	mconcat (tocSection draft . subsections)
+	xml "div" [("id", abbreviation)] $ header ++ mconcat (tocSection draft . subsections)
+  where
+  	header = h (min 4 $ 2 + length parents) $
+		secnum "" s ++ " "
+		++ render ( sectionName ++ [TeXRaw " "]
+		          , (linkToSection TocToSection abbreviation){aClass="abbr_ref"})
+		          defaultRenderContext{page=TocPage, inSectionTitle=True, draft=draft}
+		++ "<div style='clear:right'></div>"
 
 tocChapter :: Draft -> Section -> TextBuilder.Builder
 tocChapter draft s@Section{abbreviation, sectionName, subsections, parents} =
