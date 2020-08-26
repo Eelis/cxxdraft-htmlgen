@@ -90,7 +90,6 @@ makeEnv =
 	, ("lib2dtab2", Signature 4 Nothing)
 	, ("note", Signature 0 (Just [Token "Note"]))
 	, ("longtable", Signature 1 Nothing)
-	, ("indexed", Signature 1 Nothing)
 	, ("indexeditemdecl", Signature 1 Nothing)
 	, ("itemdecl", Signature 0 Nothing) ] -- todo: move
 

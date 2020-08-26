@@ -96,7 +96,6 @@ isEnumerate (TeXEnv s _ _)
 isEnumerate _ = Nothing
 
 isParaEnd :: LaTeXUnit -> Bool
-isParaEnd (TeXEnv "indexed" _ (x:_)) = isParaEnd x
 isParaEnd (TeXEnv "itemdecl" _ _) = True
 isParaEnd (TeXEnv "indexeditemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True

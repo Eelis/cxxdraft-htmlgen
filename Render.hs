@@ -291,8 +291,6 @@ highlightUnit :: RenderContext -> LaTeXUnit -> TextBuilder.Builder
 highlightUnit ctx x = case x of
     TeXComm "rlap" _ [(FixArg, text)] ->
         spanTag "rlap" (highlight ctx text)
-    TeXEnv "indexed" [(FixArg, indices)] body ->
-        renderIndexed ctx "div" indices (highlight ctx body)
     TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)] ->
         renderIndexed ctx "span" indices (highlight ctx text)
     TeXComm "terminal" _ [(FixArg, y)] ->
@@ -500,7 +498,6 @@ instance Render LaTeXUnit where
 			xml "div" [("class", "itemdecl")] $
 			xml "div" [("class", "marginalizedparent")] (render link ctx) ++
 			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ highlightLines ctx{rawTilde=True, rawHyphens=True} t)
-	render (TeXEnv "indexed" [(FixArg, indices)] content) = \ctx -> renderIndexed ctx "div" indices $ render content ctx
 	render (TeXComm "discretionary" _ _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" _ [_, _, (FixArg, x)]) = render x
 	render (TeXComm "multicolumn" _ [(FixArg, [TeXRaw n]), _, (FixArg, content)]) = xml "td" [("colspan", n)] . render content
