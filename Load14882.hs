@@ -503,11 +503,13 @@ generateStdGramExt files =
 
 To highlight the whole itemdecl, indexItemDecls converts this to:
 
-  \begin{indexed}{\indexlibraryglobal{bla}}
+  \begin{indexeditemdecl}{
+  \indexlibraryglobal{bla}%
+  }
   \begin{itemdecl}
   void bla();
   \end{itemdecl}
-  \end{indexed}
+  \end{indexeditemdecl}
 -}
 
 indexItemDecls :: [Text] -> [Text]
@@ -516,7 +518,7 @@ indexItemDecls ("":x:y:more)
 	| "\\indexlibrary" `isPrefixOf` x
 	, "\\begin{itemdecl}" `isPrefixOf` y =
 		let Just (d, rest) = parseItemDecl [] more in
-			["", "\\begin{indexed}{", x, "}", y] ++ d ++ ["\\end{indexed}"] ++ indexItemDecls rest
+			["", "\\begin{indexeditemdecl}{", x, "}", y] ++ d ++ ["\\end{indexeditemdecl}"] ++ indexItemDecls rest
   where
 	parseItemDecl :: [Text] -> [Text] -> Maybe ([Text], [Text])
 	parseItemDecl _ [] = Nothing

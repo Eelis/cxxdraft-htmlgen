@@ -334,14 +334,16 @@ highlight ctx (TeXRaw x : more)
 highlight ctx (x : more) = highlightUnit ctx x ++ highlight ctx more
 highlight _ [] = ""
 
+indexPaths :: LaTeX -> [(Text, IndexPath, Int)]
+indexPaths indices =
+	[ (cat, p, entryNr)
+	| [ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
+	   , (OptArg, [TeXRaw cat])
+	   , (FixArg, (parseIndex -> (p, _))) ] <- lookForCommand "index" indices]
+
 renderIndexed :: RenderContext -> Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
-renderIndexed ctx thing indices body = foldl f body indexPaths
-	where
-	    f t (p, x, entryNr) = xml thing [("id", indexPathId2 ctx entryNr p x)] t
-	    indexPaths = [ (cat, p, entryNr)
-	                 | [ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
-	                   , (OptArg, [TeXRaw cat])
-	                   , (FixArg, (parseIndex -> (p, _))) ] <- lookForCommand "index" indices]
+renderIndexed ctx thing indices body = foldl f body (indexPaths indices)
+	where f t (p, x, entryNr) = xml thing [("id", indexPathId2 ctx entryNr p x)] t
 
 commasAnd :: [TextBuilder.Builder] -> TextBuilder.Builder
 commasAnd [] = undefined
@@ -487,6 +489,17 @@ instance Render LaTeXUnit where
 				, aHref  = "#def" ++ indexPathHref p ++ suffix
 				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
+	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] content) = \ctx ->
+		let
+			[(_, [(FixArg, [TeXRaw _])], t)] = matchEnv (== "itemdecl") content
+			(icat, ipath, inum) : _ = indexPaths indices
+			i = indexPathId2 ctx inum icat ipath
+			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
+		in
+			renderIndexed ctx "div" indices $
+			xml "div" [("class", "itemdecl")] $
+			xml "div" [("class", "marginalizedparent")] (render link ctx) ++
+			xml "code" [("class", "itemdeclcode")] (TextBuilder.fromText $ Text.dropWhile (== '\n') $ LazyText.toStrict $ TextBuilder.toLazyText $ highlightLines ctx{rawTilde=True, rawHyphens=True} t)
 	render (TeXEnv "indexed" [(FixArg, indices)] content) = \ctx -> renderIndexed ctx "div" indices $ render content ctx
 	render (TeXComm "discretionary" _ _) = const (TextBuilder.fromText zwsp)
 	render (TeXComm "ifthenelse" _ [_, _, (FixArg, x)]) = render x

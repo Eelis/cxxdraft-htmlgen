@@ -98,6 +98,7 @@ isEnumerate _ = Nothing
 isParaEnd :: LaTeXUnit -> Bool
 isParaEnd (TeXEnv "indexed" _ (x:_)) = isParaEnd x
 isParaEnd (TeXEnv "itemdecl" _ _) = True
+isParaEnd (TeXEnv "indexeditemdecl" _ _) = True
 isParaEnd (TeXEnv "itemdescr" _ _) = True
 isParaEnd (TeXComm "pnum" _ _) = True
 isParaEnd x = isParasEnd x
@@ -247,7 +248,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			    let label = case a of [(FixArg, [TeXRaw x])] -> x; _ -> "Note"
 			    in RawNote label $ parsePara stuff
 			| k == "example" = RawExample $ parsePara stuff
-			| k == "itemdecl" || k == "minipage" = RawLatexElement e
+			| k == "itemdecl" || k == "minipage" || k == "indexeditemdecl" = RawLatexElement e
 		f x = RawLatexElement x
 		splitElems :: LaTeX -> [LaTeX]
 		splitElems [] = []
@@ -282,6 +283,8 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 		= (collectParas stuff, fs, rest)
 	where
 		collectParas :: LaTeX -> [RawParagraph]
+		collectParas (t@(TeXEnv "indexeditemdecl" _ _) : more) =
+			RawParagraph False False (parsePara [t]) Nothing : collectParas more
 		collectParas (t@(TeXEnv "itemdecl" _ _) : more) =
 			RawParagraph False False (parsePara [t]) Nothing : collectParas more
 		collectParas (TeXEnv "itemdescr" _ desc : more) =
