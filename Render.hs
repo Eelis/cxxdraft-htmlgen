@@ -35,7 +35,7 @@ import Control.Arrow (second)
 import qualified Prelude
 import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
-import Data.List (find, nub, intersperse, (\\), elemIndex, sortOn)
+import Data.List (find, nub, intersperse, (\\), sortOn)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
@@ -603,21 +603,11 @@ indexDisplayOrder y = (f (indexSortKey y), f (indexKey y))
 		g :: Char -> (Int, Int)
 		g c
 			| isDigit c = (1, ord c)
-			| Just c' <- unmathMono c = (2, ord (toLower c'))
 			| isAlpha c = (2, ord (toLower c))
 			| otherwise = (0, ord c)
 		he :: String -> ([(Int, Int)], Int)
 		he x = (map g x, if isUpper (head x) then 0 else 1)
 		f = he . Text.unpack . indexKeyContent
-
-unmathMono :: Char -> Maybe Char
-unmathMono c
-	| Just i <- elemIndex c lowerMathMono = Just $ ['a'..] !! i
-	| Just i <- elemIndex c upperMathMono = Just $ ['A'..] !! i
-	| otherwise = Nothing
-	where
-		lowerMathMono = ['𝚊'..'𝚣']
-		upperMathMono = ['𝙰'..'𝚉']
 
 instance Render [(IndexComponent, IndexNode)] where
 	render tree ctx = go [] tree
@@ -647,13 +637,8 @@ instance Show IndexHeading where
 indexHeading :: IndexComponent -> IndexHeading
 indexHeading (indexSortKey -> indexKeyContent -> Text.head -> c)
 	| isDigit c = Numbers
-	| Just i <- elemIndex c lowerMathMono = Letter $ ['A'..] !! i
-	| Just i <- elemIndex c upperMathMono = Letter $ ['A'..] !! i
 	| isAlpha c = Letter (toUpper c)
 	| otherwise = Symbols
-	where
-		lowerMathMono = ['𝚊'..'𝚣']
-		upperMathMono = ['𝙰'..'𝚉']
 
 indexSortKey :: IndexComponent -> LaTeX
 indexSortKey IndexComponent{..}
