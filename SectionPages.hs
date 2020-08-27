@@ -187,7 +187,7 @@ writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> d
 writeIndexFile :: SectionFileStyle -> Draft -> String -> IndexTree -> IO ()
 writeIndexFile sfs draft cat index =
 	writeSectionFile cat sfs ("14882: " ++ indexCatName cat) $
-		h 1 (indexCatName cat) ++ renderIndex defaultRenderContext{page=IndexPage, draft=draft} index cat
+		h 1 (indexCatName cat) ++ renderIndex defaultRenderContext{page=IndexPage (Text.pack cat), draft=draft} index
 
 writeIndexFiles :: SectionFileStyle -> Draft -> Index -> [IO ()]
 writeIndexFiles sfs draft index = flip map (Map.toList index) $ uncurry (writeIndexFile sfs draft) . first Text.unpack

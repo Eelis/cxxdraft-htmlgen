@@ -138,9 +138,20 @@ indexPathString =
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
 
+indexShortName :: Text -> Text
+indexShortName cat = case cat of
+	"libraryindex" -> "lib"
+	"headerindex" -> "hdr"
+	"def" -> "def"
+	"conceptindex" -> "concept"
+	"generalindex" -> ""
+	"impldefindex" -> ""
+	"grammarindex" -> ""
+	_ -> error $ "indexShortName: unrecognized category: " ++ Text.unpack cat
+
 indexPathId :: Text -> IndexPath -> Text
 indexPathId category =
-	(if category == "libraryindex" then ("lib" ++) else id) .
+	(indexShortName category ++) .
 	(":" ++) .
 	replace " "  "%20" .
 	replace "'" "&#39;" .
@@ -150,8 +161,8 @@ indexPathId category =
 indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Text
 indexPathId2 ctx entryNr p x = indexPathId p x ++ indexOccurrenceSuffix ctx entryNr
 
-indexPathHref :: IndexPath -> Text
-indexPathHref = (":" ++) . urlChars . replace "&" "&amp;" . indexPathString
+indexPathHref :: Text -> IndexPath -> Text
+indexPathHref cat = (("#" ++ cat ++ ":") ++) . urlChars . replace "&" "&amp;" . indexPathString
 
 asId :: LaTeX -> Text
 asId = mconcat . map f
@@ -423,22 +434,17 @@ instance Render LaTeXUnit where
 			aHref = abbrHref abbr ctx,
 			aText = render txt ctx{inLink=True},
 			aTitle = abbrTitle abbr True ctx} ctx
-	render (TeXComm comm _
+	render (TeXComm "indexlink" _
 				[ (FixArg, txt)
+				, (FixArg, [TeXRaw cat])
 				, (FixArg, (parseIndex -> (p, _)))
 				, (FixArg, [TeXRaw abbr])])
-		| comm `elem` words "linkx deflinkx liblinkx"
 		= \ctx -> render anchor
 			{ aText = render txt ctx{inLink=True}
 			, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
-				++ "#" ++ cat comm ++ indexPathHref p
+				++ indexPathHref (indexShortName cat) p
 			, aTitle = abbrTitle abbr True ctx
 			} ctx
-		where
-			cat "linkx" = ""
-			cat "deflinkx" = "def"
-			cat "liblinkx" = "lib"
-			cat _ = undefined
 	render (TeXComm "grammarterm_" _ [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
 		\sec -> if noTags sec then TextBuilder.fromText name else
 
@@ -472,7 +478,6 @@ instance Render LaTeXUnit where
 			Just IndexClose -> ""
 			Just (See _ _) -> ""
 			_ ->
-					if category == "headerindex" then "" else -- needed to prevent duplicate id because \indexhdr also generates a generalindex entry
 					spanTag "indexparent" $ render anchor
 						{ aId = indexPathId2 ctx entryNr category p
 						, aClass = "index"} ctx
@@ -484,7 +489,7 @@ instance Render LaTeXUnit where
 			render anchor
 				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
 				, aId    = "def" ++ indexPathId2 ctx entryNr "generalindex" p
-				, aHref  = "#def" ++ indexPathHref p ++ suffix
+				, aHref  = indexPathHref "def" p ++ suffix
 				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
 	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] content) = \ctx ->
@@ -598,13 +603,12 @@ instance Render IndexEntry where
 	render IndexEntry{..} =
 		return $ simpleRender2 anchor
 			{ aHref = "SectionToSection/" ++ urlChars abbr
-				++ "#" ++ extraIdPrefix ++ indexPathHref indexPath
+				++ indexPathHref extraIdPrefix indexPath
 			, aText = (if indexEntryKind == Just BfPage then xml "b" [] else id) $ squareAbbr True abbr }
 		where
 			extraIdPrefix
 				| isDefinitionIndexEntry && indexEntryKind == Nothing = "def"
-				| indexCategory == "libraryindex" = "lib"
-				| otherwise = ""
+				| otherwise = indexShortName indexCategory
 			abbr = abbreviation indexEntrySection
 
 indexDisplayOrder :: IndexComponent -> (([(Int, Int)], Int), ([(Int, Int)], Int))
@@ -622,6 +626,7 @@ indexDisplayOrder y = (f (indexSortKey y), f (indexKey y))
 instance Render [(IndexComponent, IndexNode)] where
 	render tree ctx = go [] tree
 		where
+			IndexPage cat = page ctx
 			go :: IndexPath -> [(IndexComponent, IndexNode)] -> TextBuilder.Builder
 			go up x = mconcat $ f up . (sortOn (indexDisplayOrder . fst) x)
 
@@ -630,7 +635,7 @@ instance Render [(IndexComponent, IndexNode)] where
 				let
 					up' = up ++ [comp]
 				in
-					xml "div" [("id", indexPathId "" up')] $
+					xml "div" [("id", indexPathId cat up')] $
 					xml "div" [("class", "indexitems")] $
 					TextBuilder.fromText (
 					Text.intercalate ", " (nub $ filter (/= "") $ map (LazyText.toStrict . TextBuilder.toLazyText) $ render comp ctx : flip render ctx . indexEntries)) ++
@@ -655,11 +660,12 @@ indexSortKey IndexComponent{..}
 	| distinctIndexSortKey /= [] = distinctIndexSortKey
 	| otherwise = indexKey
 
-renderIndex :: RenderContext -> IndexTree -> String -> TextBuilder.Builder
-renderIndex ctx tree name
+renderIndex :: RenderContext -> IndexTree -> TextBuilder.Builder
+renderIndex ctx tree
 	| name `elem` ["generalindex", "libraryindex"] = mconcat $ ["<hr>"] ++ linklines ++ ["<hr>"] ++ map sub p
 	| otherwise = render (Map.toList tree) ctx
 	where
+		IndexPage name = page ctx
 		p = partitionBy (indexHeading . fst) $ Map.toList tree
 		sub (n, ii) = h 2 (render anchor{aText=TextBuilder.fromText $ Text.pack (show n), aId=Text.pack (show n)} ctx) ++ render ii ctx
 		(symnum, rest) = splitAt 2 p
@@ -829,8 +835,16 @@ isComplexMath t =
 	|| (Text.any (`elem` ("+-*/^_=,' " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
 	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
 
-data Page = SectionPage Section | FullPage | IndexPage | XrefDeltaPage | FootnotesPage | TablesPage | FiguresPage | TocPage
-    deriving Eq
+data Page
+	= SectionPage Section
+	| FullPage
+	| IndexPage Text {- category -}
+	| XrefDeltaPage
+	| FootnotesPage
+	| TablesPage
+	| FiguresPage
+	| TocPage
+	deriving Eq
 
 isSectionPage :: Page -> Bool
 isSectionPage (SectionPage _) = True

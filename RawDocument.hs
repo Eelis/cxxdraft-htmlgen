@@ -185,9 +185,9 @@ signatures =
 		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength textcolor"
-		a 3 = "multicolumn discretionary definecolor deflinkx linkx liblinkx movedxrefii " ++
+		a 3 = "multicolumn discretionary definecolor movedxrefii " ++
 			"ifthenelse PackageError"
-		a 4 = "movedxrefiii"
+		a 4 = "movedxrefiii indexlink"
 		a _ = undefined
 
 parseFile :: Macros -> Text -> ([LinearSection], Macros)
