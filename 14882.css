@@ -198,10 +198,6 @@ div.itemdescr {
 	background: inherit; /* no idea why this doesn't appear to be the default */
 }
 
-.ntdefcolon {
-	font-style: normal;
-}
-
 span.textnormal {
 	font-style: normal;
 	font-family: serif;
@@ -214,8 +210,6 @@ span.rlap {
 }
 
 span.descr { font-style: normal; font-family: serif; }
-.grammarterm { font-style: italic; font-family: sans-serif; }
-.ncrebnf .grammarterm { font-style: italic; font-family: serif; }
 span.term { font-style: italic; }
 span.terminal { font-family: monospace; font-style: normal; }
 span.noncxxterminal { font-family: monospace; font-style: normal; }
