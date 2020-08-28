@@ -176,7 +176,7 @@ instance Eq IndexComponent where
 
 type IndexPath = [IndexComponent]
 
-data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose | BfPage
+data IndexKind = See { _also :: Bool, _ref :: LaTeX } | IndexOpen | IndexClose | DefinitionIndexEntry
 	deriving (Eq, Show)
 
 type IndexCategory = Text
@@ -189,6 +189,7 @@ instance Show IndexEntry where
 		++ "{indexSection=" ++ show (sectionName indexEntrySection)
 		++ ",indexCategory=" ++ show indexCategory
 		++ ",indexPath=" ++ show indexPath
+		++ ",indexEntryKind=" ++ show indexEntryKind
 		++ "}"
 
 data IndexEntry = IndexEntry
@@ -197,7 +198,6 @@ data IndexEntry = IndexEntry
 	, indexPath :: IndexPath
 	, indexEntryNr :: Maybe Int
 	, indexCategory :: Text
-	, isDefinitionIndexEntry :: Bool
 	}
 
 type IndexTree = Map IndexComponent IndexNode

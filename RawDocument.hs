@@ -141,7 +141,7 @@ doParse m t = (x, y)
 initialContext :: Parser.Context
 initialContext = Parser.defaultContext
 	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition importgraphic itemdescr nontermdef renontermdef defnx outputblock " ++
+			"drawing definition importgraphic itemdescr nontermdef renontermdef outputblock " ++
 			"indented note defnote example tabular longtable enumeratea commentellip fref"
 	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
 			"indent", "vfill", "pagebreak", "!", "-", "glossary",
@@ -182,7 +182,7 @@ signatures =
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color"
-		a 2 = "pnum addtolength definition defnx addtocounter setcounter frac glossary " ++
+		a 2 = "pnum addtolength definition addtocounter setcounter frac glossary " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength textcolor"
 		a 3 = "multicolumn discretionary definecolor movedxrefii " ++

@@ -138,31 +138,30 @@ indexPathString =
 	Text.intercalate "," .
 	map (indexKeyContent . indexKey)
 
-indexShortName :: Text -> Text
-indexShortName cat = case cat of
+indexShortName :: Text -> Maybe IndexKind -> Text
+indexShortName cat kind = (if kind == Just DefinitionIndexEntry then (++"def") else id) $ case cat of
 	"libraryindex" -> "lib"
 	"headerindex" -> "hdr"
-	"def" -> "def"
 	"conceptindex" -> "concept"
 	"generalindex" -> ""
 	"impldefindex" -> ""
 	"grammarindex" -> ""
 	_ -> error $ "indexShortName: unrecognized category: " ++ Text.unpack cat
 
-indexPathId :: Text -> IndexPath -> Text
-indexPathId category =
-	(indexShortName category ++) .
+indexPathId :: Text -> Maybe IndexKind -> IndexPath -> Text
+indexPathId category kind =
+	(indexShortName category kind ++) .
 	(":" ++) .
 	replace " "  "%20" .
 	replace "'" "&#39;" .
 	replace "&" "&amp;" .
 	indexPathString
 
-indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Text
-indexPathId2 ctx entryNr p x = indexPathId p x ++ indexOccurrenceSuffix ctx entryNr
+indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Maybe IndexKind -> Text
+indexPathId2 ctx entryNr cat path kind = indexPathId cat kind path ++ indexOccurrenceSuffix ctx entryNr
 
-indexPathHref :: Text -> IndexPath -> Text
-indexPathHref cat = (("#" ++ cat ++ ":") ++) . urlChars . replace "&" "&amp;" . indexPathString
+indexPathHref :: Text -> Maybe IndexKind -> IndexPath -> Text
+indexPathHref cat kind = (("#" ++ indexShortName cat kind ++ ":") ++) . urlChars . replace "&" "&amp;" . indexPathString
 
 asId :: LaTeX -> Text
 asId = mconcat . map f
@@ -248,7 +247,6 @@ indexOccurrenceSuffix c indexNum = underscores
 		underscores = Text.pack
 			[ '_' | (i, e) <- fromJust (Map.lookup (indexPath theEntry) ies)
 			     , indexCategory e == indexCategory theEntry
-			     , isDefinitionIndexEntry e == isDefinitionIndexEntry theEntry
 			     , sameIdNamespace (indexEntryKind e) (indexEntryKind theEntry)
 			     , i < indexNum ]
 
@@ -343,16 +341,16 @@ highlight ctx (TeXRaw x : more)
 highlight ctx (x : more) = highlightUnit ctx x ++ highlight ctx more
 highlight _ [] = ""
 
-indexPaths :: LaTeX -> [(Text, IndexPath, Int)]
+indexPaths :: LaTeX -> [(Text, IndexPath, Int, Maybe IndexKind)]
 indexPaths indices =
-	[ (cat, p, entryNr)
+	[ (cat, path, entryNr, kind)
 	| [ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
 	   , (OptArg, [TeXRaw cat])
-	   , (FixArg, (parseIndex -> (p, _))) ] <- lookForCommand "index" indices]
+	   , (FixArg, (parseIndex -> (path, kind))) ] <- lookForCommand "index" indices]
 
 renderIndexed :: RenderContext -> Text -> LaTeX -> TextBuilder.Builder -> TextBuilder.Builder
 renderIndexed ctx thing indices body = foldl f body (indexPaths indices)
-	where f t (p, x, entryNr) = xml thing [("id", indexPathId2 ctx entryNr p x)] t
+	where f t (cat, path, entryNr, kind) = xml thing [("id", indexPathId2 ctx entryNr cat path kind)] t
 
 commasAnd :: [TextBuilder.Builder] -> TextBuilder.Builder
 commasAnd [] = undefined
@@ -437,14 +435,20 @@ instance Render LaTeXUnit where
 	render (TeXComm "indexlink" _
 				[ (FixArg, txt)
 				, (FixArg, [TeXRaw cat])
-				, (FixArg, (parseIndex -> (p, _)))
-				, (FixArg, [TeXRaw abbr])])
-		= \ctx -> render anchor
-			{ aText = render txt ctx{inLink=True}
-			, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
-				++ indexPathHref (indexShortName cat) p
-			, aTitle = abbrTitle abbr True ctx
-			} ctx
+				, (FixArg, (parseIndex -> (p, kind)))
+				, (FixArg, abbr_arg)])
+		= \ctx ->
+			let abbr = case abbr_arg of
+				[] | Just entries <- Map.lookup p $ indexEntriesByPath (draft ctx) ->
+				   head [abbreviation (indexEntrySection e) | (_, e) <- entries, indexEntryKind e == kind]
+				[TeXRaw x] -> x
+				_ -> error "bad indexlink arg"
+			in render anchor
+				{ aText = render txt ctx{inLink=True}
+				, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
+					++ indexPathHref cat kind p
+				, aTitle = abbrTitle abbr True ctx
+				} ctx
 	render (TeXComm "grammarterm_" _ [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
 		\sec -> if noTags sec then TextBuilder.fromText name else
 
@@ -479,24 +483,14 @@ instance Render LaTeXUnit where
 			Just (See _ _) -> ""
 			_ ->
 					spanTag "indexparent" $ render anchor
-						{ aId = indexPathId2 ctx entryNr category p
+						{ aId = indexPathId2 ctx entryNr category p kind
 						, aClass = "index"} ctx
-	render (TeXComm "defnx" _
-		[ (FixArg, [TeXRaw (Text.unpack -> read -> entryNr)])
-		, (FixArg, txt)
-		, (FixArg, (parseIndex -> (p, _))) ])
-		= \ctx -> let suffix = indexOccurrenceSuffix ctx entryNr in
-			render anchor
-				{ aText  = xml "i" [] $ render txt ctx{inLink=True}
-				, aId    = "def" ++ indexPathId2 ctx entryNr "generalindex" p
-				, aHref  = indexPathHref "def" p ++ suffix
-				, aClass = "hidden_link" } ctx
 	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
 	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] content) = \ctx ->
 		let
 			[(_, [(FixArg, [TeXRaw _])], t)] = matchEnv (== "itemdecl") content
-			(icat, ipath, inum) : _ = indexPaths indices
-			i = indexPathId2 ctx inum icat ipath
+			(icat, ipath, inum, ikind) : _ = indexPaths indices
+			i = indexPathId2 ctx inum icat ipath ikind
 			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
 		in
 			renderIndexed ctx "div" indices $
@@ -603,12 +597,9 @@ instance Render IndexEntry where
 	render IndexEntry{..} =
 		return $ simpleRender2 anchor
 			{ aHref = "SectionToSection/" ++ urlChars abbr
-				++ indexPathHref extraIdPrefix indexPath
-			, aText = (if indexEntryKind == Just BfPage then xml "b" [] else id) $ squareAbbr True abbr }
+				++ indexPathHref indexCategory indexEntryKind indexPath
+			, aText = (if indexEntryKind == Just DefinitionIndexEntry then xml "b" [] else id) $ squareAbbr True abbr }
 		where
-			extraIdPrefix
-				| isDefinitionIndexEntry && indexEntryKind == Nothing = "def"
-				| otherwise = indexShortName indexCategory
 			abbr = abbreviation indexEntrySection
 
 indexDisplayOrder :: IndexComponent -> (([(Int, Int)], Int), ([(Int, Int)], Int))
@@ -635,7 +626,7 @@ instance Render [(IndexComponent, IndexNode)] where
 				let
 					up' = up ++ [comp]
 				in
-					xml "div" [("id", indexPathId cat up')] $
+					xml "div" [("id", indexPathId cat Nothing up')] $
 					xml "div" [("class", "indexitems")] $
 					TextBuilder.fromText (
 					Text.intercalate ", " (nub $ filter (/= "") $ map (LazyText.toStrict . TextBuilder.toLazyText) $ render comp ctx : flip render ctx . indexEntries)) ++

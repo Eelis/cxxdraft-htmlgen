@@ -411,7 +411,7 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 		go (texStripInfix "|see" -> Just (x, [TeXBraces y])) = (parseIndexPath x, Just $ See False y)
 		go (texStripInfix "|(" -> Just (t, _)) = (parseIndexPath t, Just IndexOpen)
 		go (texStripInfix "|)" -> Just (t, _)) = (parseIndexPath t, Just IndexClose)
-		go (texStripInfix "|idxbfpage" -> Just (t, _)) = (parseIndexPath t, Just BfPage)
+		go (texStripInfix "|idxbfpage" -> Just (t, _)) = (parseIndexPath t, Just DefinitionIndexEntry)
 		go t = (parseIndexPath t, Nothing)
 
 		unescapeIndexPath :: Text -> LaTeXUnit
@@ -442,23 +442,17 @@ sectionTex s = sectionTexParas s >>= texParaTex
 
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
-	[ IndexEntry{isDefinitionIndexEntry = False, ..}
+	[ IndexEntry{..}
 	| indexEntrySection <- sections s
-	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
-		<- lookForCommand "index" (sectionTex indexEntrySection)] ++
-	[ IndexEntry
-		{ indexCategory = "generalindex"
-		, isDefinitionIndexEntry = True
-		, ..}
-	| indexEntrySection <- sections s
-	, [(FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)]), (FixArg, _), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))]
-		<- lookForCommand "defnx" (sectionTex indexEntrySection)]
+	, [ (FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)])
+	  , (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))
+	  ] <- lookForCommand "index" (sectionTex indexEntrySection)]
 
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
 	where
 		go :: [IndexComponent] -> IndexTree
-		go [c] = Map.singleton c (IndexNode [IndexEntry indexEntrySection indexEntryKind indexPath indexEntryNr indexCategory isDefinitionIndexEntry] Map.empty)
+		go [c] = Map.singleton c (IndexNode [IndexEntry indexEntrySection indexEntryKind indexPath indexEntryNr indexCategory] Map.empty)
 		go (c:cs) = Map.singleton c $ IndexNode [] $ go cs
 		go _ = error "toIndex"
 
