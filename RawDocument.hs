@@ -406,8 +406,8 @@ rmExplSyntax = Text.unlines . f . Text.lines
         f ("\\ExplSyntaxOn" : (dropWhile (/= "\\ExplSyntaxOff") -> (_ : x))) = f x
         f (h : t) = h : f t
 
-loadMacros :: IO Macros
-loadMacros =
+loadMacros :: Text -> IO Macros
+loadMacros extraMacros =
 	snd
 	. doParse mempty
 	. replace "\\newcommand{\\cv}{\\ifmmode\\mathit{cv}\\else\\cvqual{cv}\\fi}" "\\newcommand{\\cv}{\\mathit{cv}}"
@@ -419,6 +419,7 @@ loadMacros =
 	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
 	. ("\\newcommand{\\textunderscore}{_}\n" ++)
 	. rmExplSyntax
+	. (++ extraMacros)
 	. mconcat
 	. mapM readFile
 	["config.tex", "macros.tex", "tables.tex"]

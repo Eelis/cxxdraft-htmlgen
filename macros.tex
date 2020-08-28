@@ -1,0 +1,68 @@
+%% cxxdraft-htmlgen macros:
+
+\newcommand{\link}[2]{#1~(#2)}
+	% Link to section.
+	%   arg 0: link text
+	%   arg 1: section abbreviation
+
+\newcommand{\linkx}[3]{\indexlink{#1}{generalindex}{#2}{#3}}
+	% Link to indexed position.
+	%   arg 0: link text
+	%   arg 1: generalindex key
+	%   arg 2: section abbreviation
+
+\newcommand{\indexlink}[4]{#1~(#4)}
+	% Link to indexed position.
+	%   arg 0: link text
+	%   arg 1: index category
+	%   arg 2: index key
+	%   arg 3: abbreviation of section to link to (empty to auto-resolve)
+
+\newcommand{\liblinkx}[3]{\indexlink{#1}{libraryindex}{#2}{#3}}
+	% Link to indexed position.
+	%   arg 0: link text
+	%   arg 1: libraryindex key
+	%   arg 2: section abbreviation
+
+\newcommand{\deflinkx}[3]{\indexlink{#1}{generalindex}{#2|idxbfpage}{#3}}
+	% Link to definition.
+	%   arg 0: link text
+	%   arg 1: definition key
+	%   arg 2: section abbreviation
+
+\newcommand{\deflink}[2]{\deflinkx{#1}{#1}{#2}}
+	% Convenience macro for when the link
+	% text is also the definition key.
+
+\newcommand{\weblink}[2]{#1}
+	%   arg 0: link text
+	%   arg 1: URL
+
+\newcommand{\indexedspan}[2]{#1#2}
+	%   arg 0: text
+	%   arg 1: indices (zero or more \index commands)
+
+%% replacements for existing macros:
+
+\newcommand{\indexdefn}[1]{\indextext{#1|idxbfpage}}
+\newcommand{\nontermdef}[1]{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}
+\newcommand{\grammarterm}[1]{\indexlink{\gterm{#1}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
+\newcommand{\libglobal}[1]{\indexedspan{#1}{\indexlibraryglobal{#1}}}
+\newcommand{\libmember}[2]{\indexedspan{#1}{\indexlibrarymember{#1}{#2}}}
+\newcommand{\libheader}[1]{\indexlink{\indexedspan{\tcode{<#1>}}{\indexhdr{#1}}}{headerindex}{\idxhdr{#1}|idxbfpage}{}}
+\newcommand{\libheaderdef}[1]{\indexedspan{\tcode{<#1>}}{\indexheader{#1}}}
+\newcommand{\libheaderrefx}[2]{\libheader{#1}}
+\newcommand{\libconceptx}[2]{\indexlink{\indexedspan{\cname{#1}}{\indexconcept{\idxconcept{#2}}}}{conceptindex}{\idxconcept{#2}|idxbfpage}{}}
+\newcommand{\literalterminal}[1]{\terminal{##1}}
+\newcommand{\noncxxterminal}[1]{\terminal{##1}}
+\newcommand{\Range}[4]{#1\tcode{#3,\penalty2000{} #4}#2}
+\newcommand{\deflibconcept}[1]{\indexedspan{\cname{#1}}{\indexlibrary{\idxconcept{#1}}\indexconcept{\idxconcept{#1}|idxbfpage}}}
+\newcommand{\defexposconcept}[1]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}|idxbfpage}}}
+\newcommand{\exposconcept}[1]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}}}}
+\newcommand{\exposconceptx}[2]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#2}}}}
+\newcommand{\noncxxtcode}[1]{\tcode{#1}}
+\newcommand{\literaltcode}[1]{\tcode{#1}}
+\newcommand{\defnx}[2]{\indexedspan{\textit{#1}}{\indexdefn{#2}}}
+\newcommand{\defnadj}[2]{\indextext{#1 #2|see{#2, #1}}\defnx{#1 #2}{#2!#1}}
+\newcommand{\defnadjx}[3]{\indextext{#1 #3|see{#3, #1}}\defnx{#1 #2}{#3!#1}}
+\newcommand{\defnlibxname}[1]{\indexedspan{\xname{#1}}{\indexlibrary{\idxxname{#1}}}}

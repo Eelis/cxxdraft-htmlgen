@@ -4,12 +4,13 @@
 import Render (outputDir, SectionFileStyle(..))
 import Document (Draft(..))
 import Load14882 (load14882)
-import Prelude hiding ((++), (.), writeFile)
+import Prelude hiding ((++), (.), writeFile, readFile)
 import System.Directory (createDirectoryIfMissing, setCurrentDirectory, getCurrentDirectory, copyFile)
 import System.Environment (getArgs)
 import Control.Monad (forM_)
+import Data.Text.IO (readFile)
 import qualified Control.Monad.Parallel as ParallelMonad
-import Util
+import Util hiding (readFile)
 
 import Toc (writeTocFile)
 import SectionPages
@@ -33,8 +34,10 @@ main = do
 	cwd <- getCurrentDirectory
 	CmdLineArgs{..} <- readCmdLineArgs . getArgs
 
+	extraMacros <- readFile "macros.tex"
+
 	setCurrentDirectory $ repo ++ "/source"
-	draft@Draft{..} <- load14882
+	draft@Draft{..} <- load14882 extraMacros
 
 	setCurrentDirectory cwd
 	createDirectoryIfMissing True outputDir

@@ -28,6 +28,10 @@ data Macros = Macros
 	, counters :: Map Text Int }
 	deriving Show
 
+newCommand :: Bool {- overwrite -} -> String -> Command -> Macros -> Macros
+newCommand True name cmd Macros{..} = Macros{commands = Map.insert name cmd commands, ..}
+newCommand False name cmd Macros{..} = Macros{commands = Map.insertWith (\_ y -> y) name cmd commands, ..}
+
 instance Semigroup Macros where
 	x <> y = Macros
 		(commands x ++ commands y)
@@ -120,10 +124,10 @@ parseNewCmd c@Context{..} (Token ('\\' : name) : Token "}" : rest) =
 	let
 		(sig, rest') = parseSignature rest
 		Just (body, rest'') = balanced ('{', '}') rest'
-		m = Macros (Map.singleton name (Command sig body)) mempty mempty
-		ParseResult p mm r = parse c{macros = macros ++ m} rest''
+		macros' = newCommand True name (Command sig body) macros
+		ParseResult p mm r = parse c{macros = macros'} rest''
 	in
-		ParseResult p (m ++ mm) r
+		ParseResult p (newCommand False name (Command sig body) mm) r
 parseNewCmd _ x = error $ "parseNewCmd: unexpected: " ++ take 100 (show x)
 
 balanced :: (Char, Char) -> [Token] -> Maybe ([Token], [Token])

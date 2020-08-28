@@ -533,12 +533,12 @@ parseFiles m = do
 				first (r:) . go cc (macros ++ macros')
 	go files m
 
-load14882 :: IO Draft
-load14882 = do
+load14882 :: Text -> IO Draft
+load14882 extraMacros = do
 
 	commitUrl <- getCommitUrl
 
-	(macros@Parser.Macros{..}, took) <- measure loadMacros
+	(macros@Parser.Macros{..}, took) <- measure (loadMacros extraMacros)
 	putStrLn $ "Loaded macros in " ++ show (took * 1000) ++ "ms."
 
 	(secs :: [[LinearSection]], took2) <- measure $ fst . parseFiles macros
