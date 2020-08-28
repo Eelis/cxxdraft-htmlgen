@@ -373,7 +373,7 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
+		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "index", "indexlink", "hiddenindexlink", "indexedspan", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
 		go (TeXRaw name)
 			| name `elem` links =
 				let

@@ -354,6 +354,29 @@ abbrTitle abbr includeAbbr ctx
 renderBreak :: RenderContext -> TextBuilder.Builder
 renderBreak ctx = if noTags ctx then "\n" else "<br/>"
 
+renderIndexLink :: String -> [(ArgKind, [LaTeXUnit])] -> RenderContext -> TextBuilder.Builder
+renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, kind))), (FixArg, abbr_arg)] ctx
+	| Just abbr <- mabbr = render anchor
+		{ aText = render txt ctx{inLink=True}
+		, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
+			++ indexPathHref cat kind p
+		, aTitle = abbrTitle abbr True ctx
+		, aClass = if cmd == "hiddenindexlink" then "hidden_link" else ""
+		} ctx
+	| otherwise = render txt ctx
+	where
+		mabbr = case abbr_arg of
+			[] -> case Map.lookup p $ indexEntriesByPath (draft ctx) of
+				Nothing -> Nothing
+				Just entries -> Just $ head
+					[ abbreviation
+					| (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
+					, indexEntryKind == kind
+					, not ("gram." `isPrefixOf` abbreviation) ]
+			[TeXRaw x] -> Just x
+			y -> error $ "bad indexlink arg: " ++ show y
+renderIndexLink _ _ _ = error "bad indexlink"
+
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
@@ -405,30 +428,7 @@ instance Render LaTeXUnit where
 			aHref = abbrHref abbr ctx,
 			aText = render txt ctx{inLink=True},
 			aTitle = abbrTitle abbr True ctx} ctx
-	render (TeXComm "indexlink" _
-				[ (FixArg, txt)
-				, (FixArg, [TeXRaw cat])
-				, (FixArg, (parseIndex -> (p, kind)))
-				, (FixArg, abbr_arg)])
-		= \ctx ->
-			let mabbr = case abbr_arg of
-				[] -> case Map.lookup p $ indexEntriesByPath (draft ctx) of
-					Nothing -> Nothing
-					Just entries -> Just $ head
-						[ abbreviation
-						| (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
-						, indexEntryKind == kind
-						, not ("gram." `isPrefixOf` abbreviation) ]
-				[TeXRaw x] -> Just x
-				y -> error $ "bad indexlink arg: " ++ show y
-			in case mabbr of
-				Nothing -> render txt ctx
-				Just abbr -> render anchor
-					{ aText = render txt ctx{inLink=True}
-					, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
-						++ indexPathHref cat kind p
-					, aTitle = abbrTitle abbr True ctx
-					} ctx
+	render (TeXComm c _ l) | c `elem` ["indexlink", "hiddenindexlink"] = renderIndexLink c l
 	render (TeXComm "color" _ _) = const ""
 	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
@@ -753,9 +753,9 @@ instance Render Example where
 
 nontermDef :: LaTeX -> Maybe Text
 nontermDef t
-	| [[(FixArg, [TeXRaw nt])]] <- (snd .) $ matchCommand (`elem` ["nontermdef", "renontermdef"]) t = Just nt
+	| [n] <- [n | ("grammarindex", [IndexComponent{distinctIndexSortKey=[TeXRaw n]}], _inum, Just DefinitionIndexEntry) <- indexPaths t] = Just n
 	| otherwise = Nothing
-
+		
 instance Render Element where
 	render (LatexElement x) = render x
 	render (Codeblock x) = render x

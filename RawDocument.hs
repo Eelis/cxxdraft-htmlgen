@@ -187,7 +187,7 @@ signatures =
 			"equal setlength textcolor"
 		a 3 = "multicolumn discretionary definecolor movedxrefii " ++
 			"ifthenelse PackageError"
-		a 4 = "movedxrefiii indexlink"
+		a 4 = "movedxrefiii indexlink hiddenindexlink"
 		a _ = undefined
 
 parseFile :: Macros -> Text -> ([LinearSection], Macros)

@@ -253,6 +253,7 @@ indexKeyContent = mconcat . map ikc
 		ikc (TeXBraces x) = indexKeyContent x
 		ikc (TeXMath Dollar x) = indexKeyContent x
 		ikc (TeXComm "indexlink" _ ((_, x):_)) = indexKeyContent x
+		ikc (TeXComm "hiddenindexlink" _ ((_, x):_)) = indexKeyContent x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
 indexCatName :: (Eq b, Show b, IsString a, IsString b) => b -> a

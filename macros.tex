@@ -18,6 +18,13 @@
 	%   arg 2: index key
 	%   arg 3: abbreviation of section to link to (empty to auto-resolve)
 
+\newcommand{\hiddenindexlink}[4]{#1~(#4)}
+	% Hidden link to indexed position.
+	%   arg 0: link text
+	%   arg 1: index category
+	%   arg 2: index key
+	%   arg 3: abbreviation of section to link to (empty to auto-resolve)
+
 \newcommand{\liblinkx}[3]{\indexlink{#1}{libraryindex}{#2}{#3}}
 	% Link to indexed position.
 	%   arg 0: link text
@@ -45,7 +52,7 @@
 %% replacements for existing macros:
 
 \newcommand{\indexdefn}[1]{\indextext{#1|idxbfpage}}
-\newcommand{\nontermdef}[1]{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}
+\newcommand{\nontermdef}[1]{\hiddenindexlink{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
 \newcommand{\grammarterm}[1]{\indexlink{\gterm{#1}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
 \newcommand{\libglobal}[1]{\indexedspan{#1}{\indexlibraryglobal{#1}}}
 \newcommand{\libmember}[2]{\indexedspan{#1}{\indexlibrarymember{#1}{#2}}}
@@ -56,13 +63,13 @@
 \newcommand{\literalterminal}[1]{\terminal{##1}}
 \newcommand{\noncxxterminal}[1]{\terminal{##1}}
 \newcommand{\Range}[4]{#1\tcode{#3,\penalty2000{} #4}#2}
-\newcommand{\deflibconcept}[1]{\indexedspan{\cname{#1}}{\indexlibrary{\idxconcept{#1}}\indexconcept{\idxconcept{#1}|idxbfpage}}}
-\newcommand{\defexposconcept}[1]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}|idxbfpage}}}
-\newcommand{\exposconcept}[1]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}}}}
+\newcommand{\deflibconcept}[1]{\hiddenindexlink{\indexedspan{\cname{#1}}{\indexlibrary{\idxconcept{#1}}\indexconcept{\idxconcept{#1}|idxbfpage}}}{conceptindex}{\idxconcept{#1}|idxbfpage}{}}
+\newcommand{\defexposconcept}[1]{\hiddenindexlink{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}|idxbfpage}}}{conceptindex}{\idxexposconcept{#1}|idxbfpage}{}}
+\newcommand{\exposconcept}[1]{\indexlink{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}}}}{conceptindex}{\idxexposconcept{#1}|idxbfpage}{}}
 \newcommand{\exposconceptx}[2]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#2}}}}
 \newcommand{\noncxxtcode}[1]{\tcode{#1}}
 \newcommand{\literaltcode}[1]{\tcode{#1}}
-\newcommand{\defnx}[2]{\indexedspan{\textit{#1}}{\indexdefn{#2}}}
+\newcommand{\defnx}[2]{\hiddenindexlink{\indexedspan{\textit{#1}}{\indexdefn{#2}}}{generalindex}{#2|idxbfpage}{}}
 \newcommand{\defnadj}[2]{\indextext{#1 #2|see{#2, #1}}\defnx{#1 #2}{#2!#1}}
 \newcommand{\defnadjx}[3]{\indextext{#1 #3|see{#3, #1}}\defnx{#1 #2}{#3!#1}}
 \newcommand{\defnlibxname}[1]{\indexedspan{\xname{#1}}{\indexlibrary{\idxxname{#1}}}}

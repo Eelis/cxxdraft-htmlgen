@@ -124,7 +124,7 @@ isActualSentence l = any p l
 	where
 		yes = words $
 			"link tcode noncxxtcode textit ref grammarterm indexedspan " ++
-			"defnx textbf textrm textsl textsc indexlink"
+			"defnx textbf textrm textsl textsc indexlink hiddenindexlink"
 
 		q :: LaTeXUnit -> Bool
 		q (TeXRaw s) = not $ all isSpace $ Text.unpack s
