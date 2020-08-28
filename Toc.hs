@@ -70,4 +70,4 @@ writeTocFile sfs draft@Draft{..} = do
 			mconcat (tocChapter draft . chapters) ++
 			mconcat (h 2
 				. (\cat -> simpleRender2 anchor{aHref="TocToSection/" ++ cat, aText=indexCatName cat})
-				. ["generalindex", "headerindex", "libraryindex", "conceptindex", "impldefindex"])
+				. ["generalindex", "grammarindex", "headerindex", "libraryindex", "conceptindex", "impldefindex"])

@@ -23,7 +23,7 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
-	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
+	, mapTeX, mapTeXRaw, concatRaws, texStripInfix)
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
@@ -335,55 +335,31 @@ treeizeSections sectionNumber chapter parents
 instance AssignNumbers a b => AssignNumbers [a] [b] where
 	assignNumbers s = mapM (assignNumbers s)
 
-type GrammarLinks = Map Text Section
+grammarNamesFromIndex :: Map IndexPath [(Int, IndexEntry)] -> [Text]
+grammarNamesFromIndex m =
+	[ n | 
+	ee <- Map.elems m
+	, (_, IndexEntry{indexPath=[IndexComponent{distinctIndexSortKey=[TeXRaw n]}], ..}) <- ee, indexCategory == "grammarindex"]
 
-nontermdefsInSection :: Section -> GrammarLinks
-nontermdefsInSection s@Section{..} =
-	Map.unions $
-	((Map.fromList $ map (, s) (paragraphs >>= paraElems >>= texParaElems >>= nontermdefsInElement))
-	: map nontermdefsInSection subsections)
-
-nontermdefsInElement :: Element -> [Text]
-nontermdefsInElement (LatexElement e) = nontermdefs [e]
-nontermdefsInElement (Bnf _ e) = nontermdefs e
-nontermdefsInElement _ = []
-
-nontermdefs :: LaTeX -> [Text]
-nontermdefs t =
-    [name | TeXComm cmd _ [(FixArg, [TeXRaw name])] <- allUnits t
-          , cmd == "nontermdef" || cmd == "renontermdef"]
-
-resolveGrammarterms :: GrammarLinks -> Section -> Section
+resolveGrammarterms :: [Text] -> Section -> Section
 resolveGrammarterms links Section{..} =
 	Section{
 		paragraphs  = map (\p -> p{paraElems = map (mapTexPara (map resolve)) (paraElems p)}) paragraphs,
 		subsections = map (resolveGrammarterms links) subsections,
-		sectionFootnotes = map resolveFN sectionFootnotes,
 		..}
 	where
 		resolveParas = map $ mapTexPara $ map resolve
-		resolveFN :: Footnote -> Footnote
-		resolveFN fn@Footnote{..} = fn{footnoteContent = resolveParas footnoteContent}
 		resolve :: Element -> Element
-		resolve (LatexElement e) = LatexElement $ head $ grammarterms links [e]
 		resolve (Enumerated s ps) = Enumerated s $ map f ps
 			where f i@Item{itemInlineContent, itemBlockContent, ..} =
 				i{ itemInlineContent = map resolve itemInlineContent
 				 , itemBlockContent = resolveParas itemBlockContent }
-		resolve (Bnf n b) = Bnf n $ grammarterms links $ bnfGrammarterms links b
+		resolve (Bnf n b) = Bnf n $ bnfGrammarterms links b
 		resolve (NoteElement n@Note{..}) = NoteElement n{noteContent = resolveParas noteContent}
 		resolve (ExampleElement e@Example{..}) = ExampleElement e{exampleContent = resolveParas exampleContent}
 		resolve other = other
 
-grammarterms :: GrammarLinks -> LaTeX -> LaTeX
-grammarterms links = mapTeX (go links)
-	where
-		go g (TeXComm "grammarterm" ws args@((FixArg, [TeXRaw name]) : _))
-			| Just Section{..} <- Map.lookup (Text.toLower name) g =
-				Just [TeXComm "grammarterm_" ws ((FixArg, [TeXRaw abbreviation]) : args)]
-		go _ _ = Nothing
-
-bnfGrammarterms :: GrammarLinks -> LaTeX -> LaTeX
+bnfGrammarterms :: [Text] -> LaTeX -> LaTeX
 bnfGrammarterms links = mapTeX go . mapTeX wordify
 	where
 		wordify :: LaTeXUnit -> Maybe LaTeX
@@ -398,9 +374,14 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 
 		go :: LaTeXUnit -> Maybe LaTeX
 		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "nontermdef", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
-		go n@(TeXRaw name)
-			| Just Section{..} <- Map.lookup name links =
-				Just [TeXComm "grammarterm_" "" [(FixArg, [TeXRaw abbreviation]), (FixArg, [n])]]
+		go (TeXRaw name)
+			| name `elem` links =
+				let
+					key = [ TeXRaw $ name ++ "@"
+					      , TeXComm "textcolor" "" [(FixArg,[TeXRaw "grammar-gray"]),(FixArg,[TeXComm "textsf" "" [(FixArg,[TeXComm "textit" "" [(FixArg,[TeXRaw $ name])]])]])]
+					      , TeXRaw "|idxbfpage"]
+				in
+					Just [TeXComm "indexlink" "" [(FixArg, [TeXRaw name]), (FixArg, [TeXRaw "grammarindex"]), (FixArg, key), (FixArg, [])]]
 		go _ = Nothing
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
@@ -442,11 +423,11 @@ sectionTex s = sectionTexParas s >>= texParaTex
 
 sectionIndexEntries :: Section -> [IndexEntry]
 sectionIndexEntries s =
-	[ IndexEntry{..}
-	| indexEntrySection <- sections s
+	[ IndexEntry{indexEntrySection=abbreviation sec, ..}
+	| sec <- sections s
 	, [ (FixArg, [TeXRaw (Text.unpack -> read -> Just -> indexEntryNr)])
 	  , (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))
-	  ] <- lookForCommand "index" (sectionTex indexEntrySection)]
+	  ] <- lookForCommand "index" (sectionTex sec)]
 
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
@@ -569,13 +550,13 @@ load14882 = do
 		-- force eval before we leave the dir
 		let
 			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 0 1 1 1)
-			ntdefs = Map.unions $ map nontermdefsInSection chapters
-			chapters' = map (resolveGrammarterms ntdefs) chapters
 			allEntries :: [IndexEntry]
-			allEntries = chapters' >>= sectionIndexEntries
+			allEntries = chapters >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
 			indexEntriesByPath = reverseIndexEntryMap indexEntryMap
+			grammarNames = grammarNamesFromIndex indexEntriesByPath
+			chapters' = map (resolveGrammarterms grammarNames) chapters
 			abbrMap = makeAbbrMap dr
 			dr = Draft{chapters=chapters', ..}
 		return dr

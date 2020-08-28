@@ -186,14 +186,14 @@ type Index = Map IndexCategory IndexTree
 instance Show IndexEntry where
 	show IndexEntry{..} =
 		"IndexEntry"
-		++ "{indexSection=" ++ show (sectionName indexEntrySection)
+		++ "{indexSection=" ++ show indexEntrySection
 		++ ",indexCategory=" ++ show indexCategory
 		++ ",indexPath=" ++ show indexPath
 		++ ",indexEntryKind=" ++ show indexEntryKind
 		++ "}"
 
 data IndexEntry = IndexEntry
-	{ indexEntrySection :: Section
+	{ indexEntrySection :: Abbreviation
 	, indexEntryKind :: Maybe IndexKind
 	, indexPath :: IndexPath
 	, indexEntryNr :: Maybe Int
@@ -252,8 +252,7 @@ indexKeyContent = mconcat . map ikc
 			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
 		ikc (TeXBraces x) = indexKeyContent x
 		ikc (TeXMath Dollar x) = indexKeyContent x
-		ikc (TeXComm "grammarterm_" _ [_, (_, x)]) = indexKeyContent x
-		ikc (TeXComm "grammarterm" _ [(_, x)]) = indexKeyContent x
+		ikc (TeXComm "indexlink" _ ((_, x):_)) = indexKeyContent x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x
 
 indexCatName :: (Eq b, Show b, IsString a, IsString b) => b -> a

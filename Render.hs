@@ -4,6 +4,7 @@
 	RecordWildCards,
 	TupleSections,
 	ViewPatterns,
+	NamedFieldPuns,
 	LambdaCase,
 	TypeSynonymInstances,
 	FlexibleInstances #-}
@@ -139,6 +140,7 @@ indexPathString =
 	map (indexKeyContent . indexKey)
 
 indexShortName :: Text -> Maybe IndexKind -> Text
+indexShortName "grammarindex" (Just DefinitionIndexEntry) = "nt"
 indexShortName cat kind = (if kind == Just DefinitionIndexEntry then (++"def") else id) $ case cat of
 	"libraryindex" -> "lib"
 	"headerindex" -> "hdr"
@@ -197,12 +199,6 @@ instance Render Char where render c _ = TextBuilder.singleton c
 instance (Render a, Render b) => Render (a, b) where
 	render (x, y) = render x ++ render y
 
-redundantOpen :: Text -> Bool
-redundantOpen (Text.unpack -> (c:'(':s))
-	= (c `elem` ("~ \n" :: String))
-	&& (s `elem` ["", "Clause ", "Clause~"])
-redundantOpen _ = False
-
 renderCodeblock :: String -> [(ArgKind, LaTeX)] -> LaTeX -> RenderContext -> TextBuilder.Builder
 renderCodeblock env args code ctx =
     (case (env, args) of
@@ -251,23 +247,6 @@ indexOccurrenceSuffix c indexNum = underscores
 			     , i < indexNum ]
 
 instance Render LaTeX where
-	render ( gt@(TeXComm "grammarterm_" _ [(FixArg, [TeXRaw termSec]),  _])
-	       : ps@(TeXComm "textit" _ [(FixArg, [TeXRaw "s"])])
-	       : TeXComm "nolinebreak" _ _
-	       : TeXRaw openParen
-	       : TeXComm "ref" _ [(FixArg, [TeXRaw refSec])]
-	       : (texStripPrefix ")" -> Just rest))
-		| refSec == termSec
-		, redundantOpen openParen
-		= render (gt : ps : rest)
-	render ( gt@(TeXComm "grammarterm_" _ [(FixArg, [TeXRaw termSec]),  _])
-	       : TeXComm "nolinebreak" _ _
-	       : TeXRaw openParen
-	       : TeXComm "ref" _ [(FixArg, [TeXRaw refSec])]
-	       : (texStripPrefix ")" -> Just rest))
-		| refSec == termSec
-		, redundantOpen openParen
-		= render (gt : rest)
 	render (TeXComm "textbackslash" _ [] : y)
 		| (TeXRaw s : rest) <- y  = \sec -> "\\" ++ render (TeXRaw $ if rawSpace sec then s else unspace s) sec ++ render rest sec
 		where
@@ -412,12 +391,6 @@ instance Render LaTeXUnit where
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr True abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
 	        ++ commasAnd (map f abbrs)
-	render (TeXComm "nontermdef" _ [(FixArg, [TeXRaw s])]) =
-		(++ spanTag "ntdefcolon" ":") .
-		render anchor
-		{ aText  = TextBuilder.fromText s
-		, aHref  = "#nt:" ++ s
-		, aClass = "nontermdef" }
 	render (TeXComm "renontermdef" _ x) = render (TeXComm "nontermdef" "" x)
 	render (TeXComm "weblink" _ [(FixArg, text), (FixArg, href)])
 		= render anchor
@@ -438,26 +411,24 @@ instance Render LaTeXUnit where
 				, (FixArg, (parseIndex -> (p, kind)))
 				, (FixArg, abbr_arg)])
 		= \ctx ->
-			let abbr = case abbr_arg of
-				[] | Just entries <- Map.lookup p $ indexEntriesByPath (draft ctx) ->
-				   head [abbreviation (indexEntrySection e) | (_, e) <- entries, indexEntryKind e == kind]
-				[TeXRaw x] -> x
-				_ -> error "bad indexlink arg"
-			in render anchor
-				{ aText = render txt ctx{inLink=True}
-				, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
-					++ indexPathHref cat kind p
-				, aTitle = abbrTitle abbr True ctx
-				} ctx
-	render (TeXComm "grammarterm_" _ [(FixArg, [TeXRaw section]), (FixArg, [TeXRaw name])]) =
-		\sec -> if noTags sec then TextBuilder.fromText name else
-
-		  if inLink sec
-			then spanTag "grammarterm" $ TextBuilder.fromText name
-			else render anchor{
-			    aClass = "grammarterm",
-			    aHref = grammarNameRef section name sec,
-			    aText = TextBuilder.fromText name} sec
+			let mabbr = case abbr_arg of
+				[] -> case Map.lookup p $ indexEntriesByPath (draft ctx) of
+					Nothing -> Nothing
+					Just entries -> Just $ head
+						[ abbreviation
+						| (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
+						, indexEntryKind == kind
+						, not ("gram." `isPrefixOf` abbreviation) ]
+				[TeXRaw x] -> Just x
+				y -> error $ "bad indexlink arg: " ++ show y
+			in case mabbr of
+				Nothing -> render txt ctx
+				Just abbr -> render anchor
+					{ aText = render txt ctx{inLink=True}
+					, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
+						++ indexPathHref cat kind p
+					, aTitle = abbrTitle abbr True ctx
+					} ctx
 	render (TeXComm "color" _ _) = const ""
 	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
@@ -596,11 +567,9 @@ instance Render IndexEntry where
 	render IndexEntry{indexEntryKind=Just IndexClose} = return ""
 	render IndexEntry{..} =
 		return $ simpleRender2 anchor
-			{ aHref = "SectionToSection/" ++ urlChars abbr
+			{ aHref = "SectionToSection/" ++ urlChars indexEntrySection
 				++ indexPathHref indexCategory indexEntryKind indexPath
-			, aText = (if indexEntryKind == Just DefinitionIndexEntry then xml "b" [] else id) $ squareAbbr True abbr }
-		where
-			abbr = abbreviation indexEntrySection
+			, aText = (if indexEntryKind == Just DefinitionIndexEntry then xml "b" [] else id) $ squareAbbr True indexEntrySection }
 
 indexDisplayOrder :: IndexComponent -> (([(Int, Int)], Int), ([(Int, Int)], Int))
 indexDisplayOrder y = (f (indexSortKey y), f (indexKey y))
@@ -1212,11 +1181,6 @@ preprocessPre = concatMap f
 
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
-
-grammarNameRef :: Abbreviation -> Text -> RenderContext -> Text
-grammarNameRef section name RenderContext{..} =
-    (if abbrIsOnPage section page then "" else "SectionToSection/" ++ section)
-    ++ "#nt:" ++ name
 
 data Link = TocToSection | SectionToToc | SectionToSection
 	deriving Show
