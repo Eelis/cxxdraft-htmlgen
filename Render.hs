@@ -141,14 +141,16 @@ indexPathString =
 
 indexShortName :: Text -> Maybe IndexKind -> Text
 indexShortName "grammarindex" (Just DefinitionIndexEntry) = "nt"
-indexShortName cat kind = (if kind == Just DefinitionIndexEntry then (++"def") else id) $ case cat of
-	"libraryindex" -> "lib"
-	"headerindex" -> "hdr"
-	"conceptindex" -> "concept"
-	"generalindex" -> ""
-	"impldefindex" -> ""
-	"grammarindex" -> ""
-	_ -> error $ "indexShortName: unrecognized category: " ++ Text.unpack cat
+indexShortName "grammarindex" Nothing = "ntref"
+indexShortName "conceptindex" (Just DefinitionIndexEntry) = "concept"
+indexShortName "conceptindex" Nothing = "conceptref"
+indexShortName "headerindex" (Just DefinitionIndexEntry) = "header"
+indexShortName "headerindex" Nothing = "headerref"
+indexShortName "generalindex" (Just DefinitionIndexEntry) = "def"
+indexShortName "generalindex" _ = ""
+indexShortName "libraryindex" _ = "lib"
+indexShortName "impldefindex" _ = ""
+indexShortName cat _ = error $ "indexShortName: unrecognized category: " ++ Text.unpack cat
 
 indexPathId :: Text -> Maybe IndexKind -> IndexPath -> Text
 indexPathId category kind =
@@ -368,12 +370,12 @@ renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, (parseIndex
 	where
 		mabbr = case abbr_arg of
 			[] -> case Map.lookup p $ indexEntriesByPath (draft ctx) of
-				Nothing -> Nothing
-				Just entries -> Just $ head
-					[ abbreviation
-					| (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
-					, indexEntryKind == kind
-					, not ("gram." `isPrefixOf` abbreviation) ]
+				Just entries
+					| (hd:_) <- [ abbreviation
+					            | (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
+					            , indexEntryKind == kind
+					            , not ("gram." `isPrefixOf` abbreviation) ] -> Just hd
+				_ -> Nothing
 			[TeXRaw x] -> Just x
 			y -> error $ "bad indexlink arg: " ++ show y
 renderIndexLink _ _ _ = error "bad indexlink"

@@ -53,7 +53,7 @@
 
 \newcommand{\indexdefn}[1]{\indextext{#1|idxbfpage}}
 \newcommand{\nontermdef}[1]{\hiddenindexlink{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
-\newcommand{\grammarterm}[1]{\indexlink{\gterm{#1}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
+\newcommand{\grammarterm}[1]{\indexlink{\indexedspan{\gterm{#1}}{\indexgram{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
 \newcommand{\libglobal}[1]{\indexedspan{#1}{\indexlibraryglobal{#1}}}
 \newcommand{\libmember}[2]{\indexedspan{#1}{\indexlibrarymember{#1}{#2}}}
 \newcommand{\libheader}[1]{\indexlink{\indexedspan{\tcode{<#1>}}{\indexhdr{#1}}}{headerindex}{\idxhdr{#1}|idxbfpage}{}}
