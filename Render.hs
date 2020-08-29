@@ -356,7 +356,8 @@ renderBreak ctx = if noTags ctx then "\n" else "<br/>"
 
 renderIndexLink :: String -> [(ArgKind, [LaTeXUnit])] -> RenderContext -> TextBuilder.Builder
 renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, kind))), (FixArg, abbr_arg)] ctx
-	| Just abbr <- mabbr = render anchor
+	| not (noTags ctx)
+	, Just abbr <- mabbr = render anchor
 		{ aText = render txt ctx{inLink=True}
 		, aHref = (if abbrIsOnPage abbr (page ctx) then "" else linkToSectionHref SectionToSection abbr)
 			++ indexPathHref cat kind p
@@ -533,7 +534,9 @@ instance Render LaTeXUnit where
 	    | otherwise                    = \ctx -> (if noTags ctx then id else spanTag (Text.pack x)) $ render (s >>= snd) ctx
 	render (TeXEnv "itemdecl" [(FixArg, [TeXRaw num])] t) = \c ->
 		let
-			i = idPrefix c ++ "itemdecl:" ++ num
+			i = case [(icat, ipath) | (icat, ipath, _inum, Just DefinitionIndexEntry) <- indexPaths t] of
+				[(icat, ipath)] -> indexPathId icat (Just DefinitionIndexEntry) ipath
+				_ -> idPrefix c ++ "itemdecl:" ++ num
 			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
 		in
 			xml "div" [("class", "itemdecl"), ("id", i)] $
