@@ -15,7 +15,7 @@
 
 module RawDocument
 	( RawElement(..), RawTexPara(..), RawFootnote(..), RawParagraph(..), LinearSection(..), RawItem(..)
-	, loadMacros, parseFile, loadXrefDelta) where
+	, loadMacros, parseFile, loadXrefDelta, doParse) where
 
 import qualified LaTeXParser as Parser
 import qualified Data.Text as Text
@@ -76,6 +76,32 @@ data LinearSection = LinearSection
 	, lsectionParagraphs :: [RawParagraph]
 	, lsectionFootnotes :: [RawFootnote] }
 	deriving Show
+
+instance AllUnits RawElement where
+	allUnits (RawLatexElement x) = allUnits x
+	allUnits (RawBnf _ x) = allUnits x
+	allUnits (RawTabbing x) = allUnits x
+	allUnits (RawNote _ x) = allUnits x
+	allUnits (RawExample x) = allUnits x
+	allUnits (RawCodeblock x) = allUnits x
+	allUnits (RawEnumerated _ x) = allUnits x
+	allUnits RawFigure{} = []
+	allUnits RawTable{..} = allUnits rawTableCaption ++ concatMap (allUnits . concat . map content) (map cells rawTableBody)
+
+instance AllUnits RawTexPara where
+	allUnits = allUnits . rawTexParaElems
+
+instance AllUnits RawItem where
+	allUnits RawItem{..} = allUnits rawItemLabel ++ allUnits rawItemContent
+
+instance AllUnits LinearSection where
+	allUnits LinearSection{..} = allUnits lsectionName ++ allUnits lsectionParagraphs ++ allUnits lsectionFootnotes
+
+instance AllUnits RawParagraph where
+	allUnits RawParagraph{..} = allUnits rawParaElems
+
+instance AllUnits RawFootnote where
+	allUnits (RawFootnote x) = allUnits x
 
 bnfEnvs :: [String]
 bnfEnvs = ["bnf", "ncbnf", "bnfkeywordtab", "simplebnf", "ncsimplebnf", "ncrebnf"]
@@ -178,7 +204,7 @@ signatures =
 			"gamma widowpenalties sffamily"
 		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal literalterminal noncxxterminal enlargethispage renontermdef textsl textsc textsf text term " ++
-			"tcode idxcode noncxxtcode literaltcode descr footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
+			"tcode idxcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color"

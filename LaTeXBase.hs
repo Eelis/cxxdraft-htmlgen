@@ -3,7 +3,7 @@
 module LaTeXBase
  ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand, isJustRaw
  , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
- , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, allUnits ) where
+ , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, AllUnits(..) ) where
 
 import Data.Monoid ((<>))
 import Data.String (fromString)
@@ -40,24 +40,27 @@ type LaTeX = [LaTeXUnit]
 lookForCommand :: String -> LaTeX -> [[TeXArg]]
 lookForCommand n = (snd .) . matchCommand (n ==)
 
-allUnits :: LaTeX -> [LaTeXUnit]
-allUnits [] = []
-allUnits (x : y) = x : z ++ allUnits y
-	where
-		z = case x of
-			TeXMath _ l -> allUnits l
-			TeXBraces l -> allUnits l
-			TeXComm _ _ a -> (snd . a) >>= allUnits
-			TeXEnv _ a l -> (l : snd . a) >>= allUnits
-			_ -> []
+class AllUnits a where
+	allUnits :: a -> [LaTeXUnit]
 
-matchCommand :: (String -> Bool) -> LaTeX -> [(String,[TeXArg])]
+instance AllUnits LaTeXUnit where
+	allUnits u = u : case u of
+		TeXMath _ l -> allUnits l
+		TeXBraces l -> allUnits l
+		TeXComm _ _ a -> (snd . a) >>= allUnits
+		TeXEnv _ a l -> (l : snd . a) >>= allUnits
+		_ -> []
+
+instance AllUnits a => AllUnits [a] where
+	allUnits = concatMap allUnits
+
+matchCommand :: AllUnits a => (String -> Bool) -> a -> [(String, [TeXArg])]
 matchCommand f x = [(str, as) | TeXComm str _ as <- allUnits x, f str]
 
 hasCommand :: (String -> Bool) -> LaTeX -> Bool
 hasCommand f = not . null . matchCommand f
 
-matchEnv :: (String -> Bool) -> LaTeX -> [(String,[TeXArg],LaTeX)]
+matchEnv :: AllUnits a => (String -> Bool) -> a -> [(String, [TeXArg], LaTeX)]
 matchEnv f x = [(str, as, l) | TeXEnv str as l <- allUnits x, f str]
 
 mapTeX :: (LaTeXUnit -> Maybe LaTeX) -> LaTeX -> LaTeX

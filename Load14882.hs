@@ -23,7 +23,7 @@ import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
 	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
-	, mapTeX, mapTeXRaw, concatRaws, texStripInfix)
+	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
 import qualified Data.Text as Text
@@ -251,12 +251,6 @@ rawIndexEntriesForSec s = IntMap.fromList
 reverseIndexEntryMap :: IntMap IndexEntry -> Map IndexPath [(Int, IndexEntry)]
 reverseIndexEntryMap m = Map.fromListWith (++) [(indexPath x, [(i, x)])  | (i, x) <- IntMap.assocs m]
 
-mapTexPara :: ([Element] -> [Element]) -> (TeXPara -> TeXPara)
-mapTexPara f (TeXPara x) = TeXPara (map g x)
-	where
-		g :: Sentence -> Sentence
-		g s = s{sentenceElems = f (sentenceElems s)}
-
 assignItemNumbers :: Paragraph -> Paragraph
 assignItemNumbers p
 	| Just n <- paraNumber p = p{ paraElems = fst $ goParas [n, 1] $ paraElems p }
@@ -335,32 +329,19 @@ treeizeSections sectionNumber chapter parents
 instance AssignNumbers a b => AssignNumbers [a] [b] where
 	assignNumbers s = mapM (assignNumbers s)
 
-grammarNamesFromIndex :: Map IndexPath [(Int, IndexEntry)] -> [Text]
-grammarNamesFromIndex m =
-	[ n | 
-	ee <- Map.elems m
-	, (_, IndexEntry{indexPath=[IndexComponent{distinctIndexSortKey=[TeXRaw n]}], ..}) <- ee, indexCategory == "grammarindex"]
-
-resolveGrammarterms :: [Text] -> Section -> Section
-resolveGrammarterms links Section{..} =
-	Section{
-		paragraphs  = map (\p -> p{paraElems = map (mapTexPara (map resolve)) (paraElems p)}) paragraphs,
-		subsections = map (resolveGrammarterms links) subsections,
-		..}
+resolveGrammarterms :: Parser.Macros -> [Text] -> LinearSection -> LinearSection
+resolveGrammarterms macros links LinearSection{..} =
+	LinearSection{lsectionParagraphs = map resolve lsectionParagraphs, ..}
 	where
-		resolveParas = map $ mapTexPara $ map resolve
-		resolve :: Element -> Element
-		resolve (Enumerated s ps) = Enumerated s $ map f ps
-			where f i@Item{itemInlineContent, itemBlockContent, ..} =
-				i{ itemInlineContent = map resolve itemInlineContent
-				 , itemBlockContent = resolveParas itemBlockContent }
-		resolve (Bnf n b) = Bnf n $ bnfGrammarterms links b
-		resolve (NoteElement n@Note{..}) = NoteElement n{noteContent = resolveParas noteContent}
-		resolve (ExampleElement e@Example{..}) = ExampleElement e{exampleContent = resolveParas exampleContent}
-		resolve other = other
+		resolveTexPara :: RawTexPara -> RawTexPara
+		resolveTexPara RawTexPara{..} = RawTexPara{rawTexParaElems =map resolveRawElem rawTexParaElems, ..}
+		resolveRawElem (RawBnf s tex) = RawBnf s (bnfGrammarterms macros links tex)
+		resolveRawElem y = y
+		resolve :: RawParagraph -> RawParagraph
+		resolve RawParagraph{..} = RawParagraph{rawParaElems = map resolveTexPara rawParaElems, ..}
 
-bnfGrammarterms :: [Text] -> LaTeX -> LaTeX
-bnfGrammarterms links = mapTeX go . mapTeX wordify
+bnfGrammarterms :: Parser.Macros -> [Text] -> LaTeX -> LaTeX
+bnfGrammarterms macros links = mapTeX go . mapTeX wordify
 	where
 		wordify :: LaTeXUnit -> Maybe LaTeX
 		wordify (TeXRaw stuff) = Just $ map TeXRaw $ unfoldr f stuff
@@ -373,15 +354,9 @@ bnfGrammarterms links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "index", "indexlink", "hiddenindexlink", "indexedspan", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
+		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "index", "textnormal", "indexlink", "hiddenindexlink", "indexedspan", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
 		go (TeXRaw name)
-			| name `elem` links =
-				let
-					key = [ TeXRaw $ name ++ "@"
-					      , TeXComm "textcolor" "" [(FixArg,[TeXRaw "grammar-gray"]),(FixArg,[TeXComm "textsf" "" [(FixArg,[TeXComm "textit" "" [(FixArg,[TeXRaw $ name])]])]])]
-					      , TeXRaw "|idxbfpage"]
-				in
-					Just [TeXComm "indexlink" "" [(FixArg, [TeXRaw name]), (FixArg, [TeXRaw "grammarindex"]), (FixArg, key), (FixArg, [])]]
+			| name `elem` links = Just $ fst $ RawDocument.doParse macros $ "\\grammarterm{" ++ name ++ "}"
 		go _ = Nothing
 
 parseIndex :: LaTeX -> (IndexPath, Maybe IndexKind)
@@ -541,7 +516,7 @@ load14882 extraMacros = do
 	(macros@Parser.Macros{..}, took) <- measure (loadMacros extraMacros)
 	putStrLn $ "Loaded macros in " ++ show (took * 1000) ++ "ms."
 
-	(secs :: [[LinearSection]], took2) <- measure $ fst . parseFiles macros
+	(secs :: [LinearSection], took2) <- measure $ mconcat . fst . parseFiles macros
 	putStrLn $ "Parsed LaTeX in " ++ show (took2 * 1000) ++ "ms."
 
 	xrefDelta <- loadXrefDelta
@@ -549,16 +524,24 @@ load14882 extraMacros = do
 	(r, took3) <- measure $ if length (show secs) == 0 then undefined else do
 		-- force eval before we leave the dir
 		let
-			chapters = evalState (treeizeChapters False 1 $ mconcat secs) (Numbers 1 1 1 1 0 0 1 1 1)
+			grammarNames = [n |
+				TeXComm "index" _ [
+					(OptArg, [TeXRaw "grammarindex"]) ,
+					(FixArg, [TeXRaw _
+					 ,TeXComm "textcolor" "" [(FixArg,[TeXRaw "grammar-gray"]),(FixArg,[TeXComm "textsf" _ [(FixArg,[TeXComm "textit" "" [(FixArg,[TeXRaw n])]])]])]
+					 ,TeXRaw "|idxbfpage"]
+					)] <- allUnits secs]
+
+			secs' = map (resolveGrammarterms macros grammarNames) secs
+			chapters = evalState (treeizeChapters False 1 secs') (Numbers 1 1 1 1 0 0 1 1 1)
 			allEntries :: [IndexEntry]
 			allEntries = chapters >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
 			indexEntriesByPath = reverseIndexEntryMap indexEntryMap
-			grammarNames = grammarNamesFromIndex indexEntriesByPath
-			chapters' = map (resolveGrammarterms grammarNames) chapters
+	
 			abbrMap = makeAbbrMap dr
-			dr = Draft{chapters=chapters', ..}
+			dr = Draft{..}
 		return dr
 	
 	putStrLn $ "Processed in " ++ show (took3 * 1000) ++ "ms."
