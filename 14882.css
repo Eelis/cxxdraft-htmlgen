@@ -175,7 +175,6 @@ div.itemdescr {
 	margin-left: 30pt;
 	text-indent: -3em;
 	padding-left: 3em;
-	background: inherit;
 }
 
 .ncrebnf {
@@ -186,7 +185,6 @@ div.itemdescr {
 	margin-left: 30pt;
 	text-indent: -3em;
 	padding-left: 3em;
-	background: inherit;
 }
 
 .ncsimplebnf {
@@ -195,7 +193,6 @@ div.itemdescr {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	margin-left: 30pt;
-	background: inherit; /* no idea why this doesn't appear to be the default */
 }
 
 span.textnormal {
