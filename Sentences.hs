@@ -71,6 +71,7 @@ breakSentence (e@(RawLatexElement (TeXMath _ math)) : more)
         f (TeXRaw y : z) | all isSpace (Text.unpack y) = f z
         f (TeXComm "text" _ [(FixArg, a)] : _) = f (reverse a)
         f (TeXComm "mbox" _ [(FixArg, a)] : _) = f (reverse a)
+        f (TeXRaw ".\n" : TeXComm "right" "" [] : y) = f y
         f (TeXRaw y : _) = "." `isSuffixOf` (Text.pack $ dropTrailingWs $ Text.unpack y)
         f _ = False
 breakSentence (b@(RawLatexElement TeXLineBreak) : more) = Just ([b], more)
@@ -146,6 +147,7 @@ instance LinkifyFullStop LaTeX where
     linkifyFullStop link l = reverse . f (reverse l)
       where
         f [] = Nothing
+        f (x@(TeXRaw ".\n") : y@(TeXComm "right" _ _) : more) = ([x, y] ++) . f more
         f (u : uu)
             | Just u' <- inUnit u = Just (reverse u' ++ uu)
             | otherwise = (u :) . f uu

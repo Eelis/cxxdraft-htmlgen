@@ -86,6 +86,17 @@ moveIndexEntriesIntoSecs = go []
 		    | "\\rSec" `isPrefixOf` h = h : reverse x ++ go [] t
 		    | otherwise = reverse x ++ [h] ++ go [] t
 
+indexCodeBlocks :: [Text] -> [Text]
+indexCodeBlocks = go []
+	where
+		go collected [] = collected
+		go collected (x:xs)
+			| "\\index" `isPrefixOf` x = go (collected ++ [x]) xs
+			| "\\begin{codeblock}" `isPrefixOf` x =
+				let (code, _ : rest) = span (not . ("\\end{codeblock}" `isPrefixOf`)) xs
+				in ["\\begin{indexedcodeblock}{"] ++ collected ++ ["}"] ++ code ++ ["\\end{indexedcodeblock}"] ++ indexCodeBlocks rest
+			| otherwise = collected ++ (x : indexCodeBlocks xs)
+
 data Numbers = Numbers
 	{ tableNr, figureNr, footnoteRefNr, footnoteNr, itemDeclNr
 	, nextIndexEntryNr, noteNr, exampleNr, nextSentenceNr :: Int }
@@ -101,6 +112,10 @@ instance AssignNumbers LaTeXUnit LaTeXUnit where
 		n <- get
 		put n{itemDeclNr = itemDeclNr n + 1}
 		TeXEnv "itemdecl" [(FixArg, [TeXRaw $ Text.pack $ show $ itemDeclNr n])] . assignNumbers s x
+	assignNumbers s (TeXEnv "indexeditemdecl" indices x) = do
+		n <- get
+		put n{itemDeclNr = itemDeclNr n + 1}
+		liftM2 (TeXEnv "indexeditemdecl") (assignNumbers s indices) (assignNumbers s x)
 	assignNumbers s (TeXEnv x y z) = liftM2 (TeXEnv x) (assignNumbers s y) (assignNumbers s z)
 	assignNumbers _ (TeXComm "index" ws args) = do
 		n <- get
@@ -468,12 +483,16 @@ indexItemDecls ("":x:y:more)
 	| "\\indexlibrary" `isPrefixOf` x
 	, "\\begin{itemdecl}" `isPrefixOf` y =
 		let Just (d, rest) = parseItemDecl [] more in
-			["", "\\begin{indexeditemdecl}{", x, "}", y] ++ d ++ ["\\end{indexeditemdecl}"] ++ indexItemDecls rest
+			[ "\\begin{indexeditemdecl}{"
+			, x
+			, "}"] ++ d ++
+			["\\end{indexeditemdecl}"]
+			++ indexItemDecls rest
   where
 	parseItemDecl :: [Text] -> [Text] -> Maybe ([Text], [Text])
 	parseItemDecl _ [] = Nothing
 	parseItemDecl sofar (s:rest)
-		| "\\end{itemdecl}" `isPrefixOf` s = Just (sofar ++ [s], rest)
+		| "\\end{itemdecl}" `isPrefixOf` s = Just (sofar, rest)
 		| otherwise = parseItemDecl (sofar ++ [s]) rest
 indexItemDecls (x:y) = x : indexItemDecls y
 
@@ -490,6 +509,7 @@ parseFiles m = do
 				replace "multicolfloattable" "floattable" .
 				replace "\\indeximpldef{" "\\index[impldefindex]{" .
 				Text.unlines .
+					indexCodeBlocks .
 					moveIndexEntriesIntoSecs .
 					moveIndexEntriesIntoDefs .
 					indexItemDecls .
@@ -499,7 +519,6 @@ parseFiles m = do
 				replace "\n\\diffref" "\n\\pnum\\nopnumdiffref" .
 					-- Done here because (1) the real \nodiffref is defined with \def in a way
 					-- we don't support yet, and (2) this way a source link is generated for the pnum.
-				replace "\\makebox[0pt][l]" "" . -- handled here because we don't support multiple optional args yet
 				readFile p
 
 			let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt

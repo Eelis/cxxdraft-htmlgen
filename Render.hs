@@ -204,8 +204,9 @@ instance (Render a, Render b) => Render (a, b) where
 renderCodeblock :: String -> [(ArgKind, LaTeX)] -> LaTeX -> RenderContext -> TextBuilder.Builder
 renderCodeblock env args code ctx =
     (case (env, args) of
-      ("codeblocktu", [(FixArg, title)]) -> "<p>" ++ render title ctx ++ ":"
-      _ -> "") ++
+      ("codeblocktu", [(FixArg, title)]) -> (("<p>" ++ render title ctx ++ ":") ++)
+      ("indexedcodeblock", [(FixArg, indices)]) -> renderIndexed ctx "span" indices
+      _ -> id) $
     xml "pre" [("class", "codeblock")] (
         highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
         concatRaws $ expandTcode code)
@@ -435,7 +436,8 @@ instance Render LaTeXUnit where
 	render (TeXComm "color" _ _) = const ""
 	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
-	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx -> spanTag "texttt" $ render x ctx{rawHyphens = True, insertBreaks = True}
+	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx ->
+		(if noTags ctx then id else spanTag "texttt") $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm cmd _ [(FixArg, x)])
 		| cmd `elem` ["tcode", "idxcode"] = \ctx ->
 		if noTags ctx then render x ctx{rawHyphens=True, insertBreaks=True}
@@ -459,10 +461,10 @@ instance Render LaTeXUnit where
 					spanTag "indexparent" $ render anchor
 						{ aId = indexPathId2 ctx entryNr category p kind
 						, aClass = "index"} ctx
-	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) = \ctx -> renderIndexed ctx "span" indices $ render text ctx
-	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] content) = \ctx ->
+	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) =
+		\ctx -> (if noTags ctx then id else renderIndexed ctx "span" indices) $ render text ctx
+	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] t) = \ctx ->
 		let
-			[(_, [(FixArg, [TeXRaw _])], t)] = matchEnv (== "itemdecl") content
 			(icat, ipath, inum, ikind) : _ = indexPaths indices
 			i = indexPathId2 ctx inum icat ipath ikind
 			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
@@ -549,10 +551,10 @@ instance Render LaTeXUnit where
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
 	    | isMath env && isComplexMath [env] = renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock e args t
-		| e == "minipage", [TeXEnv "codeblock" [] cb] <- trim t =
+		| e == "minipage", [e2@(TeXEnv _ _ cb)] <- trim t, isCodeblock e2 =
 			xml "div" [("class", "minipage")] . renderCodeblock "codeblock" [] cb
 		| e == "outputblock"           = renderOutputblock t
-	    | otherwise                    = error $ "render: unexpected env " ++ e
+	    | otherwise                    = error $ "render: unexpected " ++ show env
 
 instance Render Int where render = return . TextBuilder.fromString . show
 

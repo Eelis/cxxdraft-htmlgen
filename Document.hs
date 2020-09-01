@@ -253,6 +253,7 @@ indexKeyContent = mconcat . map ikc
 			| Just c <- List.lookup s greekAlphabet = Text.pack [c]
 		ikc (TeXBraces x) = indexKeyContent x
 		ikc (TeXMath Dollar x) = indexKeyContent x
+		ikc (TeXComm "index" _ _) = ""
 		ikc (TeXComm "indexlink" _ ((_, x):_)) = indexKeyContent x
 		ikc (TeXComm "hiddenindexlink" _ ((_, x):_)) = indexKeyContent x
 		ikc x = error $ "indexKeyContent: unexpected: " ++ show x

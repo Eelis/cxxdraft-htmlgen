@@ -23,16 +23,18 @@ import Data.Text (Text, replace)
 import Data.Monoid ((<>))
 import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta, Abbreviation)
 import Data.Maybe (isJust, fromJust)
-import LaTeXParser (Macros(..), Signature(..))
+import LaTeXParser (Macros(..), Signature(..), nullCmd, storeCmd, storeEnv, Environment(..), Command(..), codeEnv, Token(..), normalCmd, ParseResult(..))
 import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
+import qualified Data.Map as Map
+import Data.Map (Map)
 import Data.List (transpose, take)
 import Util ((.), (++), mapHead, textStripInfix, textSubRegex, splitOn)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcess)
 import Control.Arrow (first)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isDigit)
 import LaTeXBase
 
 data RawItem = RawItem
@@ -164,57 +166,91 @@ doParse m t = (x, y)
 		(x, y, []) = Parser.parseString ctx (Text.unpack t)
 		ctx = initialContext{Parser.macros=m}
 
-initialContext :: Parser.Context
-initialContext = Parser.defaultContext
-	{ Parser.dontEval = (bnfEnvs ++) $ words $
-			"drawing definition importgraphic itemdescr renontermdef outputblock " ++
-			"indented note defnote example tabular longtable enumeratea commentellip fref"
-	, Parser.kill = ["clearpage", "enlargethispage", "noindent",
-			"indent", "vfill", "pagebreak", "!", "-", "glossary",
-			"itcorr", "hfill", "nocorr", "small", "kill", "lstset",
-			"footnotesize", "rmfamily", "microtypesetup", "@", "ungap", "gramSec", "newcolumntype"]
-	, Parser.signatures = signatures }
+nullCmds :: [(Int, String)]
+nullCmds =
+	[ (0, "clearpage kill rmfamily hfill vfill nocorr small noindent itcorrwidth itletterwidth")
+	, (1, "enlargethispage lstset")
+	, (2, "glossary settowidth addtolength")
+	, (3, "definecolor")
+	]
 
-signatures :: [(String, Signature)]
-signatures =
-		[(c, Signature i Nothing) | i <- [0..4], c <- words (a i)] ++
-		[ ("\n", Signature 0 Nothing)
-		, ("item", Signature 0 (Just []))
-		, ("nolinebreak", Signature 0 (Just []))
-		, ("index", Signature 2 (Just []))
-		, ("caption", Signature 2 (Just []))
-		, ("gramSec", Signature 2 (Just []))
-		]
-	where
-		a 0 = "today def makeatletter bottomline makeatother Sec left right bmod long prime " ++
-			"chapter section paragraph subparagraph fi otextup linebreak newpage log kill " ++
-			"textup edef x itcorrwidth itletterwidth small BnfIndent par leq " ++
-			"leftmargini BnfInc BnfRest kern protect textsmaller caret sum clearpage " ++
+storeCmds :: [(Int, String)]
+storeCmds =
+	[ (0, "today def makeatletter bottomline makeatother Sec bmod long prime " ++
+			"chapter section paragraph subparagraph fi otextup linebreak newpage log " ++
+			"textup edef x BnfIndent par leq " ++
+			"leftmargini BnfInc BnfRest protect textsmaller caret sum " ++
 			"xspace onelineskip textlangle textrangle tilde raggedright = " ++
-			"space copyright textregistered textbackslash hsize makebox nocorr br Gamma " ++
-			"frenchspacing list leftmargin listparindent itemindent rmfamily itshape relax " ++
-			"nonfrenchspacing endlist upshape ttfamily baselineskip nobreak noindent " ++
+			"space copyright textregistered textbackslash hsize br Gamma " ++
+			"frenchspacing list leftmargin listparindent itemindent itshape relax " ++
+			"nonfrenchspacing endlist upshape ttfamily baselineskip nobreak " ++
 			"endfirsthead quad cdot cdots dotsc bnfindentinc footnotemark ldots capsep max min " ++
 			"continuedcaption hline endhead footnotesize le times dotsb rightarrow to equiv " ++
 			"lfloor rfloor pi geq neq ge lceil rceil ell alpha bigl bigr mu lambda beta " ++
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
-			"phi int theta zeta FlushAndPrintGrammar hfill break backslash centering " ++
+			"phi int theta zeta FlushAndPrintGrammar break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
-			"gamma widowpenalties sffamily"
-		a 1 = "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
-			"terminal literalterminal noncxxterminal enlargethispage renontermdef textsl textsc textsf text term " ++
+			"gamma widowpenalties sffamily parskip left right")
+	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
+			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
 			"tcode idxcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
-			"phantom sqrt ln emph lstset minipage url indexescape changeglossnumformat " ++
-			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color"
-		a 2 = "pnum addtolength definition addtocounter setcounter frac glossary " ++
+			"phantom sqrt ln emph minipage url indexescape changeglossnumformat " ++
+			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color")
+	, (2, "pnum definition addtocounter setcounter frac " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
-			"equal setlength textcolor"
-		a 3 = "multicolumn discretionary definecolor movedxrefii " ++
-			"ifthenelse PackageError"
-		a 4 = "movedxrefiii indexlink hiddenindexlink"
-		a _ = undefined
+			"equal setlength textcolor")
+	, (3, "multicolumn discretionary movedxrefii ifthenelse PackageError")
+	, (4, "movedxrefiii indexlink hiddenindexlink")
+	]
+
+initialCmds :: Map Text Command
+initialCmds = Map.fromList $
+	[ storeCmd "item" (Signature 0 (Just []))
+	, storeCmd "caption" (Signature 2 (Just []))
+	, storeCmd "index" (Signature 2 (Just []))
+	, nullCmd "makebox" (Signature 2 (Just []))
+	, storeCmd "\n" (Signature 0 Nothing)
+	, storeCmd "nolinebreak" (Signature 0 (Just []))
+	, nullCmd "gramSec" (Signature 2 (Just []))
+	, ("kern", normalCmd $ Command $ \_ctx _ws -> ParseResult [] mempty . snd . parseDimen)
+	]
+	++ [storeCmd c (Signature a Nothing) | (a, l) <- storeCmds, c <- words l]
+	++ [nullCmd (Text.pack c) (Signature a Nothing) | (a, l) <- nullCmds, c <- words l]
+
+parseDimen :: [Token] -> ([Token], [Token])
+parseDimen toks
+    | t@(Token txt) : more <- toks, txt `elem` [".", "pt"] || all isDigit txt = first (t :) (parseDimen more)
+    | otherwise = ([], toks)
+
+initialEnvs :: Map Text Environment
+initialEnvs = Map.fromList $
+	[ (storeEnv e (Signature 0 Nothing))
+	| e <- words $ "indented bnf ncbnf bnfkeywordtab simplebnf ncsimplebnf ncrebnf description itemize" ++
+	               " center tabbing defnote enumerate eqnarray* itemdescr"
+	] ++
+	[ storeEnv "example" (Signature 1 (Just []))
+	, storeEnv "note" (Signature 0 (Just [Token "Note"]))
+	, storeEnv "table" (Signature 1 Nothing)
+	, storeEnv "tabular" (Signature 1 Nothing)
+	, storeEnv "longtable" (Signature 1 Nothing)
+	, storeEnv "importgraphic" (Signature 3 Nothing)
+	, storeEnv "minipage" (Signature 1 Nothing)
+	, codeEnv "indexeditemdecl" (Signature 1 Nothing)
+	, codeEnv "itemdecl" (Signature 0 Nothing)
+	, codeEnv "indexedcodeblock" (Signature 1 Nothing)
+	, codeEnv "codeblock" (Signature 0 Nothing)
+	, codeEnv "codeblockdigitsep" (Signature 0 Nothing)
+	, codeEnv "codeblocktu" (Signature 1 Nothing)
+	, storeEnv "array" (Signature 1 Nothing)
+	]
+
+initialMacros :: Parser.Macros
+initialMacros = Parser.defaultMacros ++ mempty{Parser.commands=initialCmds, Parser.environments=initialEnvs}
+
+initialContext :: Parser.Context
+initialContext = Parser.defaultContext{Parser.macros=initialMacros}
 
 parseFile :: Macros -> Text -> ([LinearSection], Macros)
 parseFile macros =
@@ -434,16 +470,11 @@ rmExplSyntax = Text.unlines . f . Text.lines
 
 loadMacros :: Text -> IO Macros
 loadMacros extraMacros =
-	snd
-	. doParse mempty
-	. replace "\\newcommand{\\cv}{\\ifmmode\\mathit{cv}\\else\\cvqual{cv}\\fi}" "\\newcommand{\\cv}{\\mathit{cv}}"
-	. replace
-	       "\\renewcommand{\\tref}[1]{\\hyperref[tab:#1]{\\tablerefname \\nolinebreak[3] \\ref*{tab:#1}}}\n"
-	       "\\renewcommand{\\tref}[1]{Table \\ref{tab:#1}}\n"
+	(initialMacros ++)
+	. snd
+	. doParse initialMacros
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+{}") ""
-	. ("\\newcommand{\\texorpdfstring}[2]{#2}\n" ++)
-	. ("\\newcommand{\\textunderscore}{_}\n" ++)
 	. rmExplSyntax
 	. (++ extraMacros)
 	. mconcat

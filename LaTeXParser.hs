@@ -1,12 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE OverloadedStrings, RecordWildCards, ViewPatterns, TupleSections #-}
 
-module LaTeXParser (parseString, Context(..), defaultContext, Signature(..), Macros(..), Command(..), Environment(..)) where
+module LaTeXParser (parseString,
+	Token(Token), Context(..), defaultContext, Signature(..), Macros(..), Environment(..), Command(..), ParseResult(ParseResult),
+	defaultMacros,
+	nullCmd, storeCmd, codeEnv, normalCmd,
+	storeEnv) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), MathType(..), concatRaws)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Char (isAlphaNum, isSpace, isAlpha, isDigit)
+import Data.Char (isAlphaNum, isSpace, isAlpha)
 import Data.Maybe (fromJust)
 import Control.Arrow (first)
 import Data.Map (Map)
@@ -17,20 +21,17 @@ import Util ((.), (++), getDigit, stripInfix)
 newtype Token = Token { tokenChars :: String }
 	deriving (Eq, Show)
 
-data Environment = Environment
-	{ envSignature :: Signature
-	, begin, end :: ![Token] }
-	deriving Show
+data Environment = Environment (Context -> [Token] -> ParseResult)
+data Command = Command { runCommand :: Context -> String {- ws -} -> [Token] -> ParseResult }
 
 data Macros = Macros
-	{ commands :: Map String Command
+	{ commands :: Map Text Command
 	, environments :: Map Text Environment
 	, counters :: Map Text Int }
-	deriving Show
 
-newCommand :: Bool {- overwrite -} -> String -> Command -> Macros -> Macros
-newCommand True name cmd Macros{..} = Macros{commands = Map.insert name cmd commands, ..}
-newCommand False name cmd Macros{..} = Macros{commands = Map.insertWith (\_ y -> y) name cmd commands, ..}
+newCommand :: Bool {- overwrite -} -> (Text, Command) -> Macros -> Macros
+newCommand True (name, cmd) Macros{..} = Macros{commands = Map.insert name cmd commands, ..}
+newCommand False (name, cmd) Macros{..} = Macros{commands = Map.insertWith (\_ y -> y) name cmd commands, ..}
 
 instance Semigroup Macros where
 	x <> y = Macros
@@ -40,11 +41,6 @@ instance Semigroup Macros where
 
 instance Monoid Macros where
 	mempty = Macros mempty mempty mempty
-
-data Command = Command
-	{ cmdSignature :: Signature
-	, cmdBody :: ![Token] }
-	deriving Show
 
 data ParseResult = ParseResult
 	{ content :: LaTeX
@@ -59,43 +55,138 @@ data Signature = Signature
 data Context = Context
 	{ commentsEnabled :: Bool
 	, parsingOptArg :: Bool
-	, macros :: Macros
-	, signatures :: [(String, Signature)]
-	, kill :: [String]
-	, dontEval :: [String] }
+	, macros :: Macros }
 
 prependContent :: LaTeX -> ParseResult -> ParseResult
 prependContent t p = p{content = t ++ content p}
 
-addMacros :: Macros -> ParseResult -> ParseResult
-addMacros m p = p{newMacros = m ++ newMacros p}
+combineMacros :: Bool {- left biased -} -> Macros -> Macros -> Macros
+combineMacros b x y = if b then x ++ y else y ++ x
+
+addMacros :: Bool {- overwrite -} -> Macros -> ParseResult -> ParseResult
+addMacros b m p = p{newMacros = combineMacros b m (newMacros p)}
+
+defaultEnvs :: [(Text, Environment)]
+defaultEnvs = [outputblockEnv]
+
+codeEnv :: Text -> Signature -> (Text, Environment)
+codeEnv name sig = (name, Environment f)
+	where
+		f :: Context -> [Token] -> ParseResult
+		f ctx toks = ParseResult [env] mempty rest'
+			where
+				(arguments, rest) = parseArgs sig toks
+				Just (code, rest') = stripInfix [Token "\\end", Token "{", Token (Text.unpack name), Token "}"] rest
+				env = TeXEnv (Text.unpack name) (map ((FixArg, ) . fullParse ctx) arguments) (parseCode ctx code)
+
+outputblockEnv :: (Text, Environment)
+outputblockEnv = ("outputblock", Environment f)
+	where
+		f :: Context -> [Token] -> ParseResult
+		f ctx toks = ParseResult [env] mempty rest
+			where
+				Just (content, rest) = stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] toks
+				env = TeXEnv "outputblock" [] (parseOutputBlock ctx content)
+
+parseOutputBlock :: Context -> [Token] -> LaTeX
+parseOutputBlock c = concatRaws . go
+	where
+		go :: [Token] -> LaTeX
+		go [] = []
+		go (Token "@" : rest) = fullParse c cmd ++ go rest'
+			where (cmd, Token "@" : rest') = break (== Token "@") rest
+		go s = TeXRaw (Text.pack $ concatMap tokenChars code) : go rest
+			where (code, rest) = break (== Token "@") s
+
+storeEnv :: String -> Signature -> (Text, Environment)
+storeEnv name sig = (Text.pack name, Environment act)
+	where
+		act :: Context -> [Token] -> ParseResult
+		act ctx toks = ParseResult [env] mempty afterend
+			where
+				(arguments, rest) = parseArgs sig toks
+				ParseResult body _ afterend = parse ctx rest
+				env = TeXEnv name (map ((FixArg, ) . fullParse ctx) arguments) (concatRaws body)
+							-- todo: not all fixargs
+
+defaultCmds :: [(Text, Command)]
+defaultCmds =
+	[ ("newcommand", newCommandCommand)
+	, ("renewcommand", newCommandCommand)
+	, ("newenvironment", newEnvCommand)
+	, ("lstnewenvironment", newEnvCommand)
+	, ("raisebox", raiseBoxCommand)
+	, ("let", Command $ \ctx _ws rest -> parse ctx (drop 2 rest))
+	, beginCommand
+	, endCommand
+	, oldDefCommand
+	]
+
+oldDefCommand :: (Text, Command)
+oldDefCommand = ("def", Command pars)
+	where
+		pars ctx@Context{..} _ws rest
+			| (Token ('\\' : name) : rest') <- rest
+			, Just (body, rest'') <- balanced ('{', '}') rest' =
+				let
+					m = Macros (Map.fromList [defCmd (Text.pack name) (Signature 0 Nothing) body]) mempty mempty
+					ParseResult p mm r = parse ctx{macros=macros++m} rest''
+				in
+					ParseResult p (m ++ mm) r
+			| otherwise = parse ctx $ snd $ fromJust $ balanced ('{', '}') $ dropWhile (/= Token "{") rest
+
+endCommand :: (Text, Command)
+endCommand = ("end", Command $ \c _ws rest ->
+	let Just (_, rest') = parseFixArg c rest in ParseResult mempty mempty rest')
+
+beginCommand :: (Text, Command)
+beginCommand = ("begin", normalCmd $ Command pars)
+	where
+		pars c@Context{..} _ws rest
+			| Just (Environment f) <- Map.lookup (envname) (environments macros) = f c rest'
+			| otherwise = error $ "undefined env: " ++ Text.unpack envname
+			where
+				Just (arg, rest') = parseFixArg c rest
+				[TeXRaw envname] = concatRaws arg
+
+raiseBoxCommand :: Command
+raiseBoxCommand = normalCmd $ Command $ \c@Context{..} _ws rest ->
+	let
+		Just (a0, rest') = balanced ('{', '}') rest
+		(a1, rest'') = case parseOptArg rest' of
+			Nothing -> (Nothing, rest')
+			Just (x, y) -> (Just x, y)
+		Just (a2, rest''') = balanced ('{', '}') rest''
+		args = [(FixArg, fullParse c a0)]
+			++ case a1 of
+				Nothing -> []
+				Just x -> [(OptArg, fullParse c x)]
+			++ [(FixArg, fullParse c a2)]
+	in
+		ParseResult [TeXComm "raisebox" "" args] mempty rest'''
+
+newCommandCommand :: Command
+newCommandCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token ('\\' : name) : Token "}" : rest) ->
+	let
+		(sig, rest') = parseSignature rest
+		Just (body, rest'') = balanced ('{', '}') rest'
+		newMacros = newCommand True (defCmd (Text.pack name) sig body) mempty
+	in
+		ParseResult [] newMacros rest''
+
+defaultMacros :: Macros
+defaultMacros = Macros (Map.fromList defaultCmds) (Map.fromList defaultEnvs) mempty
 
 defaultContext :: Context
 defaultContext = Context
 	{ commentsEnabled = True
 	, parsingOptArg = False
-	, macros = mempty
-	, signatures = []
-	, kill = []
-	, dontEval = [] }
+	, macros = defaultMacros }
 
 rmLine :: [Token] -> [Token]
 rmLine s = case dropWhile (/= Token "\n") s of
 	Token "\n" : x -> x
 	x -> x
-
-makeEnv :: [(String, Signature)]
-makeEnv =
-	[ ("importgraphic", Signature 3 Nothing)
-	, ("minipage", Signature 1 Nothing)
-	, ("tabular", Signature 1 Nothing)
-	, ("array", Signature 1 Nothing)
-	, ("TableBase", Signature 1 Nothing)
-	, ("lib2dtab2", Signature 4 Nothing)
-	, ("note", Signature 0 (Just [Token "Note"]))
-	, ("longtable", Signature 1 Nothing)
-	, ("indexeditemdecl", Signature 1 Nothing)
-	, ("itemdecl", Signature 0 Nothing) ] -- todo: move
 
 parseOptArg :: [Token] -> Maybe ([Token], [Token])
 parseOptArg = balanced ('[', ']')
@@ -118,17 +209,6 @@ parseSignature t = case optArgs of
 	[[Token a], deflt] -> (Signature (read a) (Just deflt), t')
 	_ -> error "unrecognized signature"
 	where (optArgs, t') = parseOptArgs t
-
-parseNewCmd :: Context -> [Token] -> ParseResult
-parseNewCmd c@Context{..} (Token ('\\' : name) : Token "}" : rest) =
-	let
-		(sig, rest') = parseSignature rest
-		Just (body, rest'') = balanced ('{', '}') rest'
-		macros' = newCommand True name (Command sig body) macros
-		ParseResult p mm r = parse c{macros = macros'} rest''
-	in
-		ParseResult p (newCommand False name (Command sig body) mm) r
-parseNewCmd _ x = error $ "parseNewCmd: unexpected: " ++ take 100 (show x)
 
 balanced :: (Char, Char) -> [Token] -> Maybe ([Token], [Token])
 balanced (open, close) (dropWhile (all isSpace . tokenChars) -> (Token [o] : s))
@@ -181,17 +261,23 @@ n_balanced oc n s
 	| n > 0, Just (x, s') <- balanced oc s = first (x:) $ n_balanced oc (n-1) s'
 	| otherwise = ([], s)
 
-parseNewEnv :: Context -> [Token] -> ParseResult
-parseNewEnv c@Context{..} s =
+newEnvCommand :: Command
+newEnvCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : (span (/= Token "}") -> (name, Token "}" : rest))) ->
 	let
-		(name, Token "}" : rest) = span (/= Token "}") s
+		nameStr = concatMap tokenChars name
 		(sig, rest') = parseSignature rest
 		Just (begin, rest'') = balanced ('{', '}') rest'
 		Just (end, rest''') = balanced ('{', '}') rest''
-		env = Environment sig begin end
-		m = Macros mempty (Map.singleton (Text.pack $ concatMap tokenChars name) env) mempty
+		pa :: Context -> [Token] -> ParseResult
+		pa c' toks = ParseResult (if nameStr `elem` ["TableBase", "lib2dtab2"] then [TeXEnv nameStr [] replaced] else replaced) mempty toks''
+				-- todo: gross hack
+			where
+				replaced = (fullParse c' $ replArgs args begin ++ body ++ end)
+				(args, toks') = parseArgs sig toks
+				(body, toks'') = balanced_body nameStr toks'
+		m = Macros mempty (Map.singleton (Text.pack nameStr) (Environment pa)) mempty
 	in
-		addMacros m (parse c{macros=macros++m} rest''')
+		ParseResult [] m rest'''
 
 parseString :: Context -> String -> (LaTeX, Macros, [Token])
 parseString c s = (concatRaws x, y, z)
@@ -241,16 +327,6 @@ parseCode c = concatRaws . go False
 		stringLiteral (y : x) = first (y :) (stringLiteral x)
 		stringLiteral [] = ([], [])
 
-parseOutputBlock :: Context -> [Token] -> LaTeX
-parseOutputBlock c = concatRaws . go
-	where
-		go :: [Token] -> LaTeX
-		go [] = []
-		go (Token "@" : rest) = fullParse c cmd ++ go rest'
-			where (cmd, Token "@" : rest') = break (== Token "@") rest
-		go s = TeXRaw (Text.pack $ concatMap tokenChars code) : go rest
-			where (code, rest) = break (== Token "@") s
-
 tokenize :: String -> [Token]
 tokenize "" = []
 tokenize ('\\':'v':'e':'r':'b': delim : (break (== delim) -> (arg, _ : rest))) =
@@ -279,100 +355,25 @@ replArgs args = go
 			| otherwise = error $ "need more args than " ++ show args ++ " to replace in " ++ show (concatMap tokenChars y)
 		go (x:y) = x : go y
 
-parseBegin :: Context -> String -> [Token] -> ParseResult
-parseBegin c env t
-    | env `elem` ["codeblock", "itemdecl", "codeblockdigitsep"]
-	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t
-	= prependContent [TeXEnv env [] (parseCode c code)] (parse c rest)
-parseBegin c env t
-	| env == "codeblocktu"
-	, Just (title, t') <- balanced ('{', '}') t
-	, Just (code, rest) <- stripInfix [Token "\\end", Token "{", Token env, Token "}"] t'
-	= prependContent [TeXEnv env [(FixArg, fullParse c title)] (parseCode c code)] (parse c rest)
-parseBegin c "outputblock" t
-    | Just (content, rest) <- stripInfix [Token "\\end", Token "{", Token "outputblock", Token "}"] t
-	= prependContent [TeXEnv "outputblock" [] (parseOutputBlock c content)] (parse c rest)
-parseBegin c@Context{..} envname rest
-	| Just Environment{..} <- Map.lookup (Text.pack envname) (environments macros)
-	, not (envname `elem` dontEval) =
-			let
-				(args, bodyAndOnwards) = parseArgs envSignature rest
-				(body, after_end) = balanced_body envname bodyAndOnwards
-				together = replArgs args begin ++ body ++ end
-				f
-					| Just _ <- lookup envname makeEnv = (:[]) . TeXEnv envname (map ((FixArg, ) . fullParse c) args)
-					| otherwise = id
-				content = f $ fullParse c together
-			in
-				prependContent content (parse c after_end)
-	| Just sig <- lookup envname makeEnv =
-			let
-				(arguments, rest') = parseArgs sig rest
-				ParseResult body _ afterend = parse c rest'
-				env = TeXEnv envname (map ((FixArg, ) . fullParse c) arguments) (concatRaws body)
-					-- todo: not all fixargs
-			in
-				prependContent [env] (parse c afterend)
-	| otherwise =
-			let ParseResult body _ afterend = parse c rest
-			in prependContent [TeXEnv envname [] (concatRaws body)] (parse c afterend)
+nullCmd :: Text -> Signature -> (Text, Command)
+nullCmd name sig = defCmd name sig []
 
-parseDimen :: [Token] -> ([Token], [Token])
-parseDimen toks
-    | t@(Token txt) : more <- toks, txt `elem` [".", "pt"] || all isDigit txt = first (t :) (parseDimen more)
-    | otherwise = ([], toks)
+storeCmd :: String -> Signature -> (Text, Command)
+storeCmd name sig = (Text.pack name, normalCmd $ Command pars)
+	where
+		pars context ws tokens = ParseResult [TeXComm name ws args] mempty rest
+			where (args, rest) = parseArgs2 context sig tokens
 
-parseCmd :: Context -> String -> String -> [Token] -> ParseResult
-parseCmd c@Context{..} cmd ws rest
-	| cmd == "begin", Just (arg, rest') <- parseFixArg c rest =
-		let [TeXRaw envname] = concatRaws arg in parseBegin c (Text.unpack envname) rest'
-	| cmd == "end"
-		, Just (_, rest') <- parseFixArg c rest = ParseResult mempty mempty rest'
-	| cmd == "raisebox"
-	, Just (a0, rest') <- balanced ('{', '}') rest
-	, (a1, rest'') <- case parseOptArg rest' of
-		Nothing -> (Nothing, rest')
-		Just (x, y) -> (Just x, y)
-	, Just (a2, rest''') <- balanced ('{', '}') rest'' =
-		let
-			args = [(FixArg, fullParse c a0)]
-				++ case a1 of
-					Nothing -> []
-					Just x -> [(OptArg, fullParse c x)]
-				++ [(FixArg, fullParse c a2)]
-		in
-			prependContent [TeXComm "raisebox" "" args] (parse c rest''')
+defCmd :: Text -> Signature -> [Token] -> (Text, Command)
+defCmd name sig body = (name, normalCmd $ Command pars)
+	where
+		pars context _ws tokens = ParseResult (fullParse context $ replArgs args body) mempty rest
+			where (args, rest) = parseArgs sig tokens
 
-	| cmd == "def"
-	, (Token ('\\' : name) : rest') <- rest
-	, Just (body, rest'') <- balanced ('{', '}') rest' =
-		let
-			m = Macros (Map.singleton name (Command (Signature 0 Nothing) body)) mempty mempty
-			ParseResult p mm r = parse c{macros=macros++m} rest''
-		in
-			ParseResult p (m ++ mm) r
-	| cmd == "def" = parse c $ snd $ fromJust $ balanced ('{', '}') $ dropWhile (/= Token "{") rest
-
-	| cmd == "kern" = parse c $ snd $ parseDimen rest
-
-	| Just signature <- lookup cmd signatures =
-		let
-			(args, rest') = parseArgs2 c signature rest
-			content = TeXComm cmd ws args
-		in
-			(if cmd `elem` kill then id else prependContent [content])
-			(parse c rest')
-	| otherwise = case Map.lookup cmd (commands macros) of
-		Nothing -> error $
-			"\n\nundefined command: " ++ show cmd ++
-			" at: " ++ take 50 (concatMap tokenChars rest)
-		Just Command{..} ->
-			let
-				(args, rest') = parseArgs cmdSignature rest
-			in
-				(if cmd `elem` kill then id
-				 else prependContent $ fullParse c $ replArgs args cmdBody)
-				(parse c rest')
+normalCmd :: Command -> Command
+normalCmd (Command f) = Command $ \ctx ws toks ->
+	let ParseResult content newMacros rest = f ctx ws toks
+	in addMacros False newMacros (prependContent content (parse ctx{macros=macros ctx ++ newMacros} rest))
 
 parse :: Context -> [Token] -> ParseResult
 parse c (d@(Token "$") : (span (/= d) -> (math, Token "$" : rest))) =
@@ -382,9 +383,8 @@ parse c (Token "\\[" : (span (/= Token "\\]") -> (math, Token "\\]" : rest))) =
 parse c (Token "]" : x)
 	| parsingOptArg c = ParseResult mempty mempty x
 parse _ (Token "}" : x) = ParseResult mempty mempty x
-parse c (Token "{" : x) =
-	let ParseResult y _ rest = parse c x
-	in prependContent [TeXBraces y] $ parse c rest
+parse c (Token "{" : x) = prependContent [TeXBraces y] $ parse c rest
+	where ParseResult y _ rest = parse c x
 parse c (Token "%" : x)
 	| commentsEnabled c = parse c (rmLine x)
 parse _ [] = ParseResult mempty mempty mempty
@@ -393,21 +393,18 @@ parse c (Token ['\\', ch] : x)
 	| ch `elem` literal = prependContent [TeXComm [ch] "" []] (parse c x)
 parse c (Token ('\\':'v':'e':'r':'b':':':arg) : rest) =
 	prependContent [TeXComm "verb" "" [(FixArg, [TeXRaw $ Text.pack arg])]] (parse c rest)
-parse c (Token "\\let" : _ : _ : s) = parse c s -- todo
-parse c (Token "\\newcommand" : Token "{" : s) = parseNewCmd c s
-parse c (Token "\\right" : Token "." : more) = prependContent [TeXComm "right" "" [(FixArg, [TeXRaw "."])]] (parse c more)
-parse c (Token "\\renewcommand" : Token "{" : s) = parseNewCmd c s
-parse c (Token "\\newenvironment" : Token "{" : s) = parseNewEnv c s
-parse c (Token "\\lstnewenvironment" : Token "{" : s) = parseNewEnv c s
 parse c (Token "\\rSec" : Token [getDigit -> Just i] : s)
 		= prependContent [TeXComm "rSec" "" args] $ parse c s''
 	where
 		Just (a, s') = parseOptArg s
 		Just (b, s'') = parseFixArg c s'
 		args = [(FixArg, [TeXRaw $ Text.pack $ show i]), (FixArg, fullParse c a), (FixArg, b)]
-parse c (Token ('\\' : cmd : ws) : rest)
-	| all isSpace ws = parseCmd c [cmd] ws rest
-parse c (Token ('\\' : (span (not . isSpace) -> (cmd, ws))) : rest) = parseCmd c cmd ws rest
+parse c@Context{..} (Token ('\\' : (span (not . isSpace) -> (nos, w))) : rest)
+	| Just f <- Map.lookup (Text.pack cmd) (commands macros) = runCommand f c ws rest
+	| otherwise = error $
+		"\n\nundefined command: " ++ show cmd ++ " at: " ++ take 50 (concatMap tokenChars rest)
+	where (cmd, ws) | nos == "", (x : xx) <- w = ([x], xx)
+	                | otherwise = (nos, w)
 parse ctx (Token c : rest)
 	| all isAlphaNum c
 		= prependContent [TeXRaw $ Text.pack c] $ parse ctx rest

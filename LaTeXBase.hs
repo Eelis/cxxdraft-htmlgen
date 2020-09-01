@@ -188,6 +188,7 @@ isMath _ = False
 
 isCodeblock :: LaTeXUnit -> Bool
 isCodeblock (TeXEnv "codeblock" _ _) = True
+isCodeblock (TeXEnv "indexedcodeblock" _ _) = True
 isCodeblock (TeXEnv "codeblocktu" _ _) = True
 isCodeblock (TeXEnv "codeblockdigitsep" _ _) = True
 isCodeblock _ = False
