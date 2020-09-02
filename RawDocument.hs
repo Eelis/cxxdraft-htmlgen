@@ -52,7 +52,7 @@ data RawElement
 	| RawTable
 		{ rawTableCaption :: LaTeX
 		, rawColumnSpec :: LaTeX
-		, rawTableAbbrs :: [Abbreviation]
+		, rawTableAbbr :: Abbreviation
 		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: Abbreviation, rawFigureSvg :: Text }
@@ -114,7 +114,7 @@ isBnf (TeXEnv s _ _)
 isBnf _ = False
 
 isTable, isTabbing, isFigure :: LaTeXUnit -> Bool
-isTable x = isTeXEnv "TableBase" x || isTeXEnv "lib2dtab2" x
+isTable x = isTeXEnv "floattablebasex" x || isTeXEnv "htmlTable" x
 isTabbing = isTeXEnv "tabbing"
 isFigure = isTeXEnv "importgraphic"
 
@@ -195,7 +195,7 @@ storeCmds =
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
 			"tcode idxcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"newcolumntype label newlength uline vspace value newcounter mathscr hyperref " ++
+			"label newlength uline vspace value newcounter mathscr hyperref " ++
 			"phantom sqrt ln emph minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref fref color")
 	, (2, "pnum definition addtocounter setcounter frac " ++
@@ -244,6 +244,8 @@ initialEnvs = Map.fromList $
 	, codeEnv "codeblockdigitsep" (Signature 0 Nothing)
 	, codeEnv "codeblocktu" (Signature 1 Nothing)
 	, storeEnv "array" (Signature 1 Nothing)
+	, storeEnv "floattablebasex" (Signature 4 Nothing)
+	, storeEnv "htmlTable" (Signature 3 Nothing)
 	]
 
 initialMacros :: Parser.Macros
@@ -293,13 +295,12 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			, [(FixArg, rawFigureName), (FixArg, [TeXRaw rawFigureAbbr]), (FixArg, [TeXRaw figureFile])] <- a
 				= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
 			| isTable e
-			, ((x : _todo) : _) <- lookForCommand "caption" stuff
-			, (_, ((FixArg, y) : _), content) : _todo <- matchEnv (`elem` ["tabular", "longtable"]) stuff
+			, ((_, cap) : (_, [TeXRaw abbr]) : (_, y) : _) <- a
 				= RawTable
-				{ rawTableCaption = snd x
+				{ rawTableCaption = cap
 				, rawColumnSpec = y
-				, rawTableAbbrs = map (fromJust . isJustRaw . snd . head) (lookForCommand "label" stuff)
-				, rawTableBody = breakMultiCols $ parseTable content }
+				, rawTableAbbr = "tab:" ++ abbr
+				, rawTableBody = breakMultiCols $ parseTable stuff }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
 			| isBnf e = RawBnf k stuff
@@ -380,9 +381,9 @@ parseSections l (x:xx)
 	| otherwise = error $ "parseSections: " ++ show x
 
 parseTable :: LaTeX -> [Row [RawTexPara]]
-parseTable [] = []
 parseTable latex
-	| row == [] = parseTable $ tail rest
+	| triml latex == [] = []
+	| triml row == [] = parseTable $ tail rest
 	| hasCommand (== "endfirsthead") row = parseTable $ findEndHead rest
 	| hasCommand (`elem` ["caption", "bottomline"]) row = parseTable rest
 	| otherwise = makeRow row : parseTable rest

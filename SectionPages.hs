@@ -5,7 +5,9 @@ module SectionPages
 	( writeSectionFiles
 	, writeSingleSectionFile
 	, writeFiguresFile
+	, writeFigureFiles
 	, writeTablesFile
+	, writeTableFiles
 	, writeIndexFiles
 	, writeFootnotesFile
 	, writeCssFile
@@ -14,8 +16,9 @@ module SectionPages
 
 import Prelude hiding ((++), (.), writeFile)
 import System.Directory (createDirectoryIfMissing)
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 import Control.Arrow (first)
+import Data.Maybe (fromJust)
 import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -23,7 +26,7 @@ import qualified Data.Text.Lazy as LazyText
 import qualified Data.Text.Lazy.Builder as TextBuilder
 import Render (render, concatRender, simpleRender2, outputDir, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), SectionFileStyle(..), Page(..),
-	linkToSection, squareAbbr, linkToRemoteTable, fileContent, applySectionFileStyle,
+	linkToSection, squareAbbr, fileContent, applySectionFileStyle,
 	secnum, Link(..), renderLatexParas, isSectionPage, parentLink, renderIndex)
 import Document
 import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, readFile, intercalateBuilders)
@@ -131,27 +134,27 @@ sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
 
 writeFiguresFile :: SectionFileStyle -> Draft -> IO ()
 writeFiguresFile sfs draft = writeSectionFile "fig" sfs "14882: Figures" $
-	"<h1>List of Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
+	"<h1>Figures <a href='SectionToToc/fig' class='abbr_ref'>[fig]</a></h1>"
 	++ mconcat (uncurry r . figures draft)
 	where
 		r :: Paragraph -> Figure -> TextBuilder.Builder
-		r p f@Figure{figureSection=s@Section{..}, ..} =
-			"<hr>" ++
-			sectionHeader 4 s "" anchor{
-				aHref = "SectionToSection/" ++ urlChars abbreviation
-					++ "#" ++ urlChars figureAbbr } defaultRenderContext{draft=draft}
-			++ renderFig True f defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=FiguresPage}
+		r p f@Figure{..} =
+			renderFig True f ("./SectionToSection/" ++ urlChars figureAbbr) False True ctx
+			where ctx = defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=FiguresPage}
 
 writeTablesFile :: SectionFileStyle -> Draft -> IO ()
 writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
-	"<h1>List of Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
+	"<h1>Tables <a href='SectionToToc/tab' class='abbr_ref'>[tab]</a></h1>"
 	++ mconcat (uncurry r . tables draft)
 	where
 		r :: Paragraph -> Table -> TextBuilder.Builder
-		r p t@Table{tableSection=s@Section{..}, ..} =
-			"<hr>" ++
-			sectionHeader 4 s "" (linkToRemoteTable t) defaultRenderContext{draft=draft}
-			++ renderTab True t defaultRenderContext{draft=draft, nearestEnclosing=Left p, page=TablesPage}
+		r p t@Table{tableSection=Section{..}, ..} =
+			renderTab True t ("./SectionToSection/" ++ urlChars tableAbbr) False True ctx
+			where ctx = defaultRenderContext{
+				draft = draft,
+				nearestEnclosing = Left p,
+				page = TablesPage,
+				idPrefix = fromJust (Text.stripPrefix "tab:" tableAbbr) ++ "-"}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $
@@ -167,6 +170,30 @@ writeSingleSectionFile sfs draft abbr = do
 	let baseFilename = Text.unpack abbreviation
 	writeSectionFile baseFilename sfs (squareAbbr False abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
+
+writeTableFiles :: SectionFileStyle -> Draft -> IO ()
+writeTableFiles sfs draft =
+	forM_ (snd . tables draft) $ \tab@Table{..} -> do
+		let
+			context = defaultRenderContext{draft=draft, page=TablePage tab, nearestEnclosing=Right tableSection}
+			header :: Section -> TextBuilder.Builder
+			header sec = sectionHeader (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
+				where href="SectionToSection/" ++ urlChars (abbreviation sec) ++ "#" ++ urlChars tableAbbr
+			headers = mconcat $ map header $ reverse $ tableSection : parents tableSection
+		writeSectionFile (Text.unpack tableAbbr) sfs (TextBuilder.fromText $ "[" ++ tableAbbr ++ "]") $
+			headers ++ renderTab True tab "" True False context
+
+writeFigureFiles :: SectionFileStyle -> Draft -> IO ()
+writeFigureFiles sfs draft =
+	forM_ (snd . figures draft) $ \fig@Figure{..} -> do
+		let
+			context = defaultRenderContext{draft=draft, page=FigurePage fig, nearestEnclosing=Right figureSection}
+			header :: Section -> TextBuilder.Builder
+			header sec = sectionHeader (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
+				where href="SectionToSection/" ++ urlChars (abbreviation sec) ++ "#" ++ urlChars figureAbbr
+			headers = mconcat $ map header $ reverse $ figureSection : parents figureSection
+		writeSectionFile (Text.unpack figureAbbr) sfs (TextBuilder.fromText $ "[" ++ figureAbbr ++ "]") $
+			headers ++ renderFig True fig "" True False context
 
 writeSectionFiles :: SectionFileStyle -> Draft -> [IO ()]
 writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> do

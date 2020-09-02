@@ -215,7 +215,7 @@ instance AssignNumbers RawElement Element where
 		return $ TableElement Table
 			{ tableNumber  = tableNr
 			, columnSpec   = rawColumnSpec
-			, tableAbbrs   = rawTableAbbrs
+			, tableAbbr   = rawTableAbbr
 			, tableCaption = rawTableCaption
 			, tableSection = s
 			, .. }

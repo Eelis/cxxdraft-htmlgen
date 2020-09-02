@@ -33,7 +33,7 @@ data Table = Table
 	{ tableNumber :: Int
 	, tableCaption :: LaTeX
 	, columnSpec :: LaTeX
-	, tableAbbrs :: [Abbreviation]
+	, tableAbbr :: Abbreviation
 	, tableBody :: [Row [TeXPara]]
 	, tableSection :: Section }
 
@@ -158,7 +158,7 @@ data Draft = Draft
 stablyNamedItems :: Draft -> [(Abbreviation, StablyNamedItem)]
 stablyNamedItems d =
 	[(abbreviation s, StablyNamedSection s) | s <- sections d] ++
-	[(head (tableAbbrs t), StablyNamedTable t) | p <- allParagraphs d, TableElement t <- allParaElems p] ++ -- head?
+	[(tableAbbr t, StablyNamedTable t) | p <- allParagraphs d, TableElement t <- allParaElems p] ++
 	[(figureAbbr f, StablyNamedFigure f) | p <- allParagraphs d, FigureElement f <- allParaElems p]
 
 makeAbbrMap :: Draft -> Abbreviation -> Maybe StablyNamedItem

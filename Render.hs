@@ -12,7 +12,7 @@
 module Render (
 	Render(render), concatRender, renderTab, renderFig, renderIndex, simpleRender, simpleRender2, squareAbbr,
 	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
-	fileContent, Link(..), outputDir, linkToRemoteTable, defaultRenderContext, isSectionPage,
+	fileContent, Link(..), outputDir, defaultRenderContext, isSectionPage,
 	RenderContext(..), renderLatexParas
 	) where
 
@@ -225,8 +225,21 @@ sameIdNamespace Nothing (Just IndexOpen) = True
 sameIdNamespace (Just IndexOpen) Nothing = True
 sameIdNamespace x y = x == y
 
+isFullPage :: Page -> Bool
+isFullPage FullPage = True
+isFullPage _ = False
+
 abbrIsOnPage :: Abbreviation -> Page -> Bool
-abbrIsOnPage abbr page = page == FullPage || abbr `elem` (abbreviation . sections page)
+abbrIsOnPage _ FullPage = True
+abbrIsOnPage abbr TablesPage = "tab:" `isPrefixOf` abbr
+abbrIsOnPage abbr FiguresPage = "fig:" `isPrefixOf` abbr
+abbrIsOnPage abbr (FigurePage Figure{..}) = abbr == figureAbbr
+abbrIsOnPage abbr (TablePage Table{..}) = abbr == tableAbbr
+abbrIsOnPage abbr (SectionPage sec)
+	| "fig:" `isPrefixOf` abbr = abbr `elem` (figureAbbr . snd . figures sec)
+	| "tab:" `isPrefixOf` abbr = abbr `elem` (tableAbbr . snd . tables sec)
+	| otherwise = abbr `elem` (abbreviation . sections sec)
+abbrIsOnPage _ _ = False
 
 pageIndexEntries :: RenderContext -> IntMap.IntMap IndexEntry
 pageIndexEntries c
@@ -491,7 +504,7 @@ instance Render LaTeXUnit where
 				 $ footnoteContent $ snd
 				 $ footnotes (draft ctx) !! ((read (Text.unpack n) :: Int) - 1)
 		, aHref  =
-			(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+			(if isFullPage (page ctx) || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
 	render (TeXComm "raisebox" _ args)
 		| (FixArg, [TeXRaw d]) <- head args
@@ -639,21 +652,36 @@ renderIndex ctx tree
 		linklines = map (h 2 . mconcat . intersperse " " . map (li . fst)) [symnum, rest]
 		li n = render anchor{aText = TextBuilder.fromText $ Text.pack (show n), aHref = "#" ++ Text.pack (show n)} ctx
 
-renderTab :: Bool -> Table -> RenderContext -> TextBuilder.Builder
-renderTab stripTab Table{..} ctx =
+renderTab :: Bool -> Table -> Text -> Bool -> Bool -> RenderContext -> TextBuilder.Builder
+renderTab stripTab Table{..} href boldCaption linkifyTableNum ctx =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
-		"Table " ++ render anchor{aText = render tableNumber ctx, aHref = "#" ++ id_} ctx ++ ": " ++
-		render tableCaption ctx ++ "<br>" ++ renderTable columnSpec tableBody ctx
+		(if boldCaption then "<b>" else "") ++
+		"Table " ++ tableNumF (render tableNumber ctx) ++ ": " ++
+		render tableCaption ctx ++
+		"&emsp;" ++
+		render anchor{aText="[" ++ TextBuilder.fromText tableAbbr ++ "]", aHref=href} ctx ++
+		(if boldCaption then "</b>" else "") ++
+		"<br>" ++
+		renderTable columnSpec tableBody ctx
 	where
-		id_ = (if stripTab then replace "tab:" "" else id) $ head tableAbbrs
+		tableNumF = if linkifyTableNum then linkify anchor{aHref = "#" ++ id_} ctx else id
+		id_ = (if stripTab then replace "tab:" "" else id) tableAbbr
 
-renderFig :: Bool -> Figure -> RenderContext -> TextBuilder.Builder
-renderFig stripFig Figure{..} ctx =
+linkify :: Anchor -> RenderContext -> TextBuilder.Builder -> TextBuilder.Builder
+linkify a ctx txt = render a{aText=txt} ctx
+
+renderFig :: Bool -> Figure -> Text -> Bool -> Bool -> RenderContext -> TextBuilder.Builder
+renderFig stripFig Figure{..} href boldCaption linkifyFigureNum ctx =
 	xml "div" [("class", "figure"), ("id", id_)] $
 		TextBuilder.fromText figureSvg ++ "<br>" ++
-		"Figure " ++ render anchor{aText = render figureNumber ctx, aHref="#" ++ id_} ctx ++ ": " ++
-		render figureName ctx ++ "&emsp;&ensp;" ++ squareAbbr False figureAbbr
-	where id_ = (if stripFig then replace "fig:" "" else id) figureAbbr
+		(if boldCaption then "<b>" else "") ++
+		"Figure " ++ figureNumF (render figureNumber ctx) ++ ": " ++
+		render figureName ctx ++ "&emsp;&ensp;" ++
+		render anchor{aText=squareAbbr False figureAbbr, aHref=href} ctx ++
+		(if boldCaption then "</b>" else "")
+	where
+		figureNumF = if linkifyFigureNum then linkify anchor{aHref="#" ++ id_} ctx else id
+		id_ = (if stripFig then replace "fig:" "" else id) figureAbbr
 
 data RenderItem = RenderItem { listOrdered :: Bool, item :: Item }
 
@@ -716,7 +744,7 @@ instance Render Footnote where
 			link = anchor
 				{ aText  = TextBuilder.fromText $ num ++ ")"
 				, aHref  =
-					(if page ctx == FullPage || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
+					(if isFullPage (page ctx) || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 					++ "#" ++ i
 				, aClass = "marginalized" }
 
@@ -773,10 +801,11 @@ instance Render Element where
 			idattr
 				| Just nt <- nontermDef t = [("id", "nt:" ++ nt)]
 				| otherwise = []
-	render (TableElement t) = renderTab False t
+	render (TableElement t) = \ctx ->
+		renderTab False t ("./SectionToSection/" ++ tableAbbr t) False True ctx{idPrefix=tableAbbr t++"-"}
+	render (FigureElement f) = renderFig False f ("./SectionToSection/" ++ figureAbbr f) False True
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
-	render (FigureElement f) = renderFig False f
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
 			concatRender (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
 		where
@@ -804,6 +833,8 @@ isComplexMath t =
 
 data Page
 	= SectionPage Section
+	| TablePage Table
+	| FigurePage Figure
 	| FullPage
 	| IndexPage Text {- category -}
 	| XrefDeltaPage
@@ -811,15 +842,10 @@ data Page
 	| TablesPage
 	| FiguresPage
 	| TocPage
-	deriving Eq
 
 isSectionPage :: Page -> Bool
 isSectionPage (SectionPage _) = True
 isSectionPage _ = False
-
-instance Sections Page where
-    sections (SectionPage sec) = sections sec
-    sections _ = []
 
 data RenderContext = RenderContext
 	{ page :: Page
@@ -862,20 +888,6 @@ squareAbbr softHyphens =
 	TextBuilder.fromText .
 	(if softHyphens then Text.replace "." ".<span class='shy'></span>" else id)
 
-remoteTableHref :: Table -> Text
-remoteTableHref Table{tableSection=Section{..}, ..} =
-	"SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars (head tableAbbrs)
-
-remoteFigureHref :: Figure -> Text
-remoteFigureHref Figure{figureSection=Section{..}, ..} =
-	"SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars figureAbbr
-
-linkToRemoteTable :: Table -> Anchor
-linkToRemoteTable t = anchor{ aHref = remoteTableHref t }
-
---linkToRemoteFigure :: Figure -> Anchor
---linkToRemoteFigure f = anchor{ aHref = remoteFigureHref f }
-
 parentLink :: Section -> Abbreviation -> Text
 parentLink parent child
 	| Just sub <- Text.stripPrefix (abbreviation parent ++ ".") child = sub
@@ -883,16 +895,17 @@ parentLink parent child
 
 abbrHref :: Abbreviation -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
-	| "fig:" `isPrefixOf` abbr =
-		if page == FullPage || abbr `elem` (figureAbbr . snd . figures page) then "#" ++ urlChars abbr
-		else remoteFigureHref (figureByAbbr draft abbr)
-	| "tab:" `isPrefixOf` abbr =
-		case tableByAbbr draft abbr of
-			Just t | page /= FullPage, not ([abbr] `elem` (tableAbbrs . snd . tables page)) -> remoteTableHref t
-			_ -> "#" ++ urlChars abbr
 	| abbrIsOnPage abbr page = "#" ++ case page of
 	    SectionPage sec -> urlChars (parentLink sec abbr)
+	    TablesPage | Just abbr' <- Text.stripPrefix "tab:" abbr -> urlChars abbr'
 	    _ -> urlChars abbr
+	| "fig:" `isPrefixOf` abbr =
+		let Figure{figureSection=Section{..}, ..} = figureByAbbr draft abbr
+		in"SectionToSection/" ++ urlChars abbr ++ "#" ++ urlChars figureAbbr
+	| "tab:" `isPrefixOf` abbr =
+		case tableByAbbr draft abbr of
+			Just Table{tableSection=Section{..}, ..} -> "SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars tableAbbr
+			_ -> "#" ++ urlChars abbr
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 prepMath :: LaTeX -> String

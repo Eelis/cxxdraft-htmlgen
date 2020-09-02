@@ -113,6 +113,7 @@ defaultCmds :: [(Text, Command)]
 defaultCmds =
 	[ ("newcommand", newCommandCommand)
 	, ("renewcommand", newCommandCommand)
+	, ("newcolumntype", newColumnTypeCommand)
 	, ("newenvironment", newEnvCommand)
 	, ("lstnewenvironment", newEnvCommand)
 	, ("raisebox", raiseBoxCommand)
@@ -173,6 +174,14 @@ newCommandCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token ('
 		newMacros = newCommand True (defCmd (Text.pack name) sig body) mempty
 	in
 		ParseResult [] newMacros rest''
+
+newColumnTypeCommand :: Command
+newColumnTypeCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token _ : Token "}" : rest) ->
+	let
+		(_, rest') = parseSignature rest
+		Just (_, rest'') = balanced ('{', '}') rest'
+	in
+		ParseResult [] mempty rest''
 
 defaultMacros :: Macros
 defaultMacros = Macros (Map.fromList defaultCmds) (Map.fromList defaultEnvs) mempty
@@ -269,8 +278,7 @@ newEnvCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : (span (/= To
 		Just (begin, rest'') = balanced ('{', '}') rest'
 		Just (end, rest''') = balanced ('{', '}') rest''
 		pa :: Context -> [Token] -> ParseResult
-		pa c' toks = ParseResult (if nameStr `elem` ["TableBase", "lib2dtab2"] then [TeXEnv nameStr [] replaced] else replaced) mempty toks''
-				-- todo: gross hack
+		pa c' toks = ParseResult replaced mempty toks''
 			where
 				replaced = (fullParse c' $ replArgs args begin ++ body ++ end)
 				(args, toks') = parseArgs sig toks

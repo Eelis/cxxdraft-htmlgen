@@ -11,11 +11,8 @@ import Control.Monad (forM_)
 import Data.Text.IO (readFile)
 import qualified Control.Monad.Parallel as ParallelMonad
 import Util hiding (readFile)
-
 import Toc (writeTocFile)
 import SectionPages
-	( writeSectionFiles, writeFiguresFile, writeTablesFile, writeSingleSectionFile
-	, writeIndexFiles, writeFootnotesFile, writeCssFile, writeXrefDeltaFiles)
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
@@ -52,8 +49,10 @@ main = do
 				[ writeTocFile sectionFileStyle draft
 				, writeCssFile
 				, writeFiguresFile sectionFileStyle draft
+				, writeFigureFiles sectionFileStyle draft
 				, writeFootnotesFile sectionFileStyle draft
 				, writeTablesFile sectionFileStyle draft
+				, writeTableFiles sectionFileStyle draft
 				] ++
 				writeXrefDeltaFiles sectionFileStyle draft ++
 				writeIndexFiles sectionFileStyle draft index ++

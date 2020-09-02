@@ -80,3 +80,15 @@
 \newcommand{\texorpdfstring}[2]{#2}
 \newcommand{\textunderscore}{_}
 \renewcommand{\tref}[1]{Table \ref{tab:#1}}
+
+\newenvironment{LongTable}[3]
+{
+ \newcommand{\continuedcaption}{\caption[]{#1 (continued)}}
+ \begin{htmlTable}{#1}{#2}{#3}
+ \begin{TableBase}
+}
+{
+ \bottomline
+ \end{TableBase}
+ \end{htmltable}
+}
