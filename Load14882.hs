@@ -86,16 +86,40 @@ moveIndexEntriesIntoSecs = go []
 		    | "\\rSec" `isPrefixOf` h = h : reverse x ++ go [] t
 		    | otherwise = reverse x ++ [h] ++ go [] t
 
-indexCodeBlocks :: [Text] -> [Text]
-indexCodeBlocks = go []
+{- The document has a ton of:
+
+  \indexlibraryglobal{bla}%
+  \begin{itemdecl}
+  void bla();
+  \end{itemdecl}
+
+To highlight the whole itemdecl, indexItemDecls converts this to:
+
+  \begin{indexeditemdecl}{
+  \indexlibraryglobal{bla}%
+  }
+  void bla();
+  \end{indexeditemdecl}
+-}
+
+indexCodeEnvs :: [Text] -> [Text] -> [Text]
+indexCodeEnvs envs = go []
 	where
 		go collected [] = collected
 		go collected (x:xs)
 			| "\\index" `isPrefixOf` x = go (collected ++ [x]) xs
-			| "\\begin{codeblock}" `isPrefixOf` x =
-				let (code, _ : rest) = span (not . ("\\end{codeblock}" `isPrefixOf`)) xs
-				in ["\\begin{indexedcodeblock}{"] ++ collected ++ ["}"] ++ code ++ ["\\end{indexedcodeblock}"] ++ indexCodeBlocks rest
-			| otherwise = collected ++ (x : indexCodeBlocks xs)
+			| [e] <- [e | e <- envs, ("\\begin{" ++ e ++ "}") `isPrefixOf` x] =
+				let (code, _ : rest) = span (not . (("\\end{" ++ e ++ "}") `isPrefixOf`)) xs
+				in (if null collected then
+						["\\begin{" ++ e ++ "}"]
+						++ code
+						++ ["\\end{" ++ e ++ "}"]
+					else
+						["\\begin{indexed" ++ e ++ "}{"] ++ collected ++ ["}"]
+						++ code
+						++ ["\\end{indexed" ++ e ++ "}"])
+				 	++ go [] rest
+			| otherwise = collected ++ (x : go [] xs)
 
 data Numbers = Numbers
 	{ tableNr, figureNr, footnoteRefNr, footnoteNr, itemDeclNr
@@ -459,43 +483,6 @@ generateStdGramExt files =
     Text.pack . unlines . grabBnf . lines . Text.unpack .
     Text.concat . mapM readFile ((++ ".tex") . files)
 
-{- The document has a ton of:
-
-  \indexlibraryglobal{bla}%
-  \begin{itemdecl}
-  void bla();
-  \end{itemdecl}
-
-To highlight the whole itemdecl, indexItemDecls converts this to:
-
-  \begin{indexeditemdecl}{
-  \indexlibraryglobal{bla}%
-  }
-  \begin{itemdecl}
-  void bla();
-  \end{itemdecl}
-  \end{indexeditemdecl}
--}
-
-indexItemDecls :: [Text] -> [Text]
-indexItemDecls [] = []
-indexItemDecls ("":x:y:more)
-	| "\\indexlibrary" `isPrefixOf` x
-	, "\\begin{itemdecl}" `isPrefixOf` y =
-		let Just (d, rest) = parseItemDecl [] more in
-			[ "\\begin{indexeditemdecl}{"
-			, x
-			, "}"] ++ d ++
-			["\\end{indexeditemdecl}"]
-			++ indexItemDecls rest
-  where
-	parseItemDecl :: [Text] -> [Text] -> Maybe ([Text], [Text])
-	parseItemDecl _ [] = Nothing
-	parseItemDecl sofar (s:rest)
-		| "\\end{itemdecl}" `isPrefixOf` s = Just (sofar, rest)
-		| otherwise = parseItemDecl (sofar ++ [s]) rest
-indexItemDecls (x:y) = x : indexItemDecls y
-
 parseFiles :: Parser.Macros -> IO ([[LinearSection]], Parser.Macros)
 parseFiles m = do
 	files <- getFileList
@@ -509,10 +496,9 @@ parseFiles m = do
 				replace "multicolfloattable" "floattable" .
 				replace "\\indeximpldef{" "\\index[impldefindex]{" .
 				Text.unlines .
-					indexCodeBlocks .
+					indexCodeEnvs ["codeblock", "itemdecl"] .
 					moveIndexEntriesIntoSecs .
 					moveIndexEntriesIntoDefs .
-					indexItemDecls .
 				Text.lines .
 				trackPnums p .
 				replace "\\nodiffref\n\\change" "\n\\pnum\\textbf{Change:}\\space" .
