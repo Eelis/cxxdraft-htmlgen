@@ -158,6 +158,8 @@ instance AssignNumbers LaTeXUnit LaTeXUnit where
 
 instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
 	assignNumbers s x@Cell{..} = do
+		n <- get
+		put n{nextSentenceNr=1}
 		content' <- assignNumbers s content
 		return x{content=content'}
 

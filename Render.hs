@@ -1063,8 +1063,7 @@ renderComplexMath math ctx
         html = highlightCodeInMath ctx $ fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
-renderTable colspec a sec =
-	xml "table" [] (renderRows (parseColspec colspec) a)
+renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 	where
 		parseColspec :: LaTeX -> [Text]
 		parseColspec [] = []
@@ -1096,10 +1095,18 @@ renderTable colspec a sec =
 			  Nothing <- Text.stripPrefix "border" newCs = "border " ++ newCs
 			| otherwise = newCs
 
-		renderRows _ [] = ""
-		renderRows cs (Row{..} : rest) =
-			(xml "tr" cls $ renderCols cs 1 clines cells) ++ renderRows cs rest
+		renderRows :: [(Integer, Row [TeXPara])] -> RenderContext -> TextBuilder.Builder
+		renderRows [] _ = ""
+		renderRows ((rowNum, Row{..}) : rest) ctx =
+			xml "tr" ([("id", rowId)] ++ cls) (
+				xml "td" [("class", "hidden")] marginalizedLink ++
+				renderCols ctx' (parseColspec colspec) 1 clines cells)
+			++ renderRows rest ctx
 			where
+				marginalizedLink = xml "div" [("class", "marginalizedparent")] (render link ctx)
+				link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars rowId, aText="🔗"}
+				rowId = idPrefix ctx ++ "row-" ++ Text.pack (show rowNum)
+				ctx' = ctx{idPrefix = rowId ++ "-"}
 				cls | RowSep <- rowSep = [("class", "rowsep")]
 				    | CapSep <- rowSep = [("class", "capsep")]
 				    | otherwise = []
@@ -1107,8 +1114,8 @@ renderTable colspec a sec =
 					| Clines clns <- rowSep = clns
 					| otherwise = []
 
-		renderCols _ _ _ [] = ""
-		renderCols (c : cs) colnum clines (Cell{..} : rest)
+		renderCols _ _ _ _ [] = ""
+		renderCols ctx (c : cs) colnum clines (Cell{..} : rest)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let
@@ -1118,12 +1125,15 @@ renderTable colspec a sec =
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					renderCell colspan c' (renderLatexParas content sec)
-					++ renderCols (drop (colspan - 1) cs) (colnum + colspan) clines rest
+					renderCell colspan c' cnt
+					++ renderCols ctx (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				renderCell 1 (c ++ clineClass colnum clines) (renderLatexParas content sec)
-				++ renderCols cs (colnum + 1) clines rest
-		renderCols [] _ _ (_ : _) = error "Too many columns"
+				renderCell 1 (c ++ clineClass colnum clines) cnt
+				++ renderCols ctx cs (colnum + 1) clines rest
+			where
+				cnt = renderLatexParas content ctx'
+				ctx' = ctx{idPrefix = idPrefix ctx ++ "column-" ++ Text.pack (show colnum) ++ "-"}
+		renderCols _ [] _ _ (_ : _) = error "Too many columns"
 
 		clineClass n clines
 			| isJust $ find (\(begin, end) -> begin <= n && n <= end) clines =

@@ -365,6 +365,10 @@ td.left {
 	text-align: left;
 }
 
+td.hidden {
+	padding: 0;
+}
+
 td.right {
 	text-align: right;
 }
