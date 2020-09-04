@@ -288,6 +288,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 	where
 		kill (TeXComm "hline" _ []) = True
 		kill (TeXComm "capsep" _ []) = True
+		kill (TeXComm "endhead" _ _) = True
 		kill _ = False
 		f :: LaTeXUnit -> RawElement
 		f e@(TeXEnv k a stuff)
