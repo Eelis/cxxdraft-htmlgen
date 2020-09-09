@@ -105,8 +105,8 @@ Hidden links
   - moving the mouse over the right margin of a numbered paragraph reveals a link
     to the LaTeX source for that paragraph;
 
-  - moving the mouse over the left margin of an itemdecl reveals a link
-    that selects the itemdecl.
+  - moving the mouse over the left margin of an itemdecl or table row reveals a link
+    that selects it.
 
 Todo
 
