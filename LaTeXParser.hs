@@ -233,12 +233,12 @@ balanced (open, close) (dropWhile (all isSpace . tokenChars) -> (Token [o] : s))
 balanced oc (dropWhile (all isSpace. tokenChars) -> (Token "%" : x)) = balanced oc (dropWhile (/= Token "\n") x)
 balanced _ _ = Nothing
 
-balanced_body :: String -> [Token] -> ([Token], [Token])
-balanced_body end = go 0
+balanced_body :: Context -> String -> [Token] -> ([Token], [Token])
+balanced_body ctx end = go 0
 	where
 		go :: Int -> [Token] -> ([Token], [Token])
 		go 0 [] = ([], [])
-		go 0 (Token "\\end" : Token "{" : Token e : Token "}" : x) | e == end = ([], x)
+		go 0 (Token "\\end" : Token "{" : e : Token "}" : x) | fullParse ctx [e] == [TeXRaw $ Text.pack end] = ([], x)
 		go n (Token "}" : x) = first (Token "}" :) (go (n-1) x)
 		go n (Token "{" : x) = first (Token "{" :) (go (n+1) x)
 		go n (x:y) = first (x :) (go n y)
@@ -280,9 +280,9 @@ newEnvCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : (span (/= To
 		pa :: Context -> [Token] -> ParseResult
 		pa c' toks = ParseResult replaced mempty toks''
 			where
-				replaced = (fullParse c' $ replArgs args begin ++ body ++ end)
+				replaced = fullParse c' $ replArgs args begin ++ body ++ end
 				(args, toks') = parseArgs sig toks
-				(body, toks'') = balanced_body nameStr toks'
+				(body, toks'') = balanced_body c' nameStr toks'
 		m = Macros mempty (Map.singleton (Text.pack nameStr) (Environment pa)) mempty
 	in
 		ParseResult [] m rest'''
