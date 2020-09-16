@@ -54,19 +54,19 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 		renderNumbered :: Text -> TextBuilder.Builder -> TextBuilder.Builder
 		renderNumbered n =
 			let
-				idTag = if isSectionPage (page ctx) then [("id", idPrefix ctx ++ n)] else []
+				idTag = if isSectionPage (page ctx) then [("id", mconcat (idPrefixes ctx) ++ n)] else []
 				a = anchor
 					{ aClass = "marginalized"
 					, aHref  =
 						if isSectionPage (page ctx)
-							then "#" ++ urlChars (idPrefix ctx) ++ n
+							then "#" ++ urlChars (mconcat (idPrefixes ctx)) ++ n
 							else "SectionToSection/" ++ urlChars (abbreviation paraSection) ++ "#" ++ n
 					, aText  = TextBuilder.fromText n }
 			in
 				xml "div" (("class", "para") : idTag) .
 				(xml "div" [("class", "marginalizedparent")] (render a ctx') ++)
 		ctx' = case paraNumber of
-			Just n -> ctx{ idPrefix = idPrefix ctx ++ Text.pack (show n) ++ "." }
+			Just n -> ctx{ idPrefixes = idPrefixes ctx ++ [Text.pack (show n) ++ "."] }
 			Nothing -> ctx
 renderParagraph _ = undefined
 
@@ -75,7 +75,7 @@ renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
 		idDiv $ header ++
 		mconcat (map
-			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefix=if parasEmitted then secOnPage ++ "-" else ""}))
+			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
 		concatRender sectionFootnotes context{nearestEnclosing=Right s} ++
 		mconcat (fst . renderSection context Nothing True . subsections)
@@ -154,7 +154,7 @@ writeTablesFile sfs draft = writeSectionFile "tab" sfs "14882: Tables" $
 				draft = draft,
 				nearestEnclosing = Left p,
 				page = TablesPage,
-				idPrefix = fromJust (Text.stripPrefix "tab:" tableAbbr) ++ "-"}
+				idPrefixes = [fromJust (Text.stripPrefix "tab:" tableAbbr) ++ "-"]}
 
 writeFootnotesFile :: SectionFileStyle -> Draft -> IO ()
 writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnotes" $

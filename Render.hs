@@ -36,7 +36,7 @@ import Control.Arrow (second)
 import qualified Prelude
 import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
-import Data.List (find, nub, intersperse, (\\), sortOn)
+import Data.List (find, nub, intersperse, (\\), sortOn, dropWhileEnd)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
@@ -553,7 +553,7 @@ instance Render LaTeXUnit where
 		let
 			i = case [(icat, ipath) | (icat, ipath, _inum, Just DefinitionIndexEntry) <- indexPaths t] of
 				[(icat, ipath)] -> indexPathId icat (Just DefinitionIndexEntry) ipath
-				_ -> idPrefix c ++ "itemdecl:" ++ num
+				_ -> mconcat (idPrefixes c) ++ "itemdecl:" ++ num
 			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
 		in
 			xml "div" [("class", "itemdecl"), ("id", i)] $
@@ -704,8 +704,8 @@ instance Render RenderItem where
 			left
 				| listOrdered = "-4.5em"
 				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
-			thisId = idPrefix ctx ++ Text.pack (Prelude.last nn)
-			ctx' = ctx{ idPrefix = thisId ++ "." }
+			thisId = mconcat (idPrefixes ctx) ++ Text.pack (Prelude.last nn)
+			ctx' = ctx{ idPrefixes = idPrefixes ctx ++ [Text.pack (Prelude.last nn) ++ "."] }
 			dottedNumber = Text.intercalate "." (Text.pack . nn)
 			linkText
 				| listOrdered =
@@ -736,7 +736,7 @@ instance Render Footnote where
 	render (Footnote n content) ctx =
 			xml "div" [("class", "footnote"), ("id", i)] $
 			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
-			renderLatexParas content ctx{idPrefix = i ++ "."}
+			renderLatexParas content ctx{idPrefixes = [i ++ "."]}
 			++ " " ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
 		where
 			num = Text.pack $ show n
@@ -760,11 +760,12 @@ instance Render Note where
 				++ " —" ++ noWrapSpace ++ "<i>end note</i>]")
 			++ " "
 		where
-			i = idPrefix ctx ++ "note-" ++ Text.pack (show noteNumber)
+			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "note-" ++ noteNum
+			noteNum = Text.pack $ show noteNumber
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "note_link",
-				aText = spanTag "textit" (TextBuilder.fromText noteLabel) }
+				aText = spanTag "textit" $ TextBuilder.fromText $ noteLabel ++ "&nbsp;" ++ noteNum }
 
 instance Render Example where
 	render Example{..} ctx
@@ -780,11 +781,12 @@ instance Render Example where
 				++ " —" ++ noWrapSpace ++ "<i>end example</i>]")
 			++ " "
 		where
-			i = idPrefix ctx ++ "example-" ++ Text.pack (show exampleNumber)
+			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "example-" ++ exNum
+			exNum = Text.pack $ show exampleNumber
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "example_link",
-				aText = "<span class='textit'>Example</span>" }
+				aText = spanTag "textit" $ TextBuilder.fromText $ "Example&nbsp;" ++ exNum }
 
 nontermDef :: LaTeX -> Maybe Text
 nontermDef t
@@ -802,7 +804,7 @@ instance Render Element where
 				| Just nt <- nontermDef t = [("id", "nt:" ++ nt)]
 				| otherwise = []
 	render (TableElement t) = \ctx ->
-		renderTab False t ("./SectionToSection/" ++ tableAbbr t) False True ctx{idPrefix=tableAbbr t++"-"}
+			renderTab False t ("./SectionToSection/" ++ tableAbbr t) False True ctx{idPrefixes=[tableAbbr t++"-"]}
 	render (FigureElement f) = renderFig False f ("./SectionToSection/" ++ figureAbbr f) False True
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
@@ -862,7 +864,7 @@ data RenderContext = RenderContext
 	, replXmlChars :: Bool -- replace < with &lt;, etc
 	, noTags :: Bool -- means we're rendering the contents of e.g. a "title" attribute which cannot contain tags/elements
 	, extraIndentation :: Int -- in em
-	, idPrefix :: Text }
+	, idPrefixes :: [Text] }
 
 defaultRenderContext :: RenderContext
 defaultRenderContext = RenderContext
@@ -880,7 +882,7 @@ defaultRenderContext = RenderContext
 	, replXmlChars = True
 	, noTags = False
 	, extraIndentation = 0
-	, idPrefix = "" }
+	, idPrefixes = [] }
 
 squareAbbr :: Bool -> Abbreviation -> TextBuilder.Builder
 squareAbbr softHyphens =
@@ -1105,8 +1107,8 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 			where
 				marginalizedLink = xml "div" [("class", "marginalizedparent")] (render link ctx)
 				link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars rowId, aText="🔗"}
-				rowId = idPrefix ctx ++ "row-" ++ Text.pack (show rowNum)
-				ctx' = ctx{idPrefix = rowId ++ "-"}
+				rowId = mconcat (idPrefixes ctx) ++ "row-" ++ Text.pack (show rowNum)
+				ctx' = ctx{idPrefixes = idPrefixes ctx ++ ["row-" ++ Text.pack (show rowNum) ++ "-"]}
 				cls | RowSep <- rowSep = [("class", "rowsep")]
 				    | CapSep <- rowSep = [("class", "capsep")]
 				    | otherwise = []
@@ -1132,7 +1134,7 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 				++ renderCols ctx cs (colnum + 1) clines rest
 			where
 				cnt = renderLatexParas content ctx'
-				ctx' = ctx{idPrefix = idPrefix ctx ++ "column-" ++ Text.pack (show colnum) ++ "-"}
+				ctx' = ctx{idPrefixes = idPrefixes ctx ++ ["column-" ++ Text.pack (show colnum) ++ "-"]}
 		renderCols _ [] _ _ (_ : _) = error "Too many columns"
 
 		clineClass n clines
@@ -1167,7 +1169,7 @@ instance Render Sentence where
 			| otherwise = render sentenceElems ctx
 		where
 			i = case sentenceNumber of
-				Just v -> Just $ idPrefix ctx ++ "sentence-" ++ Text.pack (show v)
+				Just v -> Just $ mconcat (idPrefixes ctx) ++ "sentence-" ++ Text.pack (show v)
 				Nothing -> Nothing
 			link = TeXComm "class" ""
 			    [ (FixArg, [TeXRaw "hidden_link"])

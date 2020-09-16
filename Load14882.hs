@@ -335,7 +335,7 @@ assignItemNumbers p
 instance AssignNumbers (Maybe Int, RawParagraph) Paragraph where
 	assignNumbers paraSection (paraNumber, RawParagraph{..}) = do
 		nums <- get
-		put nums{noteNr=1, exampleNr=1, nextSentenceNr=if paraNumbered then 1 else nextSentenceNr nums}
+		put nums{nextSentenceNr=if paraNumbered then 1 else nextSentenceNr nums}
 		paraElems <- assignNumbers paraSection rawParaElems
 		when paraNumbered $ modify $ \newnums -> newnums{nextSentenceNr = nextSentenceNr nums}
 		return $ assignItemNumbers Paragraph
@@ -360,7 +360,7 @@ treeizeSections sectionNumber chapter parents
 			, .. }
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		nums <- get
-		put nums{itemDeclNr=1}
+		put nums{noteNr=1, exampleNr=1, itemDeclNr=1}
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		modify $ \n -> n{nextSentenceNr=1}
 		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
