@@ -207,10 +207,13 @@ renderCodeblock env args code ctx =
       ("codeblocktu", [(FixArg, title)]) -> (("<p>" ++ render title ctx ++ ":") ++)
       ("indexedcodeblock", [(FixArg, indices)]) -> renderIndexed ctx "span" indices
       _ -> id) $
-    xml "pre" [("class", "codeblock")] (
+    xml "span" [("class", "codeblock")] (
         highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
-        concatRaws $ expandTcode code)
+        concatRaws $ expandTcode (dropInitialNewline code))
   where
+    dropInitialNewline :: LaTeX -> LaTeX
+    dropInitialNewline (TeXRaw (Text.uncons -> Just ('\n', rest)) : more) = TeXRaw rest : more
+    dropInitialNewline x = x
     expandTcode :: LaTeX -> LaTeX
     expandTcode [] = []
     expandTcode (TeXComm "tcode" _ [(FixArg, x)] : y) = expandTcode (x ++ y)
@@ -737,7 +740,7 @@ instance Render Footnote where
 			xml "div" [("class", "footnote"), ("id", i)] $
 			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
 			renderLatexParas content ctx{idPrefixes = [i ++ "."]}
-			++ " " ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
+			++ "&nbsp;" ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
 		where
 			num = Text.pack $ show n
 			i = "footnote-" ++ num
