@@ -4,10 +4,10 @@ body {
 		   from surrounding text by virtue of being sans serif. */
 	hyphens: auto;
 	line-height: 1.35;
-	margin-left: 5em;
-	margin-right: 4em;
-	margin-top: 3em;
-	margin-bottom: 3em;
+	margin-left: 20mm;
+	margin-right: 16mm;
+	margin-top: 12mm;
+	margin-bottom: 12mm;
 }
 
 div {
@@ -15,7 +15,7 @@ div {
 }
 
 div.wrapper {
-	max-width: 60em;
+	max-width: 24cm;
 	margin: auto;
 }
 
