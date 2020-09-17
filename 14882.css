@@ -6,6 +6,7 @@ body {
 	margin-right: 16mm;
 	margin-top: 12mm;
 	margin-bottom: 12mm;
+	font-size: 12pt;
 }
 
 div {
@@ -13,15 +14,15 @@ div {
 }
 
 div.wrapper {
-	max-width: 22cm;
+	max-width: 20cm;
 	margin: auto;
 }
 
 ul {
 	list-style-type: none;
 	padding-left: 2em;
-	margin-top: -0.2em;
-	margin-bottom: -0.2em;
+	margin-top: 0;
+	margin-bottom: 0;
 }
 
 a { text-decoration: none; }
@@ -32,8 +33,8 @@ a.hidden_link {
 }
 
 li {
-	margin-top: 0.3em;
-	margin-bottom: 0.3em;
+	margin-top: 4pt;
+	margin-bottom: 4pt;
 }
 
 h1 {
@@ -125,7 +126,7 @@ div.footnoteNumberParent {
 
 a.marginalized {
 	position: absolute;
-	font-size: 75%;
+	font-size: 8pt;
 	text-align: right;
 	width: 5em;
 }
@@ -140,8 +141,8 @@ a.enumerated_item_num {
 }
 
 div.para {
-	margin-bottom: 0.6em;
-	margin-top: 0.6em;
+	margin-bottom: 6pt;
+	margin-top: 6pt;
 	text-align: justify;
 	min-height: 1.2em;
 }
@@ -301,8 +302,8 @@ span.definition {
 	font-size: 10pt;
 	white-space: pre;
 	display: block;
-	margin-top: 0.5em;
-	margin-bottom: 0.5em;
+	margin-top: 5pt;
+	margin-bottom: 5pt;
 }
 
 .outputblock {
@@ -364,16 +365,16 @@ div.numberedTable {
 	text-align: center;
 	margin-left: 2em;
 	margin-right: 2em;
-	margin-bottom: 2em;
-	margin-top: 1.2em;
+	margin-bottom: 12pt;
+	margin-top: 8pt;
 }
 
 div.figure {
 	text-align: center;
 	margin-left: 2em;
 	margin-right: 2em;
-	margin-bottom: 2em;
-	margin-top: 0.6em;
+	margin-bottom: 12pt;
+	margin-top: 3pt;
 }
 
 table {
@@ -381,7 +382,7 @@ table {
 	border-collapse: collapse;
 	margin-left: auto;
 	margin-right: auto;
-	margin-top: 0.8em;
+	margin-top: 7pt;
 	text-align: left;
 	hyphens: none; /* otherwise some columns get very narrow, e.g. [tab:hash] */
 }
