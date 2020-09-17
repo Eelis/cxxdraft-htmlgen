@@ -226,7 +226,7 @@ div.itemdescr {
 span.textnormal {
 	font-style: normal;
 	font-family: Times New Roman;
-	font-size: 16px;
+	font-size: 12pt;
 	white-space: normal;
 }
 
@@ -236,7 +236,7 @@ span.rlap {
 }
 
 span.term { font-style: italic; }
-span.terminal { font-family: Courier New; font-style: normal; font-size: 14px; }
+span.terminal { font-family: Courier New; font-style: normal; font-size: 10pt; }
 span.noncxxterminal { font-family: Courier New; font-style: normal; }
 span.tcode { font-family: Courier New; font-style: normal; }
 span.textbf { font-weight: bold; }
@@ -256,9 +256,9 @@ span.mathtt { font-family: Courier New; font-style: normal; }
 span.mbox { font-family: Times New Roman; font-style: normal; }
 span.ungap { display: inline-block; width: 2pt; }
 span.textit { font-style: italic; }
-span.texttt { font-family: Courier New; font-size: 14px; }
+span.texttt { font-family: Courier New; font-size: 10pt; }
 div.footnote span.texttt { font-family: Courier New; font-size: 11px; }
-span.tcode_in_codeblock { font-family: Courier New; font-style: normal; font-size: 14px; }
+span.tcode_in_codeblock { font-family: Courier New; font-style: normal; font-size: 10pt; }
 
 span.phantom { color: white; }
 	/* Unfortunately, this way the text is still selectable. Another
@@ -298,7 +298,7 @@ span.definition {
 	font-family: Courier New;
 	margin-left: 1.2em;
 	line-height: 140%;
-	font-size: 14px;
+	font-size: 10pt;
 	white-space: pre;
 	display: block;
 	margin-top: 0.5em;
@@ -322,11 +322,11 @@ div.itemdecl {
 code.itemdeclcode {
 	white-space: pre;
 	font-family: Courier New;
-	font-size: 14px;
+	font-size: 10pt;
 	display: block;
 }
 
-span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 16px; }
+span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 12pt; }
 div.footnote span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 13px; }
 span.keyword { color: #00607c; font-style: normal; }
 span.parenthesis { color: #af1915; }

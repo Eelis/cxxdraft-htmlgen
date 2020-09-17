@@ -270,7 +270,15 @@ parseFile macros =
 loadFigure :: Text -> Text
 loadFigure f = unsafePerformIO $ do
 		dot <- readFile p
-		svg <- readProcess "dot" ["-Tsvg", "-Gbgcolor=transparent", "-Nfontsize=13", "-Gfontsize=13"] (Text.unpack $ Text.replace "fontsize=24" "fontsize=13" dot)
+		svg <- readProcess "dot" ["-Tsvg",
+			"-Gbgcolor=transparent",
+			"-Gsize=8",
+			"-Nfontsize=12",
+			"-Gfontsize=12",
+			"-Efontsize=12",
+			"-Nfontname=Times New Roman",
+			"-Efontname=Times New Roman",
+			"-Gfontname=Times New Roman"] (Text.unpack $ Text.replace ", fontsize=24" "" dot)
 		return $ rmIds $ snd $ Text.breakOn "<svg" $ Text.pack svg
 	where
 		p = Text.unpack $ Text.replace ".pdf" ".dot" f
