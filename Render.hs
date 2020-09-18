@@ -1247,7 +1247,7 @@ secnum :: Text -> Section -> TextBuilder.Builder
 secnum href se@Section{..} =
 	simpleRender2 (anchor{aClass=c, aHref=href, aText=secnumText se, aStyle=Text.pack style})
 	where
-		style = "min-width:" ++ show (73 + length parents * 15) ++ "pt"
+		style = "min-width:" ++ show (50 + length parents * 15) ++ "pt"
 		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
 
