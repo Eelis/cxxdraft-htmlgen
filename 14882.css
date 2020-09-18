@@ -20,7 +20,12 @@ div.wrapper {
 
 ul {
 	list-style-type: none;
-	padding-left: 2em;
+	padding-left: 9mm;
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+ol {
 	margin-top: 0;
 	margin-bottom: 0;
 }
@@ -33,8 +38,8 @@ a.hidden_link {
 }
 
 li {
-	margin-top: 4pt;
-	margin-bottom: 4pt;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
 }
 
 h1 {
@@ -116,7 +121,8 @@ a.itemDeclLink:hover { opacity: 1; }
 
 div.marginalizedparent {
 	position: relative;
-	left: -5em;
+	left: -18mm;
+	top: 0.6mm;
 }
 
 div.footnoteNumberParent {
@@ -125,10 +131,10 @@ div.footnoteNumberParent {
 }
 
 a.marginalized {
+	width: 15mm;
 	position: absolute;
-	font-size: 8pt;
+	font-size: 7pt;
 	text-align: right;
-	width: 5em;
 }
 
 a.enumerated_item_num {
@@ -177,7 +183,7 @@ a.index:target {
 }
 
 div.itemdescr {
-	margin-left: 3em;
+	margin-left: 12mm;
 }
 
 .bnf {

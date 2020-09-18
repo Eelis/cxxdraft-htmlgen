@@ -38,7 +38,8 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 			Nothing -> id)
 		$ (if paraInItemdescr then xml "div" [("class", "itemdescr")] else id)
 		$ (sourceLink
-		  ++ renderLatexParas paraElems ctx'{extraIndentation=if paraInItemdescr then 3 else 0})
+		  ++ renderLatexParas paraElems ctx'{extraIndentation=if paraInItemdescr then 12 else 0})
+			-- the 12 here must match div.itemdescr's margin-left value in mm
 	where
 		urlBase = Text.replace "/commit/" "/tree/" commitUrl ++ "/source/"
 		sourceLink :: TextBuilder.Builder

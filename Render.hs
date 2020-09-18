@@ -706,7 +706,9 @@ instance Render RenderItem where
 			content = spacedJoin (render elems ctx') (renderLatexParas paras ctx')
 			left
 				| listOrdered = "-4.5em"
-				| otherwise = simpleRender (-3 - 2 * length nn - extraIndentation ctx) ++ "em"
+				| otherwise = simpleRender (-marginalizedParentLeft - ulPaddingLeft * (length nn - 1) - extraIndentation ctx) ++ "mm"
+			ulPaddingLeft = 9
+			marginalizedParentLeft = 18
 			thisId = mconcat (idPrefixes ctx) ++ Text.pack (Prelude.last nn)
 			ctx' = ctx{ idPrefixes = idPrefixes ctx ++ [Text.pack (Prelude.last nn) ++ "."] }
 			dottedNumber = Text.intercalate "." (Text.pack . nn)
