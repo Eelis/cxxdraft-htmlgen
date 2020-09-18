@@ -310,6 +310,8 @@ span.definition {
 	display: block;
 	margin-top: 5pt;
 	margin-bottom: 5pt;
+	overflow: auto;
+	margin-right: -15mm;
 }
 
 .outputblock {
@@ -331,6 +333,8 @@ code.itemdeclcode {
 	font-family: Courier New;
 	font-size: 10pt;
 	display: block;
+	overflow: auto;
+	margin-right: -15mm;
 }
 
 span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 12pt; }
