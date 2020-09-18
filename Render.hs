@@ -1183,12 +1183,18 @@ renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""
 renderLatexParas (TeXPara [] : y) c = renderLatexParas y c
 renderLatexParas [x] ctx = render x ctx
-renderLatexParas (p@(TeXPara x) : xs@(y : _)) ctx
-	| LatexElement _ <- last (sentenceElems (last x)), needsBreak y
+renderLatexParas (p : xs@(y : _)) ctx
+	| needsBreakAfter p, needsBreak y
 		= render p ctx
 			++ "<div style='height:0.6em;display:block'></div>"
 			++ renderLatexParas xs ctx
 	| otherwise = render p ctx ++ renderLatexParas xs ctx
+
+needsBreakAfter :: TeXPara -> Bool
+needsBreakAfter (TeXPara x) = case last (sentenceElems (last x)) of
+  LatexElement _ -> True
+  Enumerated _ _ -> True
+  _ -> False
 
 needsBreak :: TeXPara -> Bool
 needsBreak (TeXPara []) = False
