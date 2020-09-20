@@ -1067,7 +1067,8 @@ renderComplexMath math ctx
     | otherwise = "<br>" ++ html
     where
         (formula, inline) = mathKey math
-        html = highlightCodeInMath ctx $ fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
+        html = (if inComment ctx then TextBuilder.fromText . Soup.renderTags else highlightCodeInMath ctx) $
+          fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
 
 renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
