@@ -257,7 +257,7 @@ span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
 span.mathsf { font-family: Arial; }
 span.mathrm { font-family: Times New Roman; font-style: normal; }
-span.textrm { font-family: Times New Roman; }
+span.textrm { font-family: Times New Roman; font-size: 12pt; }
 span.textsl { font-style: italic; }
 span.mathtt { font-family: Courier New; font-style: normal; }
 span.mbox { font-family: Times New Roman; font-style: normal; }
