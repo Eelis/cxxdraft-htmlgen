@@ -1183,35 +1183,7 @@ instance Render Sentence where
 			    ] -- in math, \class and \href are recognized by mathjax
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
-renderLatexParas [] _ = ""
-renderLatexParas [x] ctx = render x ctx
-renderLatexParas (p : xs@(y : _)) ctx
-	| needsBreakAfter p, needsBreak y
-		= render p ctx
-			++ "<div style='height:0.6em;display:block'></div>"
-			++ renderLatexParas xs ctx
-	| otherwise = render p ctx ++ renderLatexParas xs ctx
-
-needsBreakAfter :: TeXPara -> Bool
-needsBreakAfter (TeXPara x) = case last (sentenceElems (last x)) of
-  LatexElement _ -> True
-  Enumerated _ _ -> True
-  _ -> False
-
-needsBreak :: TeXPara -> Bool
-needsBreak (TeXPara []) = False
-needsBreak (TeXPara (Sentence _ [] : y)) = needsBreak (TeXPara y)
-needsBreak (TeXPara (Sentence s (x : y) : z))
-	| noise x = needsBreak (TeXPara (Sentence s y : z))
-	| LatexElement _ <- x = True
-	| NoteElement _ <- x = True
-	| ExampleElement _ <- x = True
-	| otherwise = False
-	where
-		noise (LatexElement (TeXComm "index" _ _)) = True
-		noise (LatexElement (TeXRaw t)) = all isSpace (Text.unpack t)
-		noise _ = False
-
+renderLatexParas pp ctx = mconcat $ map (flip render ctx) pp
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX
