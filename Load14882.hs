@@ -186,6 +186,7 @@ assignNonInlineItem s (RawItem label content) = do
 	Item Nothing (if null label then Nothing else Just label) [] . assignNumbers s content
 
 breakFirstSentence :: [TeXPara] -> (Sentence, [TeXPara])
+breakFirstSentence (TeXPara [x] : z) = (x, z)
 breakFirstSentence (TeXPara (x:y) : z) = (x, TeXPara y : z)
 breakFirstSentence x = error $ "breakFirstSentence: " ++ show x
 

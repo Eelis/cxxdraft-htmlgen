@@ -1184,7 +1184,6 @@ instance Render Sentence where
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
 renderLatexParas [] _ = ""
-renderLatexParas (TeXPara [] : y) c = renderLatexParas y c
 renderLatexParas [x] ctx = render x ctx
 renderLatexParas (p : xs@(y : _)) ctx
 	| needsBreakAfter p, needsBreak y
