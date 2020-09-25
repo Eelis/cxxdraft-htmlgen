@@ -757,14 +757,12 @@ noWrapSpace :: TextBuilder.Builder
 noWrapSpace = "&nbsp;"
 
 instance Render Note where
-	render Note{..} ctx =
-			xml "div" [("id", i), ("class", "note")]
-				("[" ++ render link ctx
-				++ "<span class='textit'>:</span> "
-				++ renderLatexParas noteContent ctx
-				++ " —" ++ noWrapSpace ++ "<i>end note</i>]")
-			++ " "
+	render Note{..} ctx = xml "div" [("id", i), ("class", "note")] (renderParas True noteContent)
 		where
+			prefix = "[" ++ render link ctx ++ "<span class='textit'>:</span> "
+			suffix = " —" ++ noWrapSpace ++ "<i>end note</i>]"
+			renderParas _ [] = ""
+			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
 			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "note-" ++ noteNum
 			noteNum = Text.pack $ show noteNumber
 			link = anchor{
@@ -778,14 +776,12 @@ instance Render Example where
 			"[Example: "
 			++ renderLatexParas exampleContent ctx
 			++ " —&nbsp;end&nbsp;example] "
-		| otherwise =
-			xml "div" [("id", i), ("class", "example")]
-				("[" ++ render link ctx
-				++ "<span class='textit'>:</span> "
-				++ renderLatexParas exampleContent ctx
-				++ " —" ++ noWrapSpace ++ "<i>end example</i>]")
-			++ " "
+		| otherwise = xml "div" [("id", i), ("class", "example")] (renderParas True exampleContent)
 		where
+			prefix = "[" ++ render link ctx ++ "<span class='textit'>:</span> "
+			suffix = " —" ++ noWrapSpace ++ "<i>end example</i>]"
+			renderParas _ [] = ""
+			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
 			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "example-" ++ exNum
 			exNum = Text.pack $ show exampleNumber
 			link = anchor{
@@ -1183,7 +1179,7 @@ instance Render Sentence where
 			    ] -- in math, \class and \href are recognized by mathjax
 
 renderLatexParas :: [TeXPara] -> RenderContext -> TextBuilder.Builder
-renderLatexParas pp ctx = mconcat $ map (flip render ctx) pp
+renderLatexParas pp ctx = mconcat $ map (xml "div" [("class", "texpara")] . flip render ctx) pp
 
 -- Explicit <br/>'s are redundant in <pre>, so strip them.
 preprocessPre :: LaTeX -> LaTeX

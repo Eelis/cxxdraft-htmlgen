@@ -18,6 +18,11 @@ div.wrapper {
 	margin: auto;
 }
 
+div.texpara {
+	margin-top: 4pt;
+	margin-bottom: 4pt;
+}
+
 ul {
 	list-style-type: none;
 	padding-left: 9mm;
@@ -237,6 +242,11 @@ span.textnormal {
 	white-space: normal;
 }
 
+p {
+	margin-top: 4pt;
+	margin-bottom: 4pt;
+}
+
 span.rlap {
     display: inline-block;
     width: 0px;
@@ -308,8 +318,8 @@ span.definition {
 	font-size: 10pt;
 	white-space: pre;
 	display: block;
-	margin-top: 5pt;
-	margin-bottom: 5pt;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
 	overflow: auto;
 	margin-right: -15mm;
 }
