@@ -741,9 +741,12 @@ instance Render Footnote where
 	render (Footnote n content) ctx =
 			xml "div" [("class", "footnote"), ("id", i)] $
 			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
-			renderLatexParas content ctx{idPrefixes = [i ++ "."]}
-			++ "&nbsp;" ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
+			renderParas content
 		where
+			ctx' = ctx{idPrefixes = [i ++ "."]}
+			suffix = "&nbsp;" ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
+			renderParas [] = ""
+			renderParas (p:pp) = xml "div" [("class", "texpara")] (render p ctx' ++ (if null pp then suffix else "")) ++ renderParas pp
 			num = Text.pack $ show n
 			i = "footnote-" ++ num
 			link = anchor
