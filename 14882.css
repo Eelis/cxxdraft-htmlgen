@@ -23,6 +23,11 @@ div.texpara {
 	margin-bottom: 4pt;
 }
 
+table div.texpara {
+	margin-top: 0pt;
+	margin-bottom: 0pt;
+}
+
 ul {
 	list-style-type: none;
 	padding-left: 9mm;
