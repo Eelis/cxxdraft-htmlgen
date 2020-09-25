@@ -161,19 +161,15 @@ div.para {
 div.section { text-align: justify; }
 div.sentence { display: inline; }
 
-span.indexparent {
-	display: inline;
+a.index {
 	position: relative;
 	float: right;
 	right: -1em;
-}
-
-a.index {
-	position: absolute;
 	display: none;
 }
 
 a.index:before {
+	position: absolute;
 	content: "⟵";
 	background-color: #C9FBC9;
 }

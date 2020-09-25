@@ -473,8 +473,7 @@ instance Render LaTeXUnit where
 		= \ctx -> if noTags ctx then "" else case kind of
 			Just IndexClose -> ""
 			Just (See _ _) -> ""
-			_ ->
-					spanTag "indexparent" $ render anchor
+			_ -> render anchor
 						{ aId = indexPathId2 ctx entryNr category p kind
 						, aClass = "index"} ctx
 	render (TeXComm "indexedspan" _ [(FixArg, text), (FixArg, indices)]) =
