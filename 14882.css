@@ -19,13 +19,18 @@ div.wrapper {
 }
 
 div.texpara {
-	margin-top: 4pt;
-	margin-bottom: 4pt;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
 }
 
 table div.texpara {
-	margin-top: 0pt;
-	margin-bottom: 0pt;
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+table.enumerate div.texpara {
+	margin-top: 3pt;
+	margin-bottom: 3pt;
 }
 
 ul {
@@ -148,12 +153,10 @@ a.marginalized {
 }
 
 a.enumerated_item_num {
-	position: relative;
-	left: -3.5em;
-	display: inline-block;
-	margin-right: -3em;
-	text-align: right;
-	width: 3em;
+	display: block;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
+	margin-right: 6pt;
 }
 
 div.para {
@@ -476,5 +479,16 @@ span.indented {
 	margin-top: 1em;
 }
 
-ol.enumeratea { list-style-type: none; background: inherit; }
-ol.enumerate { list-style-type: none; background: inherit; }
+table.enumerate {
+	border: 0;
+	margin: 0;
+}
+
+table.enumerate td {
+	padding: 0;
+}
+
+table.enumerate td:first-child {
+	width: 1cm;
+	text-align: right;
+}

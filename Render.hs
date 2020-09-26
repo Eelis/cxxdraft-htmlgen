@@ -695,9 +695,16 @@ spacedJoin x y
 
 instance Render RenderItem where
 	render RenderItem{item=Item Nothing _ elems paras} ctx = xml "li" [] $ render elems ctx ++ renderLatexParas paras ctx
-	render RenderItem{item=Item (Just nn) mlabel elems paras, ..} ctx =
+	render RenderItem{item=Item (Just nn) mlabel elems paras, ..} ctx
+		| listOrdered =
+			xml "tr" [("id", thisId)] $
+				(xml "td" [] (case mlabel of
+					Nothing -> render link ctx'
+					Just label -> render anchor{aHref = linkHref, aText=simpleRender2 label} ctx' ++ " ")) ++
+				(xml "td" [] content)
+		| otherwise =
 			xml "li" [("id", thisId)] $ case mlabel of
-				Nothing -> itemLink ++ content
+				Nothing -> xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx') ++ content
 				Just label ->
 					render anchor{aHref = linkHref, aText=simpleRender2 label} ctx'
 					++ " " ++ content
@@ -724,10 +731,6 @@ instance Render RenderItem where
 			linkClass
 				| listOrdered = "enumerated_item_num"
 				| otherwise = "marginalized"
-			itemLink :: TextBuilder.Builder
-			itemLink
-				| listOrdered = render link ctx'
-				| otherwise = xml "div" [("class", "marginalizedparent"), ("style", "left:" ++ left)] (render link ctx')
 			linkHref = "#" ++ thisId
 			link = anchor{aClass=linkClass, aHref=linkHref, aText=TextBuilder.fromText linkText}
 
@@ -812,11 +815,10 @@ instance Render Element where
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
-			concatRender (RenderItem (enumCmd == "enumerate" || enumCmd == "enumeratea") . enumItems)
+			concatRender (RenderItem (enumCmd == "enumerate") . enumItems)
 		where
 			t = case enumCmd of
-				"enumeratea" -> "ol"
-				"enumerate" -> "ol"
+				"enumerate" -> "table"
 				"itemize" -> "ul"
 				"description" -> "ul"
 				_ -> undefined

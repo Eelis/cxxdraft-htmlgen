@@ -317,12 +317,9 @@ assignItemNumbers p
 		goElem :: [Int] -> Element -> (Element, [Int])
 		goElem nn Enumerated{..} = (Enumerated enumCmd items', mapLast (+ length enumItems) nn)
 			where
-				h l
-					| enumCmd == "enumeratea" = map show (init l) ++ [[['a'..] !! (last l - 1)]]
-					| otherwise = map show l
 				items' = map (\(i, Item{..}) ->
 					Item
-						(Just (h $ mapLast (+i) nn))
+						(Just (map show $ mapLast (+i) nn))
 						itemLabel
 						(fst $ goElems (mapLast (+i) nn ++ [1]) itemInlineContent)
 						(fst $ goParas (mapLast (+i) nn ++ [1]) itemBlockContent)

@@ -120,7 +120,7 @@ isFigure = isTeXEnv "importgraphic"
 
 isEnumerate :: LaTeXUnit -> Maybe String
 isEnumerate (TeXEnv s _ _)
-	| s `elem` ["enumeratea", "enumerate", "itemize", "description"] = Just s
+	| s `elem` ["enumerate", "itemize", "description"] = Just s
 isEnumerate _ = Nothing
 
 isParaEnd :: LaTeXUnit -> Bool
