@@ -197,7 +197,7 @@ div.itemdescr {
 
 .bnf {
 	font-family: Arial;
-	font-size: 15px;
+	font-size: 14px;
 	font-style: italic;
 	margin-left: 30pt;
 	margin-top: 0.5em;
@@ -209,7 +209,7 @@ div.itemdescr {
 
 .ncbnf {
 	font-family: Arial;
-	font-size: 15px;
+	font-size: 14px;
 	font-style: italic;
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
@@ -246,6 +246,20 @@ span.textnormal {
 	white-space: normal;
 }
 
+.bnf span.textnormal {
+	font-style: normal;
+	font-family: Times New Roman;
+	font-size: 11pt;
+	white-space: normal;
+}
+
+.ncbnf span.textnormal {
+	font-style: normal;
+	font-family: Times New Roman;
+	font-size: 11pt;
+	white-space: normal;
+}
+
 p {
 	margin-top: 4pt;
 	margin-bottom: 4pt;
@@ -256,13 +270,25 @@ span.rlap {
     width: 0px;
 }
 
+span.terminal {
+	font-family: Courier New;
+	font-style: normal;
+	font-size: 9pt;
+}
+span.noncxxterminal {
+	font-family: Courier New;
+	font-style: normal;
+	font-size: 9pt;
+}
+
 span.term { font-style: italic; }
-span.terminal { font-family: Courier New; font-style: normal; font-size: 10pt; }
-span.noncxxterminal { font-family: Courier New; font-style: normal; }
 span.tcode { font-family: Courier New; font-style: normal; }
 span.textbf { font-weight: bold; }
 span.textsf { font-family: Arial; font-size: 15px; }
 div.footnote span.textsf { font-family: Arial; font-size: 11px; }
+.bnf span.textsf { font-family: Arial; font-size: 14px; }
+.ncbnf span.textsf { font-family: Arial; font-size: 14px; }
+.example span.textsf { font-family: Arial; font-size: 14px; }
 span.textsc { font-variant: small-caps; }
 span.nontermdef { font-style: italic; font-family: Arial; font-size: 15px; }
 .ncrebnf a.nontermdef { font-style: italic; font-family: Times New Roman; }
@@ -351,8 +377,11 @@ code.itemdeclcode {
 	margin-right: -15mm;
 }
 
-span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 12pt; }
-div.footnote span.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 13px; }
+.comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 12pt; }
+.footnote .comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 13px; }
+.example .comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 11pt; }
+.note .comment { color: green; font-style: italic; font-family: Times New Roman; font-size: 11pt; }
+
 span.keyword { color: #00607c; font-style: normal; }
 span.parenthesis { color: #af1915; }
 span.curlybracket { color: #af1915; }
