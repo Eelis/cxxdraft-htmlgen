@@ -421,7 +421,7 @@ instance Render LaTeXUnit where
 			linkText = TextBuilder.fromString $ ("Figure " ++) $ show $ figureNumber $ figureByAbbr draft ("fig:" ++ abbr)
 		in
 			simpleRender2 anchor{aHref = abbrHref ("fig:" ++ abbr) ctx, aText = linkText}
-	render (TeXComm "ref" _ [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
+	render (TeXComm "ref" _ [(FixArg, concatRaws -> [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
 			linkText
