@@ -47,7 +47,7 @@ import CxxParser (parseCppDirective, parseLiteral, parseComment)
 kill, literal :: [String]
 kill = words $
 	"clearpage renewcommand newcommand enlargethispage noindent indent vfill pagebreak setlength " ++
-	"caption capsep continuedcaption bottomline hline rowsep hspace endlist cline itcorr " ++
+	"caption capsep continuedcaption bottomline hline rowsep hspace endlist cline " ++
 	"hfill nocorr small endhead kill footnotesize rmfamily microtypesetup nobreak nolinebreak " ++
 	"label topline FlushAndPrintGrammar left right protect = ! @ - xspace obeyspaces"
 literal = ["#", "{", "}", "~", "%", ""]
