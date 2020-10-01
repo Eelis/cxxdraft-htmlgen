@@ -161,6 +161,7 @@ instance AssignNumbers a b => AssignNumbers (Cell a) (Cell b) where
 		n <- get
 		put n{nextSentenceNr=1}
 		content' <- assignNumbers s content
+		modify $ \m -> m{nextSentenceNr = nextSentenceNr n}
 		return x{content=content'}
 
 instance AssignNumbers a b => AssignNumbers (Row a) (Row b) where
