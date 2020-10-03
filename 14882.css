@@ -456,6 +456,7 @@ td.left {
 
 td.hidden {
 	padding: 0;
+	width: 0;
 }
 
 td.right {

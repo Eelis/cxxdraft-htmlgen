@@ -450,11 +450,13 @@ makeRow l = Row sep $ makeRowCells l
 				end = read $ Text.unpack $ Text.tail end' :: Int
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
-parseWidth :: LaTeX -> Maybe Text
-parseWidth [TeXRaw x] = Just x
-parseWidth [TeXRaw x, TeXComm "hsize" "" []] =
-	Just $ Text.pack (show (round ((read ("0" ++ Text.unpack x) :: Double) * 100) :: Int)) ++ "%"
-parseWidth _ = Nothing -- remaining cases unsupported for now
+parseWidth :: LaTeX -> (Maybe Text, LaTeX)
+parseWidth (TeXRaw "" : x) = parseWidth x
+parseWidth (TeXBraces [TeXRaw x] : rest) = (Just x, rest)
+parseWidth (TeXBraces [TeXRaw x, TeXComm "hsize" "" []] : rest) =
+	(Just $ Text.pack (show (round ((read ("0" ++ Text.unpack x) :: Double) * 100) :: Int)) ++ "%", rest)
+parseWidth (TeXBraces _ : rest) = (Nothing, rest) -- remaining cases unsupported for now
+parseWidth x = (Nothing, x)
 
 parseColspec :: LaTeX -> [ColumnSpec]
 parseColspec = \x -> case x of
@@ -468,11 +470,12 @@ parseColspec = \x -> case x of
 		go (TeXRaw "@" : TeXBraces _ : x) = go x -- unimplemented
 		go (TeXRaw ">" : TeXBraces _ : x) = go x -- unimplemented
 		go (TeXRaw "" : y) = go y
-		go (TeXRaw (Text.unpack -> letter : rest) : y)
-		    | letter == ' ' = go (TeXRaw (Text.pack rest) : y)
-		    | letter == '|' = mapHead (\(ColumnSpec x _ z) -> ColumnSpec x True z) $ go (TeXRaw (Text.pack rest) : y)
-		    | otherwise = ColumnSpec (colClass letter) False Nothing : go (TeXRaw (Text.pack rest) : y)
-		go (TeXBraces y : x) = mapHead (\cs -> cs{columnWidth = parseWidth y}) $ go x
+		go (TeXRaw (Text.uncons -> Just (letter, rest)) : y)
+		    | letter == ' ' = go (TeXRaw rest : y)
+		    | letter == '|' = mapHead (\(ColumnSpec x _ z) -> ColumnSpec x True z) $ go (TeXRaw rest : y)
+		    | otherwise =
+		    	let (w, rest') = parseWidth (TeXRaw rest : y)
+		    	in ColumnSpec (colClass letter) False w : go rest'
 		go x = error ("parseColspec: " ++ show x)
 		
 		colClass :: Char -> TextAlignment
