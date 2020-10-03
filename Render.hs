@@ -1071,12 +1071,17 @@ renderComplexMath math ctx
           fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
 
 cssClasses :: ColumnSpec -> Text
-cssClasses (ColumnSpec alignment border) = (if border then "border " else "") ++ Text.pack (show alignment)
+cssClasses (ColumnSpec alignment border _) =
+	(if border then "border " else "") ++ Text.pack (show alignment)
+
+cssStyle :: ColumnSpec -> Maybe Text
+cssStyle (ColumnSpec _ _ (Just w)) = Just $ "width:" ++ w
+cssStyle _ = Nothing
 
 renderTable :: [ColumnSpec] -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 	where
-		combine (ColumnSpec x False) (ColumnSpec _ True) = ColumnSpec x True
+		combine (ColumnSpec x False w) (ColumnSpec _ True _) = ColumnSpec x True w
 		combine x _ = x
 
 		renderRows :: [(Integer, Row [TeXPara])] -> RenderContext -> TextBuilder.Builder
@@ -1104,14 +1109,15 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let
+					cs'' = combine cs' c
 					colspan
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					renderCell colspan (cssClasses (combine cs' c) ++ clineClass colnum clines) cnt
+					renderCell colspan (cssClasses cs'' ++ clineClass colnum clines) (cssStyle cs'') cnt
 					++ renderCols ctx (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				renderCell 1 (cssClasses c ++ clineClass colnum clines) cnt
+				renderCell 1 (cssClasses c ++ clineClass colnum clines) (cssStyle c) cnt
 				++ renderCols ctx cs (colnum + 1) clines rest
 			where
 				cnt = renderLatexParas content ctx'
@@ -1123,12 +1129,13 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 				" cline"
 			| otherwise = ""
 
-renderCell :: Int -> Text -> TextBuilder.Builder -> TextBuilder.Builder
-renderCell colspan classes content = xml "td" attrs content
+renderCell :: Int -> Text -> Maybe Text -> TextBuilder.Builder -> TextBuilder.Builder
+renderCell colspan classes style content = xml "td" attrs content
     where
         classes' = if TextBuilder.toLazyText content == "" then "empty " ++ classes else classes
         attrs = [("colspan", Text.pack $ show colspan) | colspan /= 1]
             ++ [("class", classes')]
+            ++ [("style", s) | Just s <- [style]]
 
 instance Render TeXPara where
 	render = (mconcat .) . (intersperse " " .) . mapM render . sentences

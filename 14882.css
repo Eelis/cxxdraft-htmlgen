@@ -416,8 +416,8 @@ div.minipage {
 
 div.numberedTable {
 	text-align: center;
-	margin-left: 2em;
-	margin-right: 2em;
+	margin-left: 1em;
+	margin-right: 1em;
 	margin-bottom: 12pt;
 	margin-top: 8pt;
 }
@@ -437,7 +437,6 @@ table {
 	margin-right: auto;
 	margin-top: 7pt;
 	text-align: left;
-	hyphens: none; /* otherwise some columns get very narrow, e.g. [tab:hash] */
 }
 
 td, th {

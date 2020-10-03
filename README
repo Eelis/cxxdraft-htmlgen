@@ -110,7 +110,5 @@ Hidden links
 
 Todo
 
-  - table meta.unary.prop#tab:type-traits.properties is horribly
-    wide due to lack of hyphenation
   - don't generate anchors with duplicate ids for index entries with
     the same key

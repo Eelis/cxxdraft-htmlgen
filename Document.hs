@@ -41,7 +41,8 @@ instance Show TextAlignment where
 
 data ColumnSpec = ColumnSpec
 	{ columnAlignment :: TextAlignment
-	, columnBorder :: Bool }
+	, columnBorder :: Bool
+	, columnWidth :: Maybe Text}
 	deriving (Eq, Show)
 
 data Table = Table
