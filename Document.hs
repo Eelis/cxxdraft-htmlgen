@@ -5,6 +5,7 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
+	ColumnSpec(..), TextAlignment(..),
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
@@ -24,15 +25,29 @@ import Util ((.), (++), greekAlphabet)
 
 -- Document structure:
 
-data CellSpan = Normal | Multicolumn { width :: Int, colspec :: LaTeX } deriving (Eq, Show)
+data CellSpan = Normal | Multicolumn { width :: Int, colspec :: ColumnSpec } deriving (Eq, Show)
 data Cell a = Cell { cellSpan :: CellSpan, content :: a } deriving (Eq, Show)
 data RowSepKind = RowSep | CapSep | Clines [(Int, Int)] | NoSep deriving (Eq, Show)
 data Row a = Row { rowSep :: RowSepKind, cells :: [Cell a] } deriving (Eq, Show)
 
+data TextAlignment = AlignLeft | AlignRight | AlignCenter | Justify
+	deriving Eq
+
+instance Show TextAlignment where
+	show AlignLeft = "left"
+	show AlignRight = "right"
+	show AlignCenter = "center"
+	show Justify = "justify"
+
+data ColumnSpec = ColumnSpec
+	{ columnAlignment :: TextAlignment
+	, columnBorder :: Bool }
+	deriving (Eq, Show)
+
 data Table = Table
 	{ tableNumber :: Int
 	, tableCaption :: LaTeX
-	, columnSpec :: LaTeX
+	, columnSpec :: [ColumnSpec]
 	, tableAbbr :: Abbreviation
 	, tableBody :: [Row [TeXPara]]
 	, tableSection :: Section }

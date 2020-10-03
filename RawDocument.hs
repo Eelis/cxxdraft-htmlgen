@@ -21,7 +21,7 @@ import qualified LaTeXParser as Parser
 import qualified Data.Text as Text
 import Data.Text (Text, replace)
 import Data.Monoid ((<>))
-import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta, Abbreviation)
+import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta, Abbreviation, ColumnSpec(..), TextAlignment(..))
 import Data.Maybe (isJust, fromJust)
 import LaTeXParser (Macros(..), Signature(..), nullCmd, storeCmd, storeEnv, Environment(..), Command(..), codeEnv, Token(..), normalCmd, ParseResult(..))
 import Data.Text.IO (readFile)
@@ -51,7 +51,7 @@ data RawElement
 	| RawBnf String LaTeX
 	| RawTable
 		{ rawTableCaption :: LaTeX
-		, rawColumnSpec :: LaTeX
+		, rawColumnSpec :: [ColumnSpec]
 		, rawTableAbbr :: Abbreviation
 		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
@@ -309,7 +309,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			, ((_, cap) : (_, [TeXRaw abbr]) : (_, y) : _) <- a
 				= RawTable
 				{ rawTableCaption = cap
-				, rawColumnSpec = y
+				, rawColumnSpec = parseColspec y
 				, rawTableAbbr = "tab:" ++ abbr
 				, rawTableBody = breakMultiCols $ parseTable stuff }
 			| isTable e = error $ "other table: " ++ show e
@@ -450,6 +450,32 @@ makeRow l = Row sep $ makeRowCells l
 				end = read $ Text.unpack $ Text.tail end' :: Int
 		clines other = error $ "Unexpected \\clines syntax: " ++ show other
 
+parseColspec :: LaTeX -> [ColumnSpec]
+parseColspec = \x -> case x of
+		[] -> []
+		TeXRaw (Text.unpack -> '|' : z) : y -> go (TeXRaw (Text.pack z) : y)
+		_ -> go x
+	where
+		go :: LaTeX -> [ColumnSpec]
+		go [] = []
+		go [TeXRaw "|"] = []
+		go (TeXRaw "@" : TeXBraces _ : x) = go x -- unimplemented
+		go (TeXRaw ">" : TeXBraces _ : x) = go x -- unimplemented
+		go (TeXRaw "" : y) = go y
+		go (TeXRaw (Text.unpack -> letter : rest) : y)
+		    | letter == ' ' = go (TeXRaw (Text.pack rest) : y)
+		    | letter == '|' = mapHead (\(ColumnSpec x _) -> ColumnSpec x True) $ go (TeXRaw (Text.pack rest) : y)
+		    | otherwise = ColumnSpec (colClass letter) False : go (TeXRaw (Text.pack rest) : y)
+		go (TeXBraces _ : x) = go x -- unimplemented
+		go x = error ("parseColspec: " ++ show x)
+		
+		colClass :: Char -> TextAlignment
+		colClass x | x `elem` ['l', 'm', 'x'] = AlignLeft
+		colClass 'p' = Justify
+		colClass 'r' = AlignRight
+		colClass 'c' = AlignCenter
+		colClass other = error $ "Unexpected column type " ++ (other : [])
+
 makeRowCells :: LaTeX -> [Cell [RawTexPara]]
 makeRowCells [] = []
 makeRowCells latex =
@@ -469,7 +495,7 @@ makeRowCells latex =
 
 		makeCell content
 			| [[(FixArg, [TeXRaw w]), (FixArg, cs), (FixArg, content')]] <- lookForCommand "multicolumn" content =
-				Cell (Multicolumn (read $ Text.unpack w) cs) $ parsePara content'
+				Cell (Multicolumn (read $ Text.unpack w) (head $ parseColspec cs)) $ parsePara content'
 			| otherwise =
 				Cell Normal $ parsePara content
 

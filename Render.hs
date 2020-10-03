@@ -19,7 +19,7 @@ module Render (
 import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
-	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr, footnotes,
+	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr, footnotes, ColumnSpec(..),
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
@@ -1070,45 +1070,21 @@ renderComplexMath math ctx
         html = (if inComment ctx then TextBuilder.fromText . Soup.renderTags else highlightCodeInMath ctx) $
           fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
 
-renderTable :: LaTeX -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
+cssClasses :: ColumnSpec -> Text
+cssClasses (ColumnSpec alignment border) = (if border then "border " else "") ++ Text.pack (show alignment)
+
+renderTable :: [ColumnSpec] -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
 renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 	where
-		parseColspec :: LaTeX -> [Text]
-		parseColspec [] = []
-		parseColspec (TeXRaw (Text.unpack -> '|' : x) : y) = go (TeXRaw (Text.pack x) : y)
-		parseColspec x = go x
-
-		go :: LaTeX -> [Text]
-		go [] = []
-		go [TeXRaw "|"] = []
-		go (TeXRaw "@" : TeXBraces _ : x) = go x -- unimplemented
-		go (TeXRaw ">" : TeXBraces _ : x) = go x -- unimplemented
-		go (TeXRaw "" : y) = go y
-		go (TeXRaw (Text.unpack -> letter : rest) : y)
-		    | letter == ' ' = go (TeXRaw (Text.pack rest) : y)
-		    | letter == '|' = (\(d:b)->("border " ++ d:b)) $ go (TeXRaw (Text.pack rest) : y)
-		    | otherwise = colClass letter : go (TeXRaw (Text.pack rest) : y)
-		go (TeXBraces _ : x) = go x -- unimplemented
-		go x = error ("parseColspec: " ++ show x)
-		
-		colClass :: Char -> Text
-		colClass x | x `elem` ['l', 'm', 'x'] = "left"
-		colClass 'p' = "justify"
-		colClass 'r' = "right"
-		colClass 'c' = "center"
-		colClass other = error $ "Unexpected column type " ++ (other : [])
-
-		combine newCs oldCs
-			| Just _ <- Text.stripPrefix "border" oldCs,
-			  Nothing <- Text.stripPrefix "border" newCs = "border " ++ newCs
-			| otherwise = newCs
+		combine (ColumnSpec x False) (ColumnSpec _ True) = ColumnSpec x True
+		combine x _ = x
 
 		renderRows :: [(Integer, Row [TeXPara])] -> RenderContext -> TextBuilder.Builder
 		renderRows [] _ = ""
 		renderRows ((rowNum, Row{..}) : rest) ctx =
 			xml "tr" ([("id", rowId)] ++ cls) (
 				xml "td" [("class", "hidden")] marginalizedLink ++
-				renderCols ctx' (parseColspec colspec) 1 clines cells)
+				renderCols ctx' colspec 1 clines cells)
 			++ renderRows rest ctx
 			where
 				marginalizedLink = xml "div" [("class", "marginalizedparent")] (render link ctx)
@@ -1122,21 +1098,20 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 					| Clines clns <- rowSep = clns
 					| otherwise = []
 
+		renderCols :: RenderContext -> [ColumnSpec] -> Int -> [(Int, Int)] -> [Cell [TeXPara]] -> TextBuilder.Builder
 		renderCols _ _ _ _ [] = ""
 		renderCols ctx (c : cs) colnum clines (Cell{..} : rest)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let
-					[c''] = parseColspec cs'
-					c' = combine c'' c ++ clineClass colnum clines
 					colspan
 						| null rest = length cs + 1
 						| otherwise = w
 				in
-					renderCell colspan c' cnt
+					renderCell colspan (cssClasses (combine cs' c) ++ clineClass colnum clines) cnt
 					++ renderCols ctx (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
-				renderCell 1 (c ++ clineClass colnum clines) cnt
+				renderCell 1 (cssClasses c ++ clineClass colnum clines) cnt
 				++ renderCols ctx cs (colnum + 1) clines rest
 			where
 				cnt = renderLatexParas content ctx'
