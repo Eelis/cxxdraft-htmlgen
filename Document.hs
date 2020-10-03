@@ -336,7 +336,7 @@ elemTex (Enumerated _ e) = e >>= itemTex
 elemTex (Bnf _ l) = l
 elemTex (Tabbing t) = t
 elemTex (Codeblock t) = [t]
-elemTex (TableElement t) = tableBody t >>= rowTex
+elemTex (TableElement Table{..}) = tableCaption ++ (tableBody >>= rowTex)
 	where
 		rowTex :: Row [TeXPara] -> LaTeX
 		rowTex r = content . cells r >>= (>>= texParaTex)

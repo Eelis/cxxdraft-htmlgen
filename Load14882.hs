@@ -215,12 +215,13 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s RawTable{..} = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
+		tableCaption <- assignNumbers s rawTableCaption
 		tableBody <- assignNumbers s rawTableBody
 		return $ TableElement Table
 			{ tableNumber  = tableNr
 			, columnSpec   = rawColumnSpec
 			, tableAbbr   = rawTableAbbr
-			, tableCaption = rawTableCaption
+			, tableCaption = tableCaption
 			, tableSection = s
 			, .. }
 	assignNumbers s (RawEnumerated x p) = do
