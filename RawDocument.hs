@@ -231,7 +231,9 @@ initialEnvs = Map.fromList $
 	               " center tabbing defnote enumerate eqnarray* itemdescr"
 	] ++
 	[ storeEnv "example" (Signature 1 (Just []))
+	, storeEnv "tailexample" (Signature 1 (Just []))
 	, storeEnv "note" (Signature 0 (Just [Token "Note"]))
+	, storeEnv "tailnote" (Signature 0 (Just [Token "Note"]))
 	, storeEnv "table" (Signature 1 Nothing)
 	, storeEnv "tabular" (Signature 1 Nothing)
 	, storeEnv "longtable" (Signature 1 Nothing)
@@ -315,10 +317,10 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			| isBnf e = RawBnf k stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| isCodeblock e = RawCodeblock e
-			| k == "note" || k == "defnote" =
+			| k `elem` ["note", "defnote", "tailnote"] =
 			    let label = case a of [(FixArg, [TeXRaw x])] -> x; _ -> "Note"
 			    in RawNote label $ parsePara stuff
-			| k == "example" = RawExample $ parsePara stuff
+			| k `elem` ["example", "tailexample"] = RawExample $ parsePara stuff
 			| k == "itemdecl" || k == "minipage" || k == "indexeditemdecl" = RawLatexElement e
 		f x = RawLatexElement x
 		splitElems :: LaTeX -> [LaTeX]
