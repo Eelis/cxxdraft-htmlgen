@@ -107,8 +107,3 @@ Hidden links
 
   - moving the mouse over the left margin of an itemdecl or table row reveals a link
     that selects it.
-
-Todo
-
-  - don't generate anchors with duplicate ids for index entries with
-    the same key
