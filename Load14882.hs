@@ -426,6 +426,9 @@ parseIndex = go . mapTeXRaw unescapeIndexPath . concatRaws
 			. replace "\"|" "|"
 			. replace "\"\"" "\5"
 
+			. (!! 10) . iterate (replace "  " " ")
+			. replace "\n" " "
+
 		parseIndexPath :: LaTeX -> IndexPath
 		parseIndexPath (texStripInfix "\1" -> Just (x, y)) = parseIndexPath x ++ parseIndexPath y
 		parseIndexPath (texStripInfix "\3" -> Just (x, y)) = [IndexComponent x y]
