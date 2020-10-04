@@ -28,6 +28,7 @@ import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand,
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
+import Debug.Trace (trace)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LazyText
 import qualified Text.HTML.TagSoup as Soup
@@ -374,7 +375,7 @@ renderBreak :: RenderContext -> TextBuilder.Builder
 renderBreak ctx = if noTags ctx then "\n" else "<br/>"
 
 renderIndexLink :: String -> [(ArgKind, [LaTeXUnit])] -> RenderContext -> TextBuilder.Builder
-renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, (parseIndex -> (p, kind))), (FixArg, abbr_arg)] ctx
+renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, rawIndexPath), (FixArg, abbr_arg)] ctx
 	| not (noTags ctx)
 	, Just abbr <- mabbr = render anchor
 		{ aText = render txt ctx{inLink=True}
@@ -385,16 +386,24 @@ renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, (parseIndex
 		} ctx
 	| otherwise = render txt ctx
 	where
-		mabbr = case abbr_arg of
-			[] -> case Map.lookup p $ indexEntriesByPath (draft ctx) of
+		(p, kind) = parseIndex rawIndexPath
+		resolved :: Maybe Text
+		resolved = case Map.lookup p $ indexEntriesByPath (draft ctx) of
 				Just entries
 					| (hd:_) <- [ abbreviation
 					            | (_, IndexEntry{indexEntrySection=abbreviation, indexEntryKind}) <- entries
 					            , indexEntryKind == kind
 					            , not ("gram." `isPrefixOf` abbreviation) ] -> Just hd
 				_ -> Nothing
-			[TeXRaw x] -> Just x
-			y -> error $ "bad indexlink arg: " ++ show y
+		traceIfBad
+			| resolved == Nothing, cat /= "grammarindex" =
+				trace $ "\nbad index link: " ++ show (cat, rawIndexPath)
+					++ "\nlookup result: " ++ show (Map.lookup p $ indexEntriesByPath (draft ctx))
+			| otherwise = id
+		mabbr = traceIfBad $ case abbr_arg of
+				[] -> resolved
+				[TeXRaw x] -> Just x
+				y -> error $ "bad indexlink arg: " ++ show y
 renderIndexLink _ _ _ = error "bad indexlink"
 
 instance Render LaTeXUnit where
