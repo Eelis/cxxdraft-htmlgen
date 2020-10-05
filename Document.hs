@@ -5,7 +5,7 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
-	ColumnSpec(..), TextAlignment(..),
+	ColumnSpec(..), TextAlignment(..), normative,
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
@@ -104,6 +104,12 @@ data Element
 	| NoteElement Note
 	| ExampleElement Example
 	deriving Show
+
+normative :: Element -> Bool
+normative (NoteElement _) = False
+normative (ExampleElement _) = False
+normative (LatexElement (TeXComm "index" _ _)) = False
+normative _ = True
 
 data SectionKind
 	= NormalSection { _level :: Int }

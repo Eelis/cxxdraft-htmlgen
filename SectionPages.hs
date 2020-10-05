@@ -63,8 +63,12 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 							then "#" ++ urlChars (mconcat (idPrefixes ctx)) ++ n
 							else "SectionToSection/" ++ urlChars (abbreviation paraSection) ++ "#" ++ n
 					, aText  = TextBuilder.fromText n }
+				classes = "para" ++
+					(if all (not . normative) (paraElems >>= sentences >>= sentenceElems)
+						then " nonNormativeOnly"
+						else "")
 			in
-				xml "div" (("class", "para") : idTag) .
+				xml "div" (("class", classes) : idTag) .
 				(xml "div" [("class", "marginalizedparent")] (render a ctx') ++)
 		ctx' = case paraNumber of
 			Just n -> ctx{ idPrefixes = idPrefixes ctx ++ [Text.pack (show n) ++ "."] }
