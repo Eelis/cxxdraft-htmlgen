@@ -539,7 +539,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "texorpdfstring" _ [_, (FixArg, x)]) = render x
 	render (TeXComm " " _ [])            = return "&nbsp;"
 	render (TeXComm "\n" _ [])           = return "\n"
-	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> (if noTags c then id else spanTag "textit") $ render x c{rawTilde = False}
+	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> (if noTags c then id else xml "i" []) $ render x c{rawTilde = False}
 	render (TeXComm s _ [])
 	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s
@@ -773,7 +773,7 @@ noWrapSpace = "&nbsp;"
 instance Render Note where
 	render Note{..} ctx = xml "div" [("id", i), ("class", "note")] (renderParas True noteContent)
 		where
-			prefix = "[" ++ render link ctx ++ "<span class='textit'>:</span> "
+			prefix = "[" ++ render link ctx ++ ": "
 			suffix = " —" ++ noWrapSpace ++ "<i>end note</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
@@ -782,7 +782,7 @@ instance Render Note where
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "note_link",
-				aText = spanTag "textit" $ TextBuilder.fromText $ noteLabel ++ "&nbsp;" ++ noteNum }
+				aText = xml "i" [] $ TextBuilder.fromText $ noteLabel ++ "&nbsp;" ++ noteNum }
 
 instance Render Example where
 	render Example{..} ctx
@@ -792,7 +792,7 @@ instance Render Example where
 			++ " —&nbsp;end&nbsp;example] "
 		| otherwise = xml "div" [("id", i), ("class", "example")] (renderParas True exampleContent)
 		where
-			prefix = "[" ++ render link ctx ++ "<span class='textit'>:</span> "
+			prefix = "[" ++ render link ctx ++ ": "
 			suffix = " —" ++ noWrapSpace ++ "<i>end example</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
@@ -801,7 +801,7 @@ instance Render Example where
 			link = anchor{
 				aHref = "#" ++ i,
 				aClass = "example_link",
-				aText = spanTag "textit" $ TextBuilder.fromText $ "Example&nbsp;" ++ exNum }
+				aText = xml "i" [] $ TextBuilder.fromText $ "Example&nbsp;" ++ exNum }
 
 nontermDef :: LaTeX -> Maybe Text
 nontermDef t
