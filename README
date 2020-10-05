@@ -96,8 +96,6 @@ Hidden links
 
   On any page:
 
-  - "Note:" and "Example:" tags are links that select the note (resp. example);
-
   - defined terms/concepts/nonterminals are links that select themselves;
 
   - a full stop at the end of a sentence is a link that selects the sentence;

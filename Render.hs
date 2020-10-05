@@ -774,16 +774,13 @@ noWrapSpace = "&nbsp;"
 instance Render Note where
 	render Note{..} ctx = xml "div" [("id", i), ("class", "note")] (renderParas True noteContent)
 		where
-			prefix = "[" ++ render link ctx ++ ": "
+			prefix = "[<i>" ++ TextBuilder.fromText noteLabel ++ "&nbsp;" ++ render link ctx ++ "</i>: "
 			suffix = " —" ++ noWrapSpace ++ "<i>end note</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
 			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "note-" ++ noteNum
 			noteNum = Text.pack $ show noteNumber
-			link = anchor{
-				aHref = "#" ++ i,
-				aClass = "note_link",
-				aText = xml "i" [] $ TextBuilder.fromText $ noteLabel ++ "&nbsp;" ++ noteNum }
+			link = anchor{aHref = "#" ++ i, aText = TextBuilder.fromText noteNum }
 
 instance Render Example where
 	render Example{..} ctx
@@ -793,16 +790,13 @@ instance Render Example where
 			++ " —&nbsp;end&nbsp;example] "
 		| otherwise = xml "div" [("id", i), ("class", "example")] (renderParas True exampleContent)
 		where
-			prefix = "[" ++ render link ctx ++ ": "
+			prefix = "[<i>Example&nbsp;" ++ render link ctx ++ "</i>: "
 			suffix = " —" ++ noWrapSpace ++ "<i>end example</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
 			i = mconcat (dropWhileEnd (isDigit . Text.head) (idPrefixes ctx)) ++ "example-" ++ exNum
 			exNum = Text.pack $ show exampleNumber
-			link = anchor{
-				aHref = "#" ++ i,
-				aClass = "example_link",
-				aText = xml "i" [] $ TextBuilder.fromText $ "Example&nbsp;" ++ exNum }
+			link = anchor{aHref = "#" ++ i, aText = TextBuilder.fromText exNum }
 
 nontermDef :: LaTeX -> Maybe Text
 nontermDef t
