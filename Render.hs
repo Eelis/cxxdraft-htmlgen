@@ -463,6 +463,7 @@ instance Render LaTeXUnit where
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx ->
 		(if noTags ctx then id else spanTag "texttt") $ render x ctx{rawHyphens = True, insertBreaks = True}
+	render (TeXComm "literaltcode" _ [(FixArg, x)]) = spanTag "literal" . spanTag "texttt" . render x
 	render (TeXComm cmd _ [(FixArg, x)])
 		| cmd `elem` ["tcode", "idxcode"] = \ctx ->
 		if noTags ctx then render x ctx{rawHyphens=True, insertBreaks=True}
