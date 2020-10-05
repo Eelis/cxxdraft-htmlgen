@@ -207,6 +207,8 @@ div.itemdescr {
 	line-height: 1.4;
 }
 
+div.bnf span.texttt { font-family: Courier New; font-size: 9pt; font-style: normal; }
+
 .ncbnf {
 	font-family: Arial;
 	font-size: 14px;
@@ -218,6 +220,8 @@ div.itemdescr {
 	padding-left: 3em;
 	line-height: 1.4;
 }
+
+div.ncbnf span.texttt { font-family: Courier New; font-size: 9pt; font-style: normal; }
 
 .ncrebnf {
 	font-family: Times New Roman;

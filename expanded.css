@@ -12,5 +12,8 @@ div.note {
 	font-size: 11pt;
 }
 
+div.note .texttt { font-size: 9pt; }
+div.example .texttt { font-size: 9pt; }
+
 a.example_link { text-decoration: none; color: inherit; }
 a.note_link { text-decoration: none; color: inherit; }
