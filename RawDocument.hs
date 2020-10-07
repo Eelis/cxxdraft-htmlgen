@@ -168,8 +168,8 @@ doParse m t = (x, y)
 
 nullCmds :: [(Int, String)]
 nullCmds =
-	[ (0, "clearpage kill rmfamily hfill vfill nocorr small noindent itcorrwidth itletterwidth")
-	, (1, "enlargethispage lstset")
+	[ (0, "clearpage kill rmfamily hfill vfill nocorr small noindent itcorrwidth itletterwidth global")
+	, (1, "enlargethispage lstset newsavebox")
 	, (2, "glossary settowidth addtolength")
 	, (3, "definecolor")
 	]
@@ -228,7 +228,7 @@ initialEnvs :: Map Text Environment
 initialEnvs = Map.fromList $
 	[ (storeEnv e (Signature 0 Nothing))
 	| e <- words $ "indented bnf ncbnf bnfkeywordtab simplebnf ncsimplebnf ncrebnf description itemize" ++
-	               " center tabbing defnote enumerate eqnarray* itemdescr"
+	               " center tabbing defnote enumerate eqnarray* itemdescr footnote"
 	] ++
 	[ storeEnv "example" (Signature 1 (Just []))
 	, storeEnv "tailexample" (Signature 1 (Just []))
@@ -335,12 +335,19 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 
 class ExtractFootnotes a where extractFootnotes :: a -> (a, [RawFootnote])
 
-instance ExtractFootnotes a => ExtractFootnotes [a] where
-	extractFootnotes l = (map fst x, x >>= snd)
-		where x = extractFootnotes . l
+instance ExtractFootnotes LaTeX where
+	extractFootnotes [] = ([], [])
+	extractFootnotes (TeXRaw x : t@(TeXEnv "footnote" _ _ : _))
+		= (TeXRaw (Text.stripEnd x) : t', ft)
+		where (t', ft) = extractFootnotes t
+			-- stripEnd here implements the footnote's \unskip
+	extractFootnotes (h:t) = (h' : t', fh ++ ft)
+		where
+			(h', fh) = extractFootnotes h
+			(t', ft) = extractFootnotes t
 
 instance ExtractFootnotes LaTeXUnit where
-	extractFootnotes (TeXComm "footnote" _ [(_, content)]) =
+	extractFootnotes (TeXEnv "footnote" [] content) =
 		(TeXComm "footnoteref" "" [], [RawFootnote $ parsePara content])
 	extractFootnotes (TeXComm "footnotemark" _ []) =
 		(TeXComm "footnoteref" "" [], [])
