@@ -28,7 +28,7 @@ import Data.Text.IO (readFile)
 import Text.Regex (mkRegex)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.List (transpose, take)
+import Data.List (transpose, take, isPrefixOf)
 import Util ((.), (++), mapHead, textStripInfix, textSubRegex, splitOn)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import System.IO.Unsafe (unsafePerformIO)
@@ -227,8 +227,8 @@ parseDimen toks
 initialEnvs :: Map Text Environment
 initialEnvs = Map.fromList $
 	[ (storeEnv e (Signature 0 Nothing))
-	| e <- words $ "indented bnf ncbnf bnfkeywordtab simplebnf ncsimplebnf ncrebnf description itemize" ++
-	               " center tabbing defnote enumerate eqnarray* itemdescr footnote"
+	| e <- bnfEnvs ++
+	       words "indented description itemize center tabbing defnote enumerate eqnarray* itemdescr footnote"
 	] ++
 	[ storeEnv "example" (Signature 1 (Just []))
 	, storeEnv "tailexample" (Signature 1 (Just []))
@@ -314,7 +314,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 				, rawTableBody = breakMultiCols $ parseTable stuff }
 			| isTable e = error $ "other table: " ++ show e
 			| isTabbing e = RawTabbing stuff
-			| isBnf e = RawBnf k stuff
+			| isBnf e = RawBnf (if "nc" `isPrefixOf` k then drop 2 k else k) stuff
 			| Just ek <- isEnumerate e = RawEnumerated ek (parseItems stuff)
 			| isCodeblock e = RawCodeblock e
 			| k `elem` ["note", "defnote", "tailnote"] =
