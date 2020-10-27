@@ -253,13 +253,16 @@ p {
 span.rlap {
     display: inline-block;
     width: 0px;
+    text-indent: 0;
 }
 
 span.terminal {
 	font-family: Courier New;
 	font-style: normal;
 	font-size: 9pt;
+	white-space: pre-wrap;
 }
+
 span.noncxxterminal {
 	font-family: Courier New;
 	font-style: normal;
