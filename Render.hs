@@ -424,18 +424,14 @@ instance Render LaTeXUnit where
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" _ []) = const $ spanTag "comment" "/* ... */"
 	render (TeXComm "ensuremath" _ [(FixArg, x)]) = renderMath x
-	render (TeXComm "fref" _ [(FixArg, [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
-		let
-			linkText :: TextBuilder.Builder
-			linkText = TextBuilder.fromString $ ("Figure " ++) $ show $ figureNumber $ figureByAbbr draft ("fig:" ++ abbr)
-		in
-			simpleRender2 anchor{aHref = abbrHref ("fig:" ++ abbr) ctx, aText = linkText}
 	render (TeXComm "ref" _ [(FixArg, concatRaws -> [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
 			linkText
 				| "tab:" `isPrefixOf` abbr
-				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString (show tableNumber)
+				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString $ show tableNumber
+				| "fig:" `isPrefixOf` abbr
+				, Figure{..} <- figureByAbbr draft abbr = TextBuilder.fromString $ show figureNumber
 				| otherwise = squareAbbr (not noTags) abbr
 		in if noTags then linkText else
 			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
