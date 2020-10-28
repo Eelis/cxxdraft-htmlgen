@@ -914,6 +914,7 @@ parentLink parent child
 
 abbrHref :: Abbreviation -> RenderContext -> Text
 abbrHref abbr RenderContext{..}
+	| SectionPage sec <- page, abbreviation sec == abbr = "#"
 	| abbrIsOnPage abbr page = "#" ++ case page of
 	    SectionPage sec -> urlChars (parentLink sec abbr)
 	    TablesPage | Just abbr' <- Text.stripPrefix "tab:" abbr -> urlChars abbr'
