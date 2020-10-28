@@ -165,6 +165,10 @@ indexPathId category kind =
 indexPathId2 :: RenderContext -> Int -> Text -> IndexPath -> Maybe IndexKind -> Text
 indexPathId2 ctx entryNr cat path kind = indexPathId cat kind path ++ indexOccurrenceSuffix ctx entryNr
 
+indexPathId3 :: RenderContext -> LaTeX -> Text
+indexPathId3 ctx indices = indexPathId2 ctx inum icat ipath ikind
+	where (icat, ipath, inum, ikind) : _ = indexPaths indices
+
 indexPathHref :: Text -> Maybe IndexKind -> IndexPath -> Text
 indexPathHref cat kind = (("#" ++ indexShortName cat kind ++ ":") ++) . urlChars . replace "&" "&amp;" . indexPathString
 
@@ -206,7 +210,14 @@ renderCodeblock :: String -> [(ArgKind, LaTeX)] -> LaTeX -> RenderContext -> Tex
 renderCodeblock env args code ctx =
     (case (env, args) of
       ("codeblocktu", [(FixArg, title)]) -> (("<p>" ++ render title ctx ++ ":") ++)
-      ("indexedcodeblock", [(FixArg, indices)]) -> renderIndexed ctx "span" indices
+      ("indexedcodeblock", [(FixArg, indices)]) ->
+      	let
+      		link = anchor
+      			{ aClass = "itemDeclLink"
+      			, aHref = "#" ++ urlChars (indexPathId3 ctx indices)
+      			, aText = "🔗" }
+      	in	renderIndexed ctx "span" indices .
+      		(xml "div" [("class", "marginalizedparent")] (render link ctx) ++)
       _ -> id) $
     xml "span" [("class", "codeblock")] (
         highlightLines ctx{rawTilde=True, rawHyphens=True, rawSpace=True, inCodeBlock=True} $
@@ -486,9 +497,10 @@ instance Render LaTeXUnit where
 		\ctx -> (if noTags ctx then id else renderIndexed ctx "span" indices) $ render text ctx
 	render (TeXEnv "indexeditemdecl" [(FixArg, indices)] t) = \ctx ->
 		let
-			(icat, ipath, inum, ikind) : _ = indexPaths indices
-			i = indexPathId2 ctx inum icat ipath ikind
-			link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars i, aText="🔗"}
+			link = anchor
+				{ aClass = "itemDeclLink"
+				, aHref = "#" ++ urlChars (indexPathId3 ctx indices)
+				, aText = "🔗" }
 		in
 			renderIndexed ctx "div" indices $
 			xml "div" [("class", "itemdecl")] $
