@@ -64,8 +64,8 @@ writeTocFile sfs draft@Draft{..} = do
 	    tocStyle = "<style>" ++ TextBuilder.fromString tocCss ++ "</style>"
 	writeFile (outputDir ++ "/index.html") $ applySectionFileStyle sfs $ LazyText.toStrict $ TextBuilder.toLazyText $
 		fileContent "" "Draft C++ Standard: Contents" (descMeta ++ tocStyle) $
-			"<h1 style='text-align:center; hyphens:none'>Working Draft, Standard for Programming Language C++</h1>" ++
-			"<br>" ++ xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
+			"<h1 style='text-align:center; hyphens:none; margin: 1cm'>Working Draft, Standard for Programming Language C++</h1>" ++
+			xml "div" [("class", "tocHeader")] (TextBuilder.fromText $ tocHeader date commitUrl) ++
 			"<br><h1>Contents</h1>" ++
 			mconcat (tocChapter draft . chapters) ++
 			mconcat (h 2
