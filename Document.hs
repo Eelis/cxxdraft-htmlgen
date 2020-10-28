@@ -103,6 +103,7 @@ data Element
 	| Codeblock LaTeXUnit
 	| NoteElement Note
 	| ExampleElement Example
+	| HtmlElement Text
 	deriving Show
 
 normative :: Element -> Bool
@@ -347,6 +348,7 @@ elemTex (TableElement Table{..}) = tableCaption ++ (tableBody >>= rowTex)
 		rowTex :: Row [TeXPara] -> LaTeX
 		rowTex r = content . cells r >>= (>>= texParaTex)
 elemTex (FigureElement _) = []
+elemTex (HtmlElement _) = []
 
 tableByAbbr :: Draft -> Abbreviation -> Maybe Table
 	-- only returns Maybe because some of our tables are broken

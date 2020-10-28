@@ -42,7 +42,7 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet,
-    urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy)
+    urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy, mapHead)
 import CxxParser (parseCppDirective, parseLiteral, parseComment)
 
 kill, literal :: [String]
@@ -513,7 +513,7 @@ instance Render LaTeXUnit where
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
 	render (TeXComm "verb" _ [(FixArg, a)]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
 	render (TeXComm "footnoteref" _ [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
-		{ aClass = "footnotenum"
+		{ aClass = "footnoteref"
 		, aText  = TextBuilder.fromText n
 		, aId    = "footnoteref-" ++ n
 		, aTitle = (!! 3) $ iterate (Text.replace "  " " ")
@@ -757,24 +757,29 @@ paraUrl RenderContext{..} = urlChars $ abbreviation $ case nearestEnclosing of
 	Left p -> paraSection p
 	Right s -> s
 
+prependSentence :: Sentence -> TeXPara -> TeXPara
+prependSentence s (TeXPara ss) = TeXPara (s : ss)
+
 instance Render Footnote where
 	render (Footnote n content) ctx =
 			xml "div" [("class", "footnote"), ("id", i)] $
-			xml "div" [("class", "footnoteNumberParent")] (render link ctx) ++
-			renderParas content
+			renderParas (mapHead (prependSentence footnoteNum) content)
 		where
+			footnoteNum = Sentence Nothing [HtmlElement (LazyText.toStrict $ TextBuilder.toLazyText $ render (link, backlink) ctx)]
 			ctx' = ctx{idPrefixes = [i ++ "."]}
-			suffix = "&nbsp;" ++ render anchor{aText = "⮥", aHref = "#footnoteref-" ++ num} ctx
+			backlink = anchor{aText = linkText, aHref = "#footnoteref-" ++ num, aClass = "footnoteBacklink"}
 			renderParas [] = ""
-			renderParas (p:pp) = xml "div" [("class", "texpara")] (render p ctx' ++ (if null pp then suffix else "")) ++ renderParas pp
+			renderParas (p:pp) = xml "div" [("class", "texpara")] (render p ctx') ++ renderParas pp
 			num = Text.pack $ show n
 			i = "footnote-" ++ num
+			footnoteIsOnPage = isFullPage (page ctx) || isSectionPage (page ctx)
+			linkText = TextBuilder.fromText $ num ++ ")"
 			link = anchor
-				{ aText  = TextBuilder.fromText $ num ++ ")"
-				, aHref  =
-					(if isFullPage (page ctx) || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
-					++ "#" ++ i
-				, aClass = "marginalized" }
+				{ aText = linkText
+				, aClass = "footnotenum"
+				, aHref =
+					(if footnoteIsOnPage then "" else "SectionToSection/" ++ paraUrl ctx)
+					++ "#" ++ i }
 
 noWrapSpace :: TextBuilder.Builder
 noWrapSpace = "&nbsp;"
@@ -812,6 +817,7 @@ nontermDef t
 	| otherwise = Nothing
 		
 instance Render Element where
+	render (HtmlElement html) = const $ TextBuilder.fromText html
 	render (LatexElement x) = render x
 	render (Codeblock x) = render x
 	render (NoteElement x) = render x

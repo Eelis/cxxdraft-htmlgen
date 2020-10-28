@@ -82,6 +82,7 @@ renderSection context specific parasEmitted s@Section{..}
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
+		(if null sectionFootnotes then "" else "<div class='footnoteSeparator'></div>") ++
 		concatRender sectionFootnotes context{nearestEnclosing=Right s} ++
 		mconcat (fst . renderSection context Nothing True . subsections)
 	| not anysubcontent = ("", False)
