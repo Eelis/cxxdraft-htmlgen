@@ -340,7 +340,9 @@ table .codeblock { margin-right: 0; }
 
 .outputblock {
 	margin-left: 1.2em;
-	line-height: 145%;
+	line-height: 140%;
+	font-family: Courier New;
+	font-size: 10pt;
 }
 
 code {
