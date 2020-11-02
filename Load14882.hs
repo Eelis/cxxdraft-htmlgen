@@ -375,9 +375,13 @@ resolveGrammarterms macros links LinearSection{..} =
 	LinearSection{lsectionParagraphs = map resolve lsectionParagraphs, ..}
 	where
 		resolveTexPara :: RawTexPara -> RawTexPara
-		resolveTexPara RawTexPara{..} = RawTexPara{rawTexParaElems =map resolveRawElem rawTexParaElems, ..}
+		resolveTexPara RawTexPara{..} = RawTexPara{rawTexParaElems = map resolveRawElem rawTexParaElems, ..}
+		resolveRawElem :: RawElement -> RawElement
 		resolveRawElem (RawBnf s tex) = RawBnf s (bnfGrammarterms macros links tex)
+		resolveRawElem (RawEnumerated s items) = RawEnumerated s (map resolveItem items)
 		resolveRawElem y = y
+		resolveItem :: RawItem -> RawItem
+		resolveItem (RawItem label content) = RawItem label (map resolveTexPara content)
 		resolve :: RawParagraph -> RawParagraph
 		resolve RawParagraph{..} = RawParagraph{rawParaElems = map resolveTexPara rawParaElems, ..}
 
