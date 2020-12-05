@@ -454,8 +454,8 @@ table {
 }
 
 td, th {
-	padding-left: 1em;
-	padding-right: 1em;
+	padding-left: 8pt;
+	padding-right: 8pt;
 	vertical-align: top;
 }
 
