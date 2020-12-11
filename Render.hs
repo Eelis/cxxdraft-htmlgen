@@ -73,6 +73,7 @@ simpleMacros =
 	, ("linebreak"      , "<br/>")
 	, ("sim"            , "~")
 	, ("quad"           , "&emsp;&ensp;")
+	, ("qquad"          , "&emsp;&emsp;")
 	, ("indent"         , "&emsp;")
 	, ("unun"           , "__")
 	, ("^"              , "^")

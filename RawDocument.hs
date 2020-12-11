@@ -184,7 +184,7 @@ storeCmds =
 			"space copyright textregistered textbackslash hsize br Gamma " ++
 			"frenchspacing list leftmargin listparindent itemindent itshape relax " ++
 			"nonfrenchspacing endlist upshape ttfamily baselineskip nobreak " ++
-			"endfirsthead quad cdot cdots dotsc bnfindentinc footnotemark ldots capsep max min " ++
+			"endfirsthead quad qquad cdot cdots dotsc bnfindentinc footnotemark ldots capsep max min " ++
 			"continuedcaption hline endhead footnotesize le times dotsb rightarrow to equiv " ++
 			"lfloor rfloor pi geq neq ge lceil rceil ell alpha bigl bigr mu lambda beta " ++
 			"tabularnewline exp sigma big delta rho Pi nu infty displaystyle lim sin cos " ++
