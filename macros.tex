@@ -48,6 +48,7 @@
 %% replacements for existing macros:
 
 \newcommand{\indexdefn}[1]{\indextext{#1|idxbfpage}}
+\newcommand{\idxcode}[1]{#1@\tcode{#1}}
 \newcommand{\nontermdef}[1]{\hiddenindexlink{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
 \newcommand{\grammarterm}[1]{\indexlink{\indexedspan{\gterm{#1}}{\indexgram{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
 \newcommand{\libglobal}[1]{\indexedspan{\hiddenindexlink{#1}{libraryindex}{\idxcode{#1}}{}}{\indexlibraryglobal{#1}}}

@@ -473,7 +473,7 @@ instance Render LaTeXUnit where
 		(if noTags ctx then id else spanTag "texttt") $ render x ctx{rawHyphens = True, insertBreaks = True}
 	render (TeXComm "literaltcode" _ [(FixArg, x)]) = spanTag "literal" . spanTag "texttt" . render x
 	render (TeXComm cmd _ [(FixArg, x)])
-		| cmd `elem` ["tcode", "idxcode"] = \ctx ->
+		| cmd `elem` ["tcode"] = \ctx ->
 		if noTags ctx then render x ctx{rawHyphens=True, insertBreaks=True}
 		else spanTag (if inCodeBlock ctx then "tcode_in_codeblock" else "texttt") $
 			if not (inComment ctx) && not (inLink ctx) && not (inSectionTitle ctx)
