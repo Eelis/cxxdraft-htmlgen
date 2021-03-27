@@ -535,3 +535,43 @@ table.enumerate td:first-child {
 	width: 1cm;
 	text-align: right;
 }
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #171717;
+        color: #b0b0b0;
+    }
+
+    a { color: #549df2; }
+
+    span.phantom { color: #171717; }
+
+    :target { background-color: #3b4343; }
+    :target .codeblock { background-color: #3b4343; }
+    :target ul { background-color: #3b4343; }
+    a.index:before { color: #b0b0b0; background-color: #3b4343; }
+
+    .comment { color: #35ba00; }
+    .footnote .comment { color: #35ba00; }
+    .example .comment { color: #35ba00; }
+    .note .comment { color: #35ba00; }
+
+    span.keyword { color: #12cabe; }
+    span.parenthesis { color: #cf1915; }
+    span.curlybracket { color: #cf1915; }
+    span.squarebracket { color: #cf1915; }
+    span.literal { color: #bF8827; }
+    span.literalterminal { color: #bF8827; }
+    span.operator { color: #baa6b9; }
+    span.anglebracket { color: #baa6b9; }
+    span.preprocessordirective { color: #b27c58; }
+
+    table { border-color: #b0b0b0; }
+    td.border { border-color: #b0b0b0; }
+    td.border { border-left-color: #b0b0b0; }
+    tr.rowsep, td.cline { border-top-color: #b0b0b0; }
+    tr.capsep { border-top-color: #b0b0b0; }
+    th { border-bottom-color: #b0b0b0; }
+
+    .footnoteSeparator { background-color: #b0b0b0; }
+}
