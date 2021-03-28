@@ -576,4 +576,9 @@ table.enumerate td:first-child {
     th { border-bottom-color: #b0b0b0; }
 
     .footnoteSeparator { background-color: #b0b0b0; }
+
+    text { fill: #b0b0b0; }
+    path { stroke: #b0b0b0; }
+    polygon { stroke: #b0b0b0; fill: #b0b0b0; }
+    ellipse { stroke: #b0b0b0; }
 }
