@@ -542,6 +542,8 @@ table.enumerate td:first-child {
         color: #b0b0b0;
     }
 
+    span.mjx-mstyle { color: #b0b0b0 !important }
+
     a { color: #549df2; }
 
     span.phantom { color: #171717; }
