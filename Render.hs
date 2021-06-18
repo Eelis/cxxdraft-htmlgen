@@ -588,6 +588,7 @@ instance Render LaTeXUnit where
 		| e == "minipage", [e2@(TeXEnv _ _ cb)] <- trim t, isCodeblock e2 =
 			xml "div" [("class", "minipage")] . renderCodeblock "codeblock" [] cb
 		| e == "outputblock"           = renderOutputblock t
+		| e == "itemdescr"             = render t
 	    | otherwise                    = error $ "render: unexpected " ++ show env
 
 instance Render Int where render = return . TextBuilder.fromString . show
