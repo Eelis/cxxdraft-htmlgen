@@ -550,6 +550,7 @@ instance Render LaTeXUnit where
 	render (TeXComm " " _ [])            = return "&nbsp;"
 	render (TeXComm "\n" _ [])           = return "\n"
 	render (TeXComm "textit" _ [(FixArg, x)]) = \c -> (if noTags c then id else xml "i" []) $ render x c{rawTilde = False}
+	render (TeXComm "c" _ [(FixArg, [TeXRaw "t"])]) = return "ţ"
 	render (TeXComm s _ [])
 	    | s == "caret"                 = return "^"
 	    | s `elem` literal             = return $ TextBuilder.fromString s

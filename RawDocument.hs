@@ -195,7 +195,7 @@ storeCmds =
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"label newlength uline vspace value newcounter mathscr hyperref " ++
+			"label newlength uline vspace value newcounter mathscr hyperref c " ++
 			"phantom sqrt ln emph minipage url indexescape changeglossnumformat " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color")
 	, (2, "pnum definition addtocounter setcounter frac " ++
