@@ -168,7 +168,7 @@ doParse m t = (x, y)
 
 nullCmds :: [(Int, String)]
 nullCmds =
-	[ (0, "clearpage kill rmfamily hfill vfill nocorr small noindent itcorrwidth itletterwidth global")
+	[ (0, "clearpage kill rmfamily hfill vfill nocorr small larger noindent itcorrwidth itletterwidth global")
 	, (1, "enlargethispage lstset newsavebox")
 	, (2, "glossary settowidth addtolength")
 	, (3, "definecolor")
