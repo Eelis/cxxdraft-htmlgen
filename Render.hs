@@ -468,6 +468,7 @@ instance Render LaTeXUnit where
 	render (TeXComm c _ l) | c `elem` ["indexlink", "hiddenindexlink"] = renderIndexLink c l
 	render (TeXComm "color" _ _) = const ""
 	render (TeXComm "textcolor" _ [_, (FixArg, x)]) = render x
+	render (TeXComm "textsmaller" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "terminal" _ [(FixArg, x)]) = spanTag "terminal" . flip highlightLines x
 	render (TeXComm "texttt" _ [(FixArg, x)]) = \ctx ->
 		(if noTags ctx then id else spanTag "texttt") $ render x ctx{rawHyphens = True, insertBreaks = True}

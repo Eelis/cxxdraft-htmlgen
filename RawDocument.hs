@@ -179,7 +179,7 @@ storeCmds =
 	[ (0, "today def makeatletter bottomline makeatother Sec bmod long prime " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log " ++
 			"textup edef x BnfIndent par leq " ++
-			"leftmargini BnfInc BnfRest protect textsmaller caret sum " ++
+			"leftmargini BnfInc BnfRest protect caret sum " ++
 			"xspace onelineskip textlangle textrangle tilde raggedright = " ++
 			"space copyright textregistered textbackslash hsize br Gamma " ++
 			"frenchspacing list leftmargin listparindent itemindent itshape relax " ++
@@ -213,6 +213,7 @@ initialCmds = Map.fromList $
 	, nullCmd "makebox" (Signature 2 (Just []))
 	, storeCmd "\n" (Signature 0 Nothing)
 	, storeCmd "nolinebreak" (Signature 0 (Just []))
+	, storeCmd "textsmaller" (Signature 2 (Just []))
 	, nullCmd "gramSec" (Signature 2 (Just []))
 	, ("kern", normalCmd $ Command $ \_ctx _ws -> ParseResult [] mempty . snd . parseDimen)
 	]
