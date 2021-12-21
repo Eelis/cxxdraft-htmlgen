@@ -222,7 +222,7 @@ initialCmds = Map.fromList $
 
 parseDimen :: [Token] -> ([Token], [Token])
 parseDimen toks
-    | t@(Token txt) : more <- toks, txt `elem` [".", "pt"] || all isDigit txt = first (t :) (parseDimen more)
+    | t@(Token txt) : more <- toks, txt `elem` [".", "pt", "-", "em"] || all isDigit txt = first (t :) (parseDimen more)
     | otherwise = ([], toks)
 
 initialEnvs :: Map Text Environment
