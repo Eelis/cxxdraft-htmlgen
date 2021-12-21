@@ -530,7 +530,7 @@ instance Render LaTeXUnit where
 			(if isFullPage (page ctx) || isSectionPage (page ctx) then "" else "SectionToSection/" ++ paraUrl ctx)
 			++ "#footnote-" ++ n }
 	render (TeXComm "raisebox" _ args)
-		| (FixArg, [TeXRaw d]) <- head args
+		| (FixArg, concatRaws -> [TeXRaw d]) <- head args
 		, (FixArg, content) <- Prelude.last args =
 			let neg s
 				| Text.head s == '-' = Text.tail s
