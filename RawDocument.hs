@@ -197,7 +197,7 @@ storeCmds =
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline vspace value newcounter mathscr hyperref c uppercase " ++
 			"phantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
-			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color")
+			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength textcolor")

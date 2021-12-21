@@ -566,6 +566,7 @@ instance Render LaTeXUnit where
 	    = \ctx -> spanTag cls $ render x ctx
 	render (TeXComm "href" _ [(FixArg, [TeXRaw href]), (FixArg, text)])
 	    = \ctx -> render anchor{aHref=href, aText=render text ctx} ctx
+	render (TeXComm "ucode" _ [(FixArg, code)]) = spanTag "ucode" . render (TeXRaw "U+" : code)
 	render (TeXComm x _ s)
 	    | x `elem` kill                = return ""
 	    | null s, Just y <-

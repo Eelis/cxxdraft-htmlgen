@@ -526,6 +526,18 @@ span.uppercase {
 	text-transform: uppercase;
 }
 
+span.ucode {
+	font-variant: small-caps;
+	text-transform: uppercase;
+	font-size: 90%;
+}
+
+span.uname {
+	font-variant: small-caps;
+	text-transform: uppercase;
+	font-size: 90%;
+}
+
 table.enumerate {
 	border: 0;
 	margin: 0;
