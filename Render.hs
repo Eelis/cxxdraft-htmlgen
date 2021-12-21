@@ -87,6 +87,7 @@ simpleMacros =
 	, ("textbackslash"  , "\\")
 	, ("colcol"         , "::")
 	, ("tilde"          , "~")
+	, ("textasciitilde" , "~")
 	, ("hspace"         , " ")
 	, ("space"          , " ")
 	, ("equiv"          , "&equiv;")
