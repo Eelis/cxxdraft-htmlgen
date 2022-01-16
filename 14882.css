@@ -560,7 +560,13 @@ table.enumerate td:first-child {
 
     span.mjx-mstyle { color: #b0b0b0 !important }
 
-    a { color: #549df2; }
+    a:link { color: #549df2; }
+    a:visited { color: #a36ae6; }
+
+    a.hidden_link {
+        text-decoration: none;
+        color: inherit;
+    }
 
     span.phantom { color: #171717; }
 
