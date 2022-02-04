@@ -530,6 +530,7 @@ loadMacros extraMacros =
 	. doParse initialMacros
 	. replace "\\indeximpldef{" "\\index[impldefindex]{"
 	. textSubRegex (mkRegex "\\\\penalty[0-9]+{}") ""
+	. textSubRegex (mkRegex "\\\\verbtocs{[\\a-zA-Z]*}\\|[^|]*\\|") ""
 	. rmExplSyntax
 	. (++ extraMacros)
 	. mconcat
