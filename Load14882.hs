@@ -452,6 +452,11 @@ sectionIndexEntries s =
 	  , (OptArg, [TeXRaw indexCategory]), (FixArg, (parseIndex -> (indexPath, indexEntryKind)))
 	  ] <- lookForCommand "index" (sectionTex sec)]
 
+sectionLabels :: Section -> [(Text, Section)]
+sectionLabels s =
+	[ (label, sec) | sec <- sections s
+	, [ (FixArg, [TeXRaw label]) ] <- lookForCommand "label" (sectionTex sec)]
+
 toIndex :: IndexEntry -> Index
 toIndex IndexEntry{..} = Map.singleton indexCategory $ go indexPath
 	where
@@ -553,6 +558,7 @@ load14882 extraMacros = do
 			index = mergeIndices $ map toIndex allEntries
 			indexEntryMap = IntMap.fromList [(n, e) | e@IndexEntry{indexEntryNr=Just n} <- allEntries]
 			indexEntriesByPath = reverseIndexEntryMap indexEntryMap
+			labels = Map.fromList $ chapters >>= sectionLabels
 	
 			abbrMap = makeAbbrMap dr
 			dr = Draft{..}

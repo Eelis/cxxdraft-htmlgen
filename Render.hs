@@ -50,7 +50,7 @@ kill = words $
 	"clearpage renewcommand newcommand enlargethispage noindent indent vfill pagebreak setlength " ++
 	"caption capsep continuedcaption bottomline hline rowsep hspace endlist cline " ++
 	"hfill nocorr small endhead kill footnotesize rmfamily microtypesetup nobreak nolinebreak " ++
-	"label topline FlushAndPrintGrammar left right protect = ! @ - xspace obeyspaces"
+	"topline FlushAndPrintGrammar left right protect = ! @ - xspace obeyspaces"
 literal = ["#", "{", "}", "~", "%", ""]
 
 simpleMacros :: [(String, Text)]
@@ -437,6 +437,7 @@ instance Render LaTeXUnit where
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" _ []) = const $ spanTag "comment" "/* ... */"
 	render (TeXComm "ensuremath" _ [(FixArg, x)]) = renderMath x
+	render (TeXComm "label" _ [(FixArg, [TeXRaw x])]) = render anchor{aId = x, aClass = "index"}
 	render (TeXComm "ref" _ [(FixArg, concatRaws -> [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder
@@ -446,8 +447,20 @@ instance Render LaTeXUnit where
 				| "fig:" `isPrefixOf` abbr
 				, Figure{..} <- figureByAbbr draft abbr = TextBuilder.fromString $ show figureNumber
 				| otherwise = squareAbbr (not noTags) abbr
-		in if noTags then linkText else
-			simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = linkText, aTitle = abbrTitle abbr False ctx}
+			renderLabelRef sec =
+			   simpleRender2 anchor{
+			     aHref = abbrHref (abbreviation sec) ctx ++ "#" ++ abbr,
+			     aText = squareAbbr (not noTags) (abbreviation sec),
+			     aTitle = abbrTitle (abbreviation sec) False ctx }
+			renderSectionRef =
+			  simpleRender2 anchor{
+			    aHref = abbrHref abbr ctx,
+			    aText = linkText,
+			    aTitle = abbrTitle abbr False ctx }
+	    in if noTags then linkText else
+	        case Map.lookup abbr (labels draft) of
+	            Just sec -> renderLabelRef sec
+	            Nothing -> renderSectionRef
 	render (TeXComm "iref" _ [(FixArg, [TeXRaw abbrs])]) = \ctx ->
 	    let renderAbbr abbr = render (TeXComm "ref" "" [(FixArg, [TeXRaw abbr])]) ctx
 	    in " (" ++ mconcat (intersperse ", " $ map renderAbbr $ Text.splitOn "," abbrs) ++ ")"

@@ -174,7 +174,8 @@ data Draft = Draft
 	, indexEntryMap :: IntMap IndexEntry
 	, indexEntriesByPath :: Map IndexPath [(Int, IndexEntry)]
 	, xrefDelta :: XrefDelta
-	, abbrMap :: Abbreviation -> Maybe StablyNamedItem }
+	, abbrMap :: Abbreviation -> Maybe StablyNamedItem
+	, labels :: Map Text Section }
 
 -- (The index entry maps are derivable but stored for efficiency.)
 
