@@ -45,6 +45,7 @@ simpleHead (RawLatexElement (TeXComm "br" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "newline" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "par" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "nolinebreak" _ _) : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "iref" _ _) : _) = Nothing
 simpleHead x = error $ "simpleHead: " ++ show x
 
 splitIntoSentences :: [RawElement] -> [[RawElement]]
