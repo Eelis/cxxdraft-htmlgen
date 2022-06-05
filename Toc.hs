@@ -31,10 +31,7 @@ tocSection draft s@Section{..} =
 tocChapter :: Draft -> Section -> TextBuilder.Builder
 tocChapter draft s@Section{abbreviation, sectionName, subsections, parents} =
 	xml "div" [("id", abbreviation)] $
-	h (min 4 $ 2 + length parents) (
-		secnum "" s ++ " " ++
-		render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True, draft=draft} ++
-		simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}) ++
+	h (min 4 $ 2 + length parents) header ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection draft . subsections))
   where
 	href = (if any (not . isDefinitionSection . sectionKind) subsections then "#" else "TocToSection/")
@@ -43,6 +40,14 @@ tocChapter draft s@Section{abbreviation, sectionName, subsections, parents} =
 		aClass = "folded_abbr_ref",
 		aText = TextBuilder.fromText $ "[" ++ abbreviation ++ "]",
 		aHref = href}
+	header
+	  | abbreviation == "bibliography" =
+	      render anchor{aText = "Bibliography", aHref = href}
+	        defaultRenderContext{inSectionTitle=True, draft=draft}
+	  | otherwise =
+	      secnum "" s ++ " " ++
+	      render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True, draft=draft} ++
+	      simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"}
 
 tocHeader :: UTCTime -> Text -> Text
 tocHeader date commitUrl =

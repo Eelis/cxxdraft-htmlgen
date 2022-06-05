@@ -32,13 +32,13 @@ import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
 import Data.Char (isAlpha)
 import Control.Arrow (first)
 import Data.Map (Map)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromJust)
 import qualified Data.Map as Map
 import Data.List (unfoldr, (\\))
 import System.Process (readProcess)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
-import Util ((.), (++), mapLast, stripInfix, measure)
+import Util ((.), (++), mapLast, stripInfix, measure, textStripInfix)
 import RawDocument
 import Sentences (splitIntoSentences, isActualSentence, breakSentence)
 import Document
@@ -525,7 +525,14 @@ parseFiles m = do
 			let (r, macros') = parseFile macros (stuff ++ extra)
 			if length r == 0 then undefined else
 				first (r:) . go cc (macros ++ macros')
-	go files m
+	
+	bib <- fst . parseFile m .
+	       fst . fromJust .
+	       textStripInfix "\\clearpage" .
+	       replace "\\chapter" "\\rSec0[bibliography]" .
+	       readFile "back.tex"
+
+	first (++ [bib]) . go files m
 
 load14882 :: Text -> IO Draft
 load14882 extraMacros = do
