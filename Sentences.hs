@@ -87,7 +87,7 @@ breakSentence (e@(RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".")
   where
    f :: Text -> Text -> Maybe ([RawElement], [RawElement])
    f pre post
-    | "”" `isPrefixOf` post = f (pre ++ "”") (Text.drop 1 post)
+    | "''" `isPrefixOf` post = f (pre ++ "''") (Text.drop 2 post)
     | not (("(." `isSuffixOf` pre) && (")" `isPrefixOf` post))
     , not ("" == post && maybe False (\c -> isLower c || isDigit c) (simpleHead more))
     , not ("" == post && length more /= 0 && head more == RawLatexElement (TeXComm " " "" []))
@@ -167,7 +167,7 @@ instance LinkifyFullStop LaTeX where
             | Just m' <- linkifyFullStop link m = Just [TeXMath kind m']
         inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
         inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
-        inUnit (TeXRaw (Text.stripSuffix ".”" -> Just s)) = Just [TeXRaw s, link, TeXRaw "”"]
+        inUnit (TeXRaw (Text.stripSuffix ".''" -> Just s)) = Just [TeXRaw s, link, TeXRaw "''"]
         inUnit _ = Nothing
 
 instance LinkifyFullStop Item where

@@ -27,10 +27,24 @@ texStripHash x
 cppDirectives :: [Text]
 cppDirectives = ["include", "define", "else", "elif", "endif", "ifdef", "ifndef", "pragma", "error", "undef", "line", "if"]
 
+spanLiteralChars :: String -> Maybe (String, String {- rest without the closing ' -})
+spanLiteralChars [] = Nothing
+spanLiteralChars ('\\' : '\'' : rest) = first ("\\'"++) . spanLiteralChars rest
+spanLiteralChars ('\'' : x) = Just ([], x)
+spanLiteralChars (c : rest) = first (c :) . spanLiteralChars rest
+
+parseLiteralChars :: LaTeX -> Maybe (LaTeX, LaTeX)
+parseLiteralChars [] = Nothing
+parseLiteralChars (TeXRaw s : rest) = case spanLiteralChars (Text.unpack s) of
+    Nothing -> Nothing
+    Just (_, []) -> first (TeXRaw s :) . (parseLiteralChars rest)
+    Just (x, more) -> Just ([TeXRaw (Text.pack x)], TeXRaw (Text.pack more) : rest)
+parseLiteralChars (x : rest) = first (x :) . (parseLiteralChars rest)
+
 parseCharLiteral :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
 parseCharLiteral x
     | Just (pre, x') <- texStripAnyPrefix ["'", "u'", "L'", "U'", "u8'"] x
-    , Just (before, x'') <- texStripInfix "'" x'
+    , Just (before, x'') <- parseLiteralChars x'
     , (suffix, x''') <- texSpan (\c -> isAlphaNum c || c == '_') x''
         = Just ([TeXRaw pre] ++ before ++ [TeXRaw $ "'" ++ suffix], x''')
     | otherwise = Nothing

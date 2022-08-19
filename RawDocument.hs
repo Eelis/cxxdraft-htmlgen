@@ -264,7 +264,6 @@ parseFile macros =
 	. replace "$$" "$"
 	. replace "\\hspace*" "\\hspace"
 	. replace "``" "“"
-	. replace "''" "”"
 	. textSubRegex (mkRegex "(\\grammarterm\\{[A-Za-z-]*\\})(\\{s\\}|s)") "\\1\\textit{s}"
 		-- Mixing italic and upright looks okay in the PDF, but looks bad in browsers,
 		-- and our linkification makes clear enough that the plural 's' is not part

@@ -422,6 +422,7 @@ renderIndexLink _ _ _ = error "bad indexlink"
 instance Render LaTeXUnit where
 	render (TeXRaw x                 ) = \RenderContext{..} -> TextBuilder.fromText
 	    $ (if rawHyphens then id else replace "--" "–" . replace "---" "—")
+	    $ replace "''" "”"
 	    $ (if rawTilde then id else replace "~" " ")
 	    $ (if not insertBreaks then id else
 	    	replace "::" (zwsp ++ "::" ++ zwsp) .

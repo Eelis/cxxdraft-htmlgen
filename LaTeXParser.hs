@@ -302,24 +302,35 @@ breakComment (Token "%" : Token "\n" : x) = first ((Token "%" :) . (Token "\n" :
 breakComment (x : xs) = first (x:) (breakComment xs)
 breakComment [] = ([], [])
 
+data LiteralKind = StringLiteral | CharLiteral
+
 parseCode :: Context -> [Token] -> LaTeX
-parseCode c = concatRaws . go False
+parseCode c = concatRaws . go Nothing
 	where
-		go :: Bool {- in string literal -} -> [Token] -> LaTeX
+		go :: Maybe LiteralKind -> [Token] -> LaTeX
 		go _ [] = []
 		go b (Token "@" : rest) = fullParse c cmd ++ go b rest'
 			where (cmd, Token "@" : rest') = break (== Token "@") rest
-		go True (Token "\"" : rest) = TeXRaw "\"" : go False rest
-		go False (Token "\"" : rest) = TeXRaw "\"" : (go True lit ++ go False rest')
+		go (Just StringLiteral) (Token "\"" : rest) = TeXRaw "\"" : go Nothing rest
+		go (Just CharLiteral) (Token "'" : rest) = TeXRaw "'" : go Nothing rest
+		go Nothing (Token "\"" : rest) = TeXRaw "\"" : (go (Just StringLiteral) lit ++ go Nothing rest')
 			where (lit, rest') = stringLiteral rest
-		go False (Token "/" : Token "/" : (breakComment -> (comment, rest')))
-			= TeXComm "comment" "" [(FixArg, TeXRaw "//" : noncode comment)] : go False rest'
-		go False (Token "/" : Token "*" : rest)
+		go Nothing (Token "'" : rest) = TeXRaw "'" : (go (Just CharLiteral) lit ++ go Nothing rest')
+			where (lit, rest') = charLiteral rest
+		go Nothing (Token "/" : Token "/" : (breakComment -> (comment, rest')))
+			= TeXComm "comment" "" [(FixArg, TeXRaw "//" : noncode comment)] : go Nothing rest'
+		go Nothing (Token "/" : Token "*" : rest)
 		    | Just (comment, rest') <- stripInfix [Token "*", Token "/"] rest
-		    = TeXComm "comment" "" [(FixArg, [TeXRaw "/*"] ++ noncode comment ++ [TeXRaw "*/"])] : go False rest'
+		    = TeXComm "comment" "" [(FixArg, [TeXRaw "/*"] ++ noncode comment ++ [TeXRaw "*/"])] : go Nothing rest'
 		go b (Token "/" : rest) = TeXRaw "/" : go b rest
 		go b s = TeXRaw (Text.pack $ concatMap tokenChars code) : go b rest
-			where (code, rest) = break (`elem` [Token "@", Token "/", Token "\""]) s
+			where
+			  breakToks = [Token "@", Token "/"] ++ 
+			    case b of
+			      Nothing -> [Token "\"", Token "'"]
+			      Just StringLiteral -> [Token "\""]
+			      Just CharLiteral -> [Token "'"]
+			  (code, rest) = break (`elem` breakToks) s
 		noncode :: [Token] -> LaTeX
 		noncode toks =
 		  fullParse c nc ++ case more of
@@ -334,6 +345,12 @@ parseCode c = concatRaws . go False
 		stringLiteral (Token "\"" : x) = ([Token "\""], x)
 		stringLiteral (y : x) = first (y :) (stringLiteral x)
 		stringLiteral [] = ([], [])
+		charLiteral :: [Token] -> ([Token], [Token])
+		charLiteral (Token "\\" : Token "'" : x) = first (Token "\\'" :) (charLiteral x)
+		charLiteral (Token "\\" : Token "\\" : x) = first (Token "\\\\" :) (charLiteral x)
+		charLiteral (Token "'" : x) = ([Token "'"], x)
+		charLiteral (y : x) = first (y :) (charLiteral x)
+		charLiteral [] = ([], [])
 
 tokenize :: String -> [Token]
 tokenize "" = []
