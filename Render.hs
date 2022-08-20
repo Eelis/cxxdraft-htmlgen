@@ -23,7 +23,7 @@ import Document (
 	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
 	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
-import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), matchCommand, matchEnv, lookForCommand, concatRaws,
+import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), lookForCommand, concatRaws,
     renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texSpan, mapTeX)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
@@ -604,7 +604,7 @@ instance Render LaTeXUnit where
 	render env@(TeXEnv e args t)
 	    | e `elem` makeSpan            = \ctx -> (if noTags ctx then id else spanTag (Text.pack e)) (render t ctx)
 	    | e `elem` makeDiv             = xml "div" [("class", Text.pack e)] . render t
-	    | isMath env && isComplexMath [env] = renderComplexMath [env]
+	    | isMath env && hasComplexMath True [env] = renderComplexMath [env]
 	    | isCodeblock env              = renderCodeblock e args t
 		| e == "minipage", [e2@(TeXEnv _ _ cb)] <- trim t, isCodeblock e2 =
 			xml "div" [("class", "minipage")] . renderCodeblock "codeblock" [] cb
@@ -864,20 +864,24 @@ instance Render Element where
 				"description" -> "ul"
 				_ -> undefined
 
-allText :: LaTeXUnit -> [Text]
-allText (TeXRaw x) = [x]
-allText (TeXComm _ _ args) = concatMap (concatMap allText . snd) args
-allText (TeXEnv _ _ x) = x >>= allText
-allText (TeXBraces x) = x >>= allText
-allText (TeXMath _ x) = x >>= allText
-allText _ = []
+class HasComplexMath a where
+    hasComplexMath :: Bool -> a -> Bool
 
-isComplexMath :: LaTeX -> Bool
-isComplexMath t =
-	(not . null $ matchCommand (`elem` complexCmds) t)
-	|| (not . null $ matchEnv (`elem` ["array", "eqnarray"]) t)
-	|| (Text.any (`elem` ("+-*/^_=,' " :: String)) $ Text.strip $ Text.concat $ t >>= allText)
-	where complexCmds = words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le"
+instance HasComplexMath LaTeXUnit where
+    hasComplexMath mathMode (TeXRaw x) = mathMode && Text.any (`elem` ("+-*/^_=' " :: String)) (Text.strip x)
+    hasComplexMath m (TeXComm c _ args)
+        | c `elem` words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le" = True
+        | c `elem` words "tcode" = hasComplexMath False (map snd args)
+        | otherwise = hasComplexMath m (map snd args)
+    hasComplexMath _ (TeXMath _ x) = hasComplexMath True x
+    hasComplexMath m (TeXBraces x) = hasComplexMath m x
+    hasComplexMath m (TeXEnv e _ args)
+        | e `elem` ["array", "eqnarray"] = True
+        | otherwise = hasComplexMath m args
+    hasComplexMath _ TeXLineBreak = False
+
+instance HasComplexMath a => HasComplexMath [a] where
+    hasComplexMath m = any (hasComplexMath m)
 
 data Page
 	= SectionPage Section
@@ -991,7 +995,7 @@ renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _ _) : more)] ctx =
   render c ctx ++ renderMath [TeXMath Dollar more] ctx
 renderMath m ctx
 	| noTags ctx = renderSimpleMath m ctx
-	| isComplexMath m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
+	| hasComplexMath True m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
 	| otherwise = spanTag s $ renderSimpleMath m ctx
 	where
 		s = mathKind m
