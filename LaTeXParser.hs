@@ -77,7 +77,7 @@ codeEnv name sig = (name, Environment f)
 			where
 				(arguments, rest) = parseArgs sig toks
 				Just (code, rest') = stripInfix [Token "\\end", Token "{", Token (Text.unpack name), Token "}"] rest
-				env = TeXEnv (Text.unpack name) (map ((FixArg, ) . fullParse ctx) arguments) (parseCode ctx code)
+				env = TeXEnv (Text.unpack name) (map ((FixArg, ) . fullParse ctx) arguments) (parseCode name ctx code)
 
 outputblockEnv :: (Text, Environment)
 outputblockEnv = ("outputblock", Environment f)
@@ -304,8 +304,8 @@ breakComment [] = ([], [])
 
 data LiteralKind = StringLiteral | CharLiteral
 
-parseCode :: Context -> [Token] -> LaTeX
-parseCode c = concatRaws . go Nothing
+parseCode :: Text -> Context -> [Token] -> LaTeX
+parseCode envname c = concatRaws . go Nothing
 	where
 		go :: Maybe LiteralKind -> [Token] -> LaTeX
 		go _ [] = []
@@ -315,8 +315,10 @@ parseCode c = concatRaws . go Nothing
 		go (Just CharLiteral) (Token "'" : rest) = TeXRaw "'" : go Nothing rest
 		go Nothing (Token "\"" : rest) = TeXRaw "\"" : (go (Just StringLiteral) lit ++ go Nothing rest')
 			where (lit, rest') = stringLiteral rest
-		go Nothing (Token "'" : rest) = TeXRaw "'" : (go (Just CharLiteral) lit ++ go Nothing rest')
-			where (lit, rest') = charLiteral rest
+		go Nothing (Token "'" : rest)
+		       | envname == "codeblockdigitsep" = TeXRaw "'" : go Nothing rest
+		       | otherwise = TeXRaw "'" : (go (Just CharLiteral) lit ++ go Nothing rest')
+		       where (lit, rest') = charLiteral rest
 		go Nothing (Token "/" : Token "/" : (breakComment -> (comment, rest')))
 			= TeXComm "comment" "" [(FixArg, TeXRaw "//" : noncode comment)] : go Nothing rest'
 		go Nothing (Token "/" : Token "*" : rest)
