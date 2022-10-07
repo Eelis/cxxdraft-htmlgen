@@ -461,7 +461,9 @@ instance Render LaTeXUnit where
 	    in if noTags then linkText else
 	        case Map.lookup abbr (labels draft) of
 	            Just sec -> renderLabelRef sec
-	            Nothing -> renderSectionRef
+	            Nothing
+	                | SectionPage pageSec <- page, abbreviation pageSec == abbr -> linkText
+	                | otherwise -> renderSectionRef
 	render (TeXComm "iref" _ [(FixArg, [TeXRaw abbrs])]) = \ctx ->
 	    let renderAbbr abbr = render (TeXComm "ref" "" [(FixArg, [TeXRaw abbr])]) ctx
 	    in " (" ++ mconcat (intersperse ", " $ map renderAbbr $ Text.splitOn "," abbrs) ++ ")"
