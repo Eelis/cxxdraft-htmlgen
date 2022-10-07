@@ -48,6 +48,7 @@ data RawElement
 	| RawCodeblock LaTeXUnit
 	| RawExample [RawTexPara]
 	| RawNote Text [RawTexPara]
+	| RawItemdescr [RawTexPara]
 	| RawBnf String LaTeX
 	| RawTable
 		{ rawTableCaption :: LaTeX
@@ -86,6 +87,7 @@ instance AllUnits RawElement where
 	allUnits (RawNote _ x) = allUnits x
 	allUnits (RawExample x) = allUnits x
 	allUnits (RawCodeblock x) = allUnits x
+	allUnits (RawItemdescr x) = allUnits x
 	allUnits (RawEnumerated _ x) = allUnits x
 	allUnits RawFigure{} = []
 	allUnits RawTable{..} = allUnits rawTableCaption ++ concatMap (allUnits . concat . map content) (map cells rawTableBody)
@@ -322,6 +324,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			    in RawNote label $ parsePara stuff
 			| k `elem` ["example", "tailexample"] = RawExample $ parsePara stuff
 			| k == "itemdecl" || k == "minipage" || k == "indexeditemdecl" = RawLatexElement e
+			| k == "itemdescr" = RawItemdescr $ parsePara stuff
 		f x = RawLatexElement x
 		splitElems :: LaTeX -> [LaTeX]
 		splitElems [] = []

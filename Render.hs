@@ -843,6 +843,7 @@ instance Render Element where
 	render (HtmlElement html) = const $ TextBuilder.fromText html
 	render (LatexElement x) = render x
 	render (Codeblock x) = render x
+	render (Itemdescr x) = xml "div" [("class", "itemdescr")] . renderLatexParas x
 	render (NoteElement x) = render x
 	render (ExampleElement x) = render x
 	render (Bnf e t) = xml "div" ([("class", Text.pack e)] ++ idattr) . render t

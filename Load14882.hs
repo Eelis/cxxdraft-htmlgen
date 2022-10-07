@@ -234,6 +234,7 @@ instance AssignNumbers RawElement Element where
 	assignNumbers s (RawBnf x y) = Bnf x . assignNumbers s y
 	assignNumbers _ (RawTabbing x) = return $ Tabbing x
 	assignNumbers s (RawCodeblock x) = Codeblock . assignNumbers s x
+	assignNumbers s (RawItemdescr x) = Itemdescr . assignNumbers s x
 	assignNumbers s (RawNote label x) = do
 		Numbers{..} <- get
 		put Numbers{noteNr = noteNr+1, ..}

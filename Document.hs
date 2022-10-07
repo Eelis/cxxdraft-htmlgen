@@ -101,6 +101,7 @@ data Element
 	| Tabbing LaTeX
 	| FigureElement Figure
 	| Codeblock LaTeXUnit
+	| Itemdescr [TeXPara] -- needed because there can be notes in itemdescr envs
 	| NoteElement Note
 	| ExampleElement Example
 	| HtmlElement Text
@@ -344,6 +345,7 @@ elemTex (Enumerated _ e) = e >>= itemTex
 elemTex (Bnf _ l) = l
 elemTex (Tabbing t) = t
 elemTex (Codeblock t) = [t]
+elemTex (Itemdescr t) = t >>= texParaTex
 elemTex (TableElement Table{..}) = tableCaption ++ (tableBody >>= rowTex)
 	where
 		rowTex :: Row [TeXPara] -> LaTeX
