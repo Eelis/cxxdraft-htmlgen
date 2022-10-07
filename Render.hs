@@ -873,7 +873,7 @@ class HasComplexMath a where
 instance HasComplexMath LaTeXUnit where
     hasComplexMath mathMode (TeXRaw x) = mathMode && Text.any (`elem` ("+-*/^_=' " :: String)) (Text.strip x)
     hasComplexMath m (TeXComm c _ args)
-        | c `elem` words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le leq ge geq land lor mapsto" = True
+        | c `elem` words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le leq ge geq land lor mapsto cdot bmod" = True
         | c `elem` words "tcode" = hasComplexMath False (map snd args)
         | otherwise = hasComplexMath m (map snd args)
     hasComplexMath _ (TeXMath _ x) = hasComplexMath True x
