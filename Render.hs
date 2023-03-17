@@ -427,7 +427,7 @@ instance Render LaTeXUnit where
 	    $ (if not insertBreaks then id else
 	    	replace "::" (zwsp ++ "::" ++ zwsp) .
 	    	replace "\1" "__" .
-	    	replace "_" "_&shy;" .
+	    	replace "_" (if noTags then "_&shy;" else "_<span class='shy'></span>") .
 	    	replace "__" "\1")
 	    $ (if replXmlChars then replaceXmlChars else id)
 	    $ x
