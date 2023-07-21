@@ -59,6 +59,7 @@ simpleMacros =
 	, (","              , "<span style='white-space:nowrap'>&thinsp;</span>")
 	                           -- thin, non-breaking, non-stretching space
 	, ("\""             , "\"")
+	, ("`"              , "`")
 	, ("prime"          , "'")
 	, ("caret"          , "^")
 	, ("copyright"      , "&copy;")

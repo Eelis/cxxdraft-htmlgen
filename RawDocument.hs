@@ -193,7 +193,7 @@ storeCmds =
 			"phi int theta zeta FlushAndPrintGrammar break backslash centering " ++
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
-			"gamma widowpenalties sffamily parskip left right")
+			"gamma widowpenalties sffamily parskip left right `")
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
