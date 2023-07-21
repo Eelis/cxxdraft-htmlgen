@@ -42,6 +42,7 @@ simpleHead (RawLatexElement (TeXComm "index" _ _) : more) = simpleHead more
 simpleHead (RawLatexElement (TeXComm "footnoteref" _ _) : _) = Nothing -- hmm
 simpleHead (RawLatexElement TeXLineBreak : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "br" _ _) : _) = Nothing
+simpleHead (RawLatexElement (TeXComm "linebreak" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "newline" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "par" _ _) : _) = Nothing
 simpleHead (RawLatexElement (TeXComm "nolinebreak" _ _) : _) = Nothing
