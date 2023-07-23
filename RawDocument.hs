@@ -198,7 +198,7 @@ storeCmds =
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline vspace value newcounter mathscr hyperref c uppercase iref operatorname " ++
-			"phantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
+			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
