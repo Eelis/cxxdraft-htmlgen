@@ -26,6 +26,7 @@ import LaTeXBase
 	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
+import Text.Regex (mkRegex, matchRegexAll)
 import qualified Data.Text as Text
 import Control.Monad (forM, when)
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)
@@ -34,8 +35,9 @@ import Control.Arrow (first)
 import Data.Map (Map)
 import Data.Maybe (isJust, fromJust)
 import qualified Data.Map as Map
-import Data.List (unfoldr, (\\))
+import Data.List (unfoldr, (\\), takeWhile)
 import System.Process (readProcess)
+import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.State (MonadState, evalState, get, put, liftM2, modify)
 import Util ((.), (++), mapLast, stripInfix, measure, textStripInfix)
@@ -498,6 +500,25 @@ generateStdGramExt files =
     Text.pack . unlines . grabBnf . lines . Text.unpack .
     Text.concat . mapM readFile ((++ ".tex") . files)
 
+importExampleFile :: FilePath -> IO Text
+importExampleFile =
+    (Text.strip .
+     Text.unlines .
+     takeWhile (/= "\\end{document}") .
+     tail .
+     dropWhile (/= "\\begin{document}") .
+     Text.lines .) .
+    readFile
+
+importExamples :: Text -> Text
+importExamples x = case matchRegexAll r (Text.unpack x) of
+        Nothing -> x
+        Just (before, _match, after, subs) ->
+            Text.pack before ++
+            unsafePerformIO (importExampleFile $ "assets/" ++ (subs !! 1) ++ ".tex") ++
+            importExamples (Text.pack after)
+    where r = mkRegex "\\\\importexample(\\[[0-9a-zA-Z.-]*\\])?{([a-zA-Z0-9_-]*)}"
+
 parseFiles :: Parser.Macros -> IO ([[LinearSection]], Parser.Macros)
 parseFiles m = do
 	files <- getFileList
@@ -508,6 +529,7 @@ parseFiles m = do
 			let p = c ++ ".tex"
 
 			stuff <-
+				importExamples .
 				replace "multicolfloattable" "floattable" .
 				replace "\\indeximpldef{" "\\index[impldefindex]{" .
 				Text.unlines .

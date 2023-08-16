@@ -436,7 +436,6 @@ parse ctx (Token c : rest)
 	| all isAlphaNum c
 		= prependContent [TeXRaw $ Text.pack c] $ parse ctx rest
 parse ctx (Token [c] : rest)
-	| isAlphaNum c || isSpace c || (c `elem` (".^|,[]':@-+=()!/;*~\"“”_<>&$?#" :: String))
 		= prependContent [TeXRaw $ Text.pack [c]] $ parse ctx rest
 parse _ s = error $ "parse: unexpected: " ++ take 100 (concatMap tokenChars s)
 
