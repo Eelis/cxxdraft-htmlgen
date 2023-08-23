@@ -467,7 +467,7 @@ instance Render LaTeXUnit where
 	                | otherwise -> renderSectionRef
 	render (TeXComm "iref" _ [(FixArg, [TeXRaw abbrs])]) = \ctx ->
 	    let renderAbbr abbr = render (TeXComm "ref" "" [(FixArg, [TeXRaw abbr])]) ctx
-	    in " (" ++ mconcat (intersperse ", " $ map renderAbbr $ Text.splitOn "," abbrs) ++ ")"
+	    in " (" ++ mconcat (intersperse ", " $ map (renderAbbr . Text.strip) $ Text.splitOn "," abbrs) ++ ")"
 	render (TeXComm "nopnumdiffref" _ [(FixArg, [TeXRaw (Text.splitOn "," -> abbrs)])]) = \ctx ->
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr True abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
