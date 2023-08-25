@@ -1278,6 +1278,7 @@ fileContent pathHome title extraHead body =
 			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Normal'/>" ++
 			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
 			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "normative-only.css' title='Notes and examples hidden'/>" ++
+			"<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Roboto+Mono'/>" ++
 			"<link rel='icon' href='icon.png'/>" ++
 			extraHead ++
 		"</head>" ++
