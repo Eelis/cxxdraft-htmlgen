@@ -233,10 +233,10 @@ writeCssFile = do
 		replaceFonts =
 			Text.replace
 				".MJXc-TeX-sans-R {font-family: MJXc-TeX-sans-R,MJXc-TeX-sans-Rw}"
-				".MJXc-TeX-sans-R {font-family: Arial; font-size: 15px; }" .
+				".MJXc-TeX-sans-R {font-family: Noto; font-size: 10pt; }" .
 			Text.replace
 				".MJXc-TeX-type-R {font-family: MJXc-TeX-type-R,MJXc-TeX-type-Rw}"
-				".MJXc-TeX-type-R {font-family: Roboto Mono; font-size: 9pt; }" .
+				".MJXc-TeX-type-R {font-family: Noto Sans Mono; font-size: 9pt; }" .
 			Text.replace
 				".MJXc-TeX-main-R {font-family: MJXc-TeX-main-R,MJXc-TeX-main-Rw}"
 				".MJXc-TeX-main-R {}" .

@@ -277,12 +277,12 @@ loadFigure f = unsafePerformIO $ do
 		svg <- readProcess "dot" ["-Tsvg",
 			"-Gbgcolor=transparent",
 			"-Gsize=8",
-			"-Nfontsize=12",
-			"-Gfontsize=12",
-			"-Efontsize=12",
-			"-Nfontname=Times New Roman",
-			"-Efontname=Times New Roman",
-			"-Gfontname=Times New Roman"] (Text.unpack $ Text.replace ", fontsize=24" "" dot)
+			"-Nfontsize=10",
+			"-Gfontsize=10",
+			"-Efontsize=10",
+			"-Nfontname=Noto Serif",
+			"-Efontname=Noto Serif",
+			"-Gfontname=Noto Serif"] (Text.unpack $ Text.replace "Courier New" "Noto Sans Mono" $ Text.replace ", fontsize=24" "" dot)
 		return $ rmIds $ snd $ Text.breakOn "<svg" $ Text.pack svg
 	where
 		p = Text.unpack $ Text.replace ".pdf" ".dot" f
