@@ -813,7 +813,7 @@ noWrapSpace = "&nbsp;"
 instance Render Note where
 	render Note{..} ctx = xml "div" [("id", i), ("class", "note")] (renderParas True noteContent)
 		where
-			prefix = "[<i>" ++ TextBuilder.fromText noteLabel ++ "&nbsp;" ++ render link ctx ++ "</i>: "
+			prefix = "[<i>" ++ TextBuilder.fromText noteLabel ++ "&nbsp;" ++ render link ctx ++ "</i>:&ensp;"
 			suffix = " —" ++ noWrapSpace ++ "<i>end note</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
@@ -829,7 +829,7 @@ instance Render Example where
 			++ " —&nbsp;end&nbsp;example] "
 		| otherwise = xml "div" [("id", i), ("class", "example")] (renderParas True exampleContent)
 		where
-			prefix = "[<i>Example&nbsp;" ++ render link ctx ++ "</i>: "
+			prefix = "[<i>Example&nbsp;" ++ render link ctx ++ "</i>:&ensp;"
 			suffix = " —" ++ noWrapSpace ++ "<i>end example</i>]"
 			renderParas _ [] = ""
 			renderParas isFirst (p:pp) = xml "div" [("class", "texpara")] ((if isFirst then prefix else "") ++ render p ctx ++ (if null pp then suffix else "")) ++ renderParas False pp
