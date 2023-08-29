@@ -402,8 +402,18 @@ normalCmd (Command f) = Command $ \ctx ws toks ->
 	let ParseResult content newMacros rest = f ctx ws toks
 	in addMacros False newMacros (prependContent content (parse ctx{macros=macros ctx ++ newMacros} rest))
 
+consumeMath :: [Token] -> ([Token], [Token])
+consumeMath = f 0
+    where
+        f :: Integer -> [Token] -> ([Token], [Token])
+        f 0 (Token "$" : rest) = ([], rest)
+        f depth (Token "{" : rest) = first (Token "{" :) (f (depth + 1) rest)
+        f depth (Token "}" : rest) = first (Token "}" :) (f (depth - 1) rest)
+        f depth (tok : rest) = first (tok :) (f depth rest)
+        f _ [] = error "unexpected end of math"
+
 parse :: Context -> [Token] -> ParseResult
-parse c (d@(Token "$") : (span (/= d) -> (math, Token "$" : rest))) =
+parse c (Token "$" : (consumeMath -> (math, rest))) =
 	prependContent [TeXMath Dollar (fullParse c math)] (parse c rest)
 parse c (Token "\\[" : (span (/= Token "\\]") -> (math, Token "\\]" : rest))) =
 	prependContent [TeXMath Square (fullParse c math)] (parse c rest)
