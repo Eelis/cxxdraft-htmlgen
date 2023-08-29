@@ -412,6 +412,10 @@ span.textsuperscript {
 	font-size: 8pt;
 }
 
+.footnote .math {
+	font-size: 8pt;
+}
+
 .footnotenum {
 	display: inline-block;
 	text-align: right;
