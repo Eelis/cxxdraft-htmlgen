@@ -92,13 +92,13 @@ simpleMacros =
 	, ("hspace"         , " ")
 	, ("space"          , " ")
 	, ("equiv"          , "&equiv;")
-	, ("le"             , "≤")
-	, ("leq"            , "≤")
-	, ("ge"             , "≥")
-	, ("geq"            , "≥")
-	, ("neq"            , "≠")
-	, ("land"           , "∧")
-	, ("lor"            , "∨")
+	, ("le"             , "&ensp;≤&ensp;")
+	, ("leq"            , "&ensp;≤&ensp;")
+	, ("ge"             , "&ensp;≥&ensp;")
+	, ("geq"            , "&ensp;≥&ensp;")
+	, ("neq"            , "&ensp;≠&ensp;")
+	, ("land"           , "&ensp;∧&ensp;")
+	, ("lor"            , "&ensp;∨&ensp;")
 	, ("cdot"           , "·")
 	, ("cdots"          , "⋯")
 	, ("to"             , "→")
@@ -874,7 +874,7 @@ class HasComplexMath a where
 instance HasComplexMath LaTeXUnit where
     hasComplexMath mathMode (TeXRaw x) = mathMode && Text.any (`elem` ("+-*/^_=' " :: String)) (Text.strip x)
     hasComplexMath m (TeXComm c _ args)
-        | c `elem` words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr le leq ge geq land lor mapsto cdot bmod" = True
+        | c `elem` words "frac sum binom int sqrt lfloor rfloor lceil rceil log mathscr mapsto cdot bmod" = True
         | c `elem` words "tcode" = hasComplexMath False (map snd args)
         | otherwise = hasComplexMath m (map snd args)
     hasComplexMath _ (TeXMath _ x) = hasComplexMath True x
