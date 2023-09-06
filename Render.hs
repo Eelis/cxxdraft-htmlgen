@@ -11,8 +11,8 @@
 
 module Render (
 	Render(render), concatRender, renderTab, renderFig, renderIndex, simpleRender, simpleRender2, squareAbbr,
-	linkToSection, secnum, SectionFileStyle(..), applySectionFileStyle, Page(..), parentLink,
-	fileContent, Link(..), outputDir, defaultRenderContext, isSectionPage,
+	linkToSection, secnum, Page(..), parentLink,
+	defaultRenderContext, isSectionPage,
 	RenderContext(..), renderLatexParas
 	) where
 
@@ -40,6 +40,7 @@ import Prelude hiding (take, (.), (++), writeFile)
 import Data.List (find, nub, intersperse, (\\), sortOn, dropWhileEnd)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, fromJust)
+import Pages (Link(..))
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet,
     urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy, mapHead)
@@ -898,6 +899,7 @@ data Page
 	| TablesPage
 	| FiguresPage
 	| TocPage
+	| ExpandedTocPage
 
 isSectionPage :: Page -> Bool
 isSectionPage (SectionPage _) = True
@@ -1229,9 +1231,6 @@ preprocessPre = concatMap f
 htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
 
-data Link = TocToSection | SectionToToc | SectionToSection
-	deriving Show
-
 linkToSectionHref :: Link -> Abbreviation -> Text
 linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ urlChars abbr
 
@@ -1266,54 +1265,3 @@ secnumText Section{sectionNumber=n,..}
 		chap
 			| chapter == NormalChapter = simpleRender2 (head ns)
 			| otherwise = TextBuilder.singleton $ ['A'..] !! head ns
-
-fileContent :: TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder -> TextBuilder.Builder
-fileContent pathHome title extraHead body =
-	"<!DOCTYPE html>" ++
-	"<html lang='en'>" ++
-		"<head>" ++
-			"<title>" ++ title ++ "</title>" ++
-			"<meta charset='UTF-8'/>" ++
-			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
-			"<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Normal'/>" ++
-			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
-			"<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "normative-only.css' title='Notes and examples hidden'/>" ++
-			"<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Serif'/>" ++
-			"<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans'/>" ++
-			"<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans+Mono'/>" ++
-			"<link rel='icon' href='icon.png'/>" ++
-			extraHead ++
-		"</head>" ++
-		"<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
-	"</html>"
-
-data SectionFileStyle = Bare | WithExtension | InSubdir
-	deriving (Eq, Read)
-
-doLink :: SectionFileStyle -> Link -> Text -> Text
-doLink sfs l = LazyText.toStrict . TextBuilder.toLazyText . go . Text.splitOn (Text.pack (show l) ++ "/")
-	where
-		go :: [Text] -> TextBuilder.Builder
-		go (x : (Text.break (`elem` ("'#" :: String)) -> (a, b)) : z) = TextBuilder.fromText x ++ f (TextBuilder.fromText a) ++ go (b : z)
-		go [x] = TextBuilder.fromText x
-		go _ = undefined
-		f :: TextBuilder.Builder -> TextBuilder.Builder
-		f = case (sfs, l) of
-			(Bare, SectionToToc) -> ("./#" ++)
-			(Bare, TocToSection) -> id
-			(Bare, SectionToSection) -> id
-			(InSubdir, SectionToToc) -> ("../#" ++)
-			(InSubdir, TocToSection) -> (++ "/")
-			(InSubdir, SectionToSection) -> ("../" ++)
-			(WithExtension, SectionToToc) -> ("index.html#" ++)
-			(WithExtension, TocToSection) -> (++ ".html")
-			(WithExtension, SectionToSection) -> (++ ".html")
-
-applySectionFileStyle :: SectionFileStyle -> Text -> Text
-applySectionFileStyle sfs =
-	doLink sfs SectionToSection
-	. doLink sfs SectionToToc
-	. doLink sfs TocToSection
-
-outputDir :: FilePath
-outputDir = "14882/"

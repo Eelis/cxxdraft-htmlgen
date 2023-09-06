@@ -1,0 +1,13 @@
+h1 { margin: 0.2em 5pt 0.2em 5pt; line-height: 1.5; }
+h2 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed rgba(0, 0, 0, 0.2); line-height: 1.5; }
+h3 { margin: 0.2em 5pt 0.2em 5pt; border-bottom: 1px dashed rgba(0, 0, 0, 0.2); line-height: 1.5; }
+h4 { margin: 0.1em 5pt 0.1em 5pt; border-bottom: 1px dashed rgba(0, 0, 0, 0.2); line-height: 1.5; }
+:target h2 { border-bottom: none; }
+.tocHeader { text-align: center; }
+:target > div.tocChapter { display: block; }
+
+@media (prefers-color-scheme: dark) {
+    h2 { border-bottom-color: #b0b0b05a; }
+    h3 { border-bottom-color: #b0b0b05a; }
+    h4 { border-bottom-color: #b0b0b05a; }
+}

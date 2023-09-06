@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 {-# LANGUAGE LambdaCase, ViewPatterns, RecordWildCards, OverloadedStrings #-}
 
-import Render (outputDir, SectionFileStyle(..))
 import Document (Draft(..))
 import Load14882 (load14882)
 import Prelude hiding ((++), (.), writeFile, readFile)
@@ -11,12 +10,13 @@ import Control.Monad (forM_)
 import Data.Text.IO (readFile)
 import qualified Control.Monad.Parallel as ParallelMonad
 import Util hiding (readFile)
-import Toc (writeTocFile)
+import Toc (writeTocFiles)
+import Pages (outputDir, PageStyle(..))
 import SectionPages
 
 data CmdLineArgs = CmdLineArgs
 	{ repo :: FilePath
-	, sectionFileStyle :: SectionFileStyle
+	, sectionFileStyle :: PageStyle
 	, sectionToWrite :: Maybe String }
 
 readCmdLineArgs :: [String] -> CmdLineArgs
@@ -46,7 +46,7 @@ main = do
 		Just abbr -> writeSingleSectionFile sectionFileStyle draft abbr
 		Nothing -> do
 			let acts =
-				[ writeTocFile sectionFileStyle draft
+				[ writeTocFiles sectionFileStyle draft
 				, writeCssFile
 				, writeFiguresFile sectionFileStyle draft
 				, writeFigureFiles sectionFileStyle draft
