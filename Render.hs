@@ -1077,6 +1077,7 @@ mathKey :: LaTeX -> (String, Bool)
 mathKey m = case m of
 		[TeXMath kind t] -> (prepMath t, kind == Dollar)
 		[TeXEnv "eqnarray*" [] _] -> (prepMath m, False)
+		[TeXEnv "equation*" [] _] -> (prepMath m, False)
 		_ -> (prepMath m, True)
 
 highlightCodeInMath :: RenderContext -> [Soup.Tag Text] -> TextBuilder.Builder

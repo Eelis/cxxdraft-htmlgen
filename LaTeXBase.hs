@@ -184,6 +184,7 @@ isMath :: LaTeXUnit -> Bool
 isMath (TeXMath _ _) = True
 isMath (TeXComm "ensuremath" _ _) = True
 isMath (TeXEnv "eqnarray*" _ _) = True
+isMath (TeXEnv "equation*" _ _) = True
 isMath _ = False
 
 isCodeblock :: LaTeXUnit -> Bool

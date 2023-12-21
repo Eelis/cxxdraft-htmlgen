@@ -195,7 +195,7 @@ storeCmds =
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily parskip left right `")
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
-			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term " ++
+			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline vspace value newcounter mathscr hyperref c uppercase iref operatorname " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
@@ -231,7 +231,7 @@ initialEnvs :: Map Text Environment
 initialEnvs = Map.fromList $
 	[ (storeEnv e (Signature 0 Nothing))
 	| e <- bnfEnvs ++
-	       words "indented description itemize center tabbing defnote enumerate eqnarray* itemdescr footnote"
+	       words "indented description itemize center tabbing defnote enumerate eqnarray* equation* itemdescr footnote matrix"
 	] ++
 	[ storeEnv "example" (Signature 1 (Just []))
 	, storeEnv "tailexample" (Signature 1 (Just []))
