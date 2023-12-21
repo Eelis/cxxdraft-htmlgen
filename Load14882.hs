@@ -519,7 +519,7 @@ importExamples x = case matchRegexAll r (Text.unpack x) of
             importExamples (Text.pack after)
     where r = mkRegex "\\\\importexample(\\[[0-9a-zA-Z.-]*\\])?{([a-zA-Z0-9_-]*)}"
 
-parseFiles :: Parser.Macros -> IO ([[LinearSection]], Parser.Macros)
+parseFiles :: Parser.Macros -> IO ([LinearSection], Parser.Macros)
 parseFiles m = do
 	files <- getFileList
 	stdGramExt <- generateStdGramExt files
@@ -547,15 +547,15 @@ parseFiles m = do
 			let extra = if c /= "grammar" then "" else replace "\\gramSec" "\\rSec1" stdGramExt
 			let (r, macros') = parseFile macros (stuff ++ extra)
 			if length r == 0 then undefined else
-				first (r:) . go cc (macros ++ macros')
+				first (r ++) . go cc (macros ++ macros')
 	
 	bib <- fst . parseFile m .
 	       fst . fromJust .
 	       textStripInfix "\\clearpage" .
-	       replace "\\chapter" "\\rSec0[bibliography]" .
+	       ("\\rSec0[bibliography]{Bibliography}\n" ++) .
 	       readFile "back.tex"
 
-	first (++ [bib]) . go files m
+	first (++ bib) . go files m
 
 load14882 :: Text -> IO Draft
 load14882 extraMacros = do
@@ -565,7 +565,7 @@ load14882 extraMacros = do
 	(macros@Parser.Macros{..}, took) <- measure (loadMacros extraMacros)
 	putStrLn $ "Loaded macros in " ++ show (took * 1000) ++ "ms."
 
-	(secs :: [LinearSection], took2) <- measure $ mconcat . fst . parseFiles macros
+	(secs :: [LinearSection], took2) <- measure $ fst . parseFiles macros
 	putStrLn $ "Parsed LaTeX in " ++ show (took2 * 1000) ++ "ms."
 
 	xrefDelta <- loadXrefDelta

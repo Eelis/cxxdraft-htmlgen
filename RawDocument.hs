@@ -122,7 +122,7 @@ isFigure = isTeXEnv "importgraphic"
 
 isEnumerate :: LaTeXUnit -> Maybe String
 isEnumerate (TeXEnv s _ _)
-	| s `elem` ["enumerate", "itemize", "description"] = Just s
+	| s `elem` ["enumerate", "itemize", "description", "thebibliography"] = Just s
 isEnumerate _ = Nothing
 
 isParaEnd :: LaTeXUnit -> Bool
@@ -148,6 +148,7 @@ isJunk _ = False
 isItem :: LaTeXUnit -> Maybe LaTeX
 isItem (TeXComm "item" _ []) = Just []
 isItem (TeXComm "item" _ [(_, label)]) = Just label
+isItem (TeXComm "bibitem" _ [(_, [TeXRaw label])]) = Just [TeXRaw $ "bib:" ++ label]
 isItem _ = Nothing
 
 parseItems :: LaTeX -> [RawItem]
@@ -194,7 +195,7 @@ storeCmds =
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily parskip left right `")
-	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox " ++
+	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox bibitem " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline vspace value newcounter mathscr hyperref c uppercase iref operatorname " ++
@@ -242,6 +243,7 @@ initialEnvs = Map.fromList $
 	, storeEnv "longtable" (Signature 1 Nothing)
 	, storeEnv "importgraphic" (Signature 3 Nothing)
 	, storeEnv "minipage" (Signature 1 Nothing)
+	, storeEnv "thebibliography" (Signature 1 Nothing)
 	, codeEnv "indexeditemdecl" (Signature 1 Nothing)
 	, codeEnv "itemdecl" (Signature 0 Nothing)
 	, codeEnv "indexedcodeblock" (Signature 1 Nothing)

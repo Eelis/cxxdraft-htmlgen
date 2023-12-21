@@ -154,6 +154,7 @@ indexShortName "generalindex" (Just DefinitionIndexEntry) = "def"
 indexShortName "generalindex" _ = ""
 indexShortName "libraryindex" _ = "lib"
 indexShortName "impldefindex" _ = ""
+indexShortName "bibliography" _ = "bib"
 indexShortName cat _ = error $ "indexShortName: unrecognized category: " ++ Text.unpack cat
 
 indexPathId :: Text -> Maybe IndexKind -> IndexPath -> Text
@@ -373,6 +374,7 @@ commasAnd [x, y, z] = x ++ ", " ++ y ++ ", and " ++ z
 commasAnd (x : y) = x ++ ", " ++ commasAnd y
 
 abbrTitle :: Text -> Bool -> RenderContext -> Text
+abbrTitle "bibliography" _ _ = "Bibliography"
 abbrTitle abbr includeAbbr ctx
 	| "tab:" `isPrefixOf` abbr
 	, Just Table{..} <- tableByAbbr (draft ctx) abbr =
@@ -410,7 +412,7 @@ renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, rawIndexPat
 					            , not ("gram." `isPrefixOf` abbreviation) ] -> Just hd
 				_ -> Nothing
 		traceIfBad
-			| resolved == Nothing, cat /= "grammarindex" =
+			| resolved == Nothing, cat /= "grammarindex", cat /= "bibliography" =
 				trace $ "\nbad index link: " ++ show (cat, rawIndexPath)
 					++ "\nlookup result: " ++ show (Map.lookup p $ indexEntriesByPath (draft ctx))
 			| otherwise = id
@@ -613,6 +615,7 @@ instance Render LaTeXUnit where
 			xml "div" [("class", "minipage")] . renderCodeblock "codeblock" [] cb
 		| e == "outputblock"           = renderOutputblock t
 		| e == "itemdescr"             = render t
+		| e == "thebibliography"       = render t
 	    | otherwise                    = error $ "render: unexpected " ++ show env
 
 instance Render Int where render = return . TextBuilder.fromString . show
@@ -738,7 +741,13 @@ spacedJoin x y
 	| otherwise = x ++ " " ++ y
 
 instance Render RenderItem where
-	render RenderItem{item=Item Nothing _ elems paras} ctx = xml "li" [] $ render elems ctx ++ renderLatexParas paras ctx
+	render RenderItem{item=Item Nothing mlabel elems paras} ctx
+		= xml "li" attrs $ render elems ctx ++ renderLatexParas paras ctx
+			where
+			    attrs
+			        | Just [TeXRaw l] <- mlabel = [("id", l)]
+			        | otherwise = []
+
 	render RenderItem{item=Item (Just nn) mlabel elems paras, ..} ctx
 		| listOrdered =
 			xml "tr" [("id", thisId)] $
@@ -866,6 +875,7 @@ instance Render Element where
 				"enumerate" -> "table"
 				"itemize" -> "ul"
 				"description" -> "ul"
+				"thebibliography" -> "ul"
 				_ -> undefined
 
 class HasComplexMath a where
