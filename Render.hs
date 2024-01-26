@@ -34,7 +34,7 @@ import qualified Data.Text.Lazy as LazyText
 import qualified Text.HTML.TagSoup as Soup
 import Data.Char (isAlpha, isSpace, isAlphaNum, toLower, isUpper, ord, isDigit, toUpper)
 import Control.Arrow (second)
-import qualified Prelude
+import qualified Prelude ()
 import qualified MathJax
 import Prelude hiding (take, (.), (++), writeFile)
 import Data.List (find, nub, intersperse, (\\), sortOn, dropWhileEnd)

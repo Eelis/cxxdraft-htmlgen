@@ -2,7 +2,7 @@
 
 module Sentences (splitIntoSentences, isActualSentence, linkifyFullStop, breakSentence) where
 
-import LaTeXBase (LaTeXUnit(..), triml, LaTeX, ArgKind(FixArg))
+import LaTeXBase (LaTeXUnit(..), triml, ArgKind(FixArg))
 import Data.Text (isPrefixOf, isSuffixOf, stripPrefix, Text)
 import qualified Data.Text as Text
 import Prelude hiding (take, (.), takeWhile, (++), lookup, readFile)

@@ -5,7 +5,6 @@ module LaTeXBase
  , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
  , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, AllUnits(..) ) where
 
-import Data.Monoid ((<>))
 import Data.String (fromString)
 import Prelude hiding ((.), (++), writeFile, dropWhile)
 import Data.Text (Text, pack)

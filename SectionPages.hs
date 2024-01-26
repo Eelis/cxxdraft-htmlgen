@@ -28,7 +28,7 @@ import Render (render, concatRender, simpleRender2, renderFig,
 	defaultRenderContext, renderTab, RenderContext(..), Page(..),linkToSection, squareAbbr,
 	secnum, renderLatexParas, isSectionPage, parentLink, renderIndex)
 import Document
-import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, readFile, intercalateBuilders)
+import Util (urlChars, (++), (.), h, anchor, xml, Anchor(..), Text, writeFile, intercalateBuilders)
 
 renderParagraph :: RenderContext -> TextBuilder.Builder
 renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Draft{..}} =

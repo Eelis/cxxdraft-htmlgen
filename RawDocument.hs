@@ -20,7 +20,6 @@ module RawDocument
 import qualified LaTeXParser as Parser
 import qualified Data.Text as Text
 import Data.Text (Text, replace)
-import Data.Monoid ((<>))
 import Document (Row(..), SourceLocation(..), RowSepKind(..), SectionKind(..), Cell(..), CellSpan(..), XrefDelta, Abbreviation, ColumnSpec(..), TextAlignment(..))
 import Data.Maybe (isJust, fromJust)
 import LaTeXParser (Macros(..), Signature(..), nullCmd, storeCmd, storeEnv, Environment(..), Command(..), codeEnv, Token(..), normalCmd, ParseResult(..))

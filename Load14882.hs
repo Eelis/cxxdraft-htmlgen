@@ -22,7 +22,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import Data.IntMap (IntMap)
 import LaTeXBase
-	( LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), lookForCommand
+	( LaTeXUnit(..), TeXArg, ArgKind(..), lookForCommand
 	, mapTeX, mapTeXRaw, concatRaws, texStripInfix, allUnits)
 import Data.Text (Text, replace, isPrefixOf)
 import Data.Text.IO (readFile)
