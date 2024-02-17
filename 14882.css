@@ -593,24 +593,7 @@ table.enumerate td:first-child {
 
     span.phantom { color: #171717; }
 
-    :target { background-color: #4b6353; color: #ffffff; }
-    :target .codeblock { background-color: #4b6353; }
-    :target ul { background-color: #4b6353; }
-    :target a:link { color: #64bdff; }
-    :target a:visited { color: #d39aff; }
-    :target span.keyword { color: #32eade; }
     a.index:before { color: #c0c0c0; background-color: #4b6353; }
-    :target span.parenthesis { color: #ff5050; }
-    :target span.curlybracket { color: #ff5050; }
-    :target span.squarebracket { color: #ff5050; }
-    :target span.literal { color: #dfa847; }
-    :target span.literalterminal { color: #dfa847; }
-    :target span.operator { color: #dac6d9; }
-    :target span.anglebracket { color: #dac6d9; }
-    :target .comment { color: #55ef00; }
-    :target .footnote .comment { color: #55ef00; }
-    :target .example .comment { color: #55ef00; }
-    :target .note .comment { color: #55ef00; }
 
     .comment { color: #35ba00; }
     .footnote .comment { color: #35ba00; }
@@ -640,4 +623,22 @@ table.enumerate td:first-child {
     path { stroke: #c0c0c0; }
     polygon { stroke: #c0c0c0; fill: #c0c0c0; }
     ellipse { stroke: #c0c0c0; }
+
+    :target { background-color: #4b6353; color: #ffffff; }
+    :target .codeblock { background-color: #4b6353; }
+    :target ul { background-color: #4b6353; }
+    :target a:link { color: #64bdff; }
+    :target a:visited { color: #d39aff; }
+    :target span.keyword { color: #32eade; }
+    :target span.parenthesis { color: #ff5050; }
+    :target span.curlybracket { color: #ff5050; }
+    :target span.squarebracket { color: #ff5050; }
+    :target span.literal { color: #dfa847; }
+    :target span.literalterminal { color: #dfa847; }
+    :target span.operator { color: #dac6d9; }
+    :target span.anglebracket { color: #dac6d9; }
+    :target .comment { color: #55ef00; }
+    :target .footnote .comment { color: #55ef00; }
+    :target .example .comment { color: #55ef00; }
+    :target .note .comment { color: #55ef00; }
 }
