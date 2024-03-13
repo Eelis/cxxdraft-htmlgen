@@ -1,5 +1,10 @@
 body {
-	font-family: 'Noto Serif';
+	/*
+	 * Prefer a font already installed in the operating system (CMU Serif),
+	 * before choosing to download our copy of the same (cmserif).
+	 * The same logic is applied elsewhere.
+	 */
+	font-family: 'CMU Serif', cmserif;
 	hyphens: auto;
 	line-height: 1.5;
 	margin-left: 20mm;
@@ -208,7 +213,7 @@ div.itemdescr {
 }
 
 .bnf {
-	font-family: 'Noto Sans';
+	font-family: 'CMU Sans Serif', cmsans;
 	font-size: 10pt;
 	font-style: italic;
 	margin-left: 25pt;
@@ -220,10 +225,10 @@ div.itemdescr {
 	line-height: 1.5;
 }
 
-div.bnf span.texttt { font-family: 'Noto Sans Mono'; font-style: normal; }
+div.bnf span.texttt { font-family: 'CMU Typewriter Text', cmmono; font-style: normal; }
 
 .rebnf {
-	font-family: 'Noto Serif';
+	font-family: 'CMU Serif', cmserif;
 	font-style: italic;
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
@@ -234,7 +239,7 @@ div.bnf span.texttt { font-family: 'Noto Sans Mono'; font-style: normal; }
 }
 
 .simplebnf {
-	font-family: 'Noto Serif';
+	font-family: 'CMU Serif', cmserif;
 	font-style: italic;
 	font-size: 10pt;
 	margin-top: 0.5em;
@@ -245,14 +250,14 @@ div.bnf span.texttt { font-family: 'Noto Sans Mono'; font-style: normal; }
 
 span.textnormal {
 	font-style: normal;
-	font-family: 'Noto Serif';
+	font-family: 'CMU Serif', cmserif;
 	font-size: 10pt;
 	white-space: normal;
 }
 
 .bnf span.textnormal {
 	font-style: normal;
-	font-family: 'Noto Serif';
+	font-family: 'CMU Serif', cmserif;
 	font-size: 10pt;
 	white-space: normal;
 }
@@ -269,43 +274,43 @@ span.rlap {
 }
 
 span.terminal {
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	font-style: normal;
 	font-size: 9pt;
 	white-space: pre-wrap;
 }
 
 span.noncxxterminal {
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	font-style: normal;
 	font-size: 9pt;
 }
 
 span.term { font-style: italic; }
-span.tcode { font-family: 'Noto Sans Mono'; font-style: normal; }
+span.tcode { font-family: 'CMU Typewriter Text', cmmono; font-style: normal; }
 span.textbf { font-weight: bold; }
-span.textsf { font-family: 'Noto Sans'; font-size: 10pt; }
-div.footnote span.textsf { font-family: 'Noto Sans'; font-size: 8pt; }
-.bnf span.textsf { font-family: 'Noto Sans'; font-size: 10pt; }
-.simplebnf span.textsf { font-family: 'Noto Sans'; font-size: 10pt; }
-.example span.textsf { font-family: 'Noto Sans'; font-size: 10pt; }
+span.textsf { font-family: 'CMU Sans Serif', cmsans; font-size: 10pt; }
+div.footnote span.textsf { font-family: 'CMU Sans Serif', cmsans; font-size: 8pt; }
+.bnf span.textsf { font-family: 'CMU Sans Serif', cmsans; font-size: 10pt; }
+.simplebnf span.textsf { font-family: 'CMU Sans Serif', cmsans; font-size: 10pt; }
+.example span.textsf { font-family: 'CMU Sans Serif', cmsans; font-size: 10pt; }
 span.textsc { font-variant: small-caps; }
-span.nontermdef { font-style: italic; font-family: 'Noto Sans'; font-size: 10pt; }
-.rebnf a.nontermdef { font-style: italic; font-family: 'Noto Serif'; }
+span.nontermdef { font-style: italic; font-family: 'CMU Sans Serif', cmsans; font-size: 10pt; }
+.rebnf a.nontermdef { font-style: italic; font-family: 'CMU Serif', cmserif; }
 span.emph { font-style: italic; }
 span.techterm { font-style: italic; }
 span.mathit { font-style: italic; }
-span.mathsf { font-family: 'Noto Sans'; }
-span.mathrm { font-family: 'Noto Serif'; font-style: normal; }
-span.textrm { font-family: 'Noto Serif'; font-size: 10pt; }
+span.mathsf { font-family: 'CMU Sans Serif', cmsans; }
+span.mathrm { font-family: 'CMU Serif', cmserif; font-style: normal; }
+span.textrm { font-family: 'CMU Serif', cmserif; font-size: 10pt; }
 span.textsl { font-style: italic; }
-span.mathtt { font-family: 'Noto Sans Mono'; font-style: normal; }
-span.mbox { font-family: 'Noto Serif'; font-style: normal; }
+span.mathtt { font-family: 'CMU Typewriter Text', cmmono; font-style: normal; }
+span.mbox { font-family: 'CMU Serif', cmserif; font-style: normal; }
 span.ungap { display: inline-block; width: 2pt; }
-span.texttt { font-family: 'Noto Sans Mono'; }
+span.texttt { font-family: 'CMU Typewriter Text', cmmono; }
 span.textit { font-style: italic; }
-div.footnote span.texttt { font-family: 'Noto Sans Mono'; }
-span.tcode_in_codeblock { font-family: 'Noto Sans Mono'; font-style: normal; font-size: 9pt; }
+div.footnote span.texttt { font-family: 'CMU Typewriter Text', cmmono; }
+span.tcode_in_codeblock { font-family: 'CMU Typewriter Text', cmmono; font-style: normal; font-size: 9pt; }
 
 span.phantom { color: white; }
 	/* Unfortunately, this way the text is still selectable. Another
@@ -314,7 +319,7 @@ span.phantom { color: white; }
 
 span.math {
 	font-style: normal;
-	font-family: 'Noto Serif';
+	font-family: 'CMU Serif', cmserif;
 	font-size: 10pt;
 }
 
@@ -343,7 +348,7 @@ span.definition {
 }
 
 .codeblock {
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	margin-left: 1.2em;
 	line-height: 1.5;
 	font-size: 9pt;
@@ -360,12 +365,12 @@ table .codeblock { margin-right: 0; }
 .outputblock {
 	margin-left: 1.2em;
 	line-height: 1.5;
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	font-size: 9pt;
 }
 
 code {
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	font-style: normal;
 }
 
@@ -375,24 +380,24 @@ div.itemdecl {
 
 code.itemdeclcode {
 	white-space: pre;
-	font-family: 'Noto Sans Mono';
+	font-family: 'CMU Typewriter Text', cmmono;
 	font-size: 9pt;
 	display: block;
 	overflow: auto;
 	margin-right: -15mm;
 }
 
-.comment { color: green; font-style: italic; font-family: 'Noto Serif'; font-size: 10pt; }
-.footnote .comment { color: green; font-style: italic; font-family: 'Noto Serif'; font-size: 8pt; }
-.example .comment { color: green; font-style: italic; font-family: 'Noto Serif'; font-size: 9pt; }
-.note .comment { color: green; font-style: italic; font-family: 'Noto Serif'; font-size: 9pt; }
+.comment { color: green; font-style: italic; font-family: 'CMU Serif', cmserif; font-size: 10pt; }
+.footnote .comment { color: green; font-style: italic; font-family: 'CMU Serif', cmserif; font-size: 8pt; }
+.example .comment { color: green; font-style: italic; font-family: 'CMU Serif', cmserif; font-size: 9pt; }
+.note .comment { color: green; font-style: italic; font-family: 'CMU Serif', cmserif; font-size: 9pt; }
 
 span.keyword { color: #00607c; font-style: normal; }
 span.parenthesis { color: #af1915; }
 span.curlybracket { color: #af1915; }
 span.squarebracket { color: #af1915; }
 span.literal { color: #9F6807; }
-span.literalterminal { color: #9F6807; font-family: 'Noto Sans Mono'; font-style: normal; }
+span.literalterminal { color: #9F6807; font-family: 'CMU Typewriter Text', cmmono; font-style: normal; }
 span.operator { color: #570057; }
 span.anglebracket { color: #570057; }
 span.preprocessordirective { color: #6F4E37; }
@@ -642,3 +647,14 @@ table.enumerate td:first-child {
     :target .example .comment { color: #55ef00; }
     :target .note .comment { color: #55ef00; }
 }
+
+@font-face { font-family: cmserif; font-style: normal; font-weight: 400; src: url(CMUSerif-Roman.woff2); }
+@font-face { font-family: cmserif; font-style: italic; font-weight: 400; src: url(CMUSerif-Italic.woff2); }
+@font-face { font-family: cmserif; font-style: normal; font-weight: 700; src: url(CMUSerif-Bold.woff2); }
+@font-face { font-family: cmserif; font-style: italic; font-weight: 700; src: url(CMUSerif-BoldItalic.woff2); }
+@font-face { font-family: cmsans; font-style: normal; font-weight: 400; src: url(CMUSansSerif.woff2); }
+@font-face { font-family: cmsans; font-style: normal; font-weight: 700; src: url(CMUSansSerif-Bold.woff2); }
+@font-face { font-family: cmmono; font-style: normal; font-weight: 400; src: url(CMUTypewriter-Regular.woff2); }
+@font-face { font-family: cmmono; font-style: italic; font-weight: 400; src: url(CMUTypewriter-Italic.woff2); }
+@font-face { font-family: cmmono; font-style: normal; font-weight: 700; src: url(CMUTypewriter-Bold.woff2); }
+@font-face { font-family: cmmono; font-style: italic; font-weight: 700; src: url(CMUTypewriter-BoldItalic.woff2); }
