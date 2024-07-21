@@ -20,9 +20,10 @@ import Load14882 (parseIndex) -- todo: bad
 import Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Draft(..), Footnote(..),
 	TeXPara(..), Sentence(..), Abbreviation, sectionByAbbr, footnotes, ColumnSpec(..),
-	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, tables, Item(..),
-	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..),
-	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, Paragraph(..), Note(..), Example(..))
+	Section(..), Chapter(..), Table(..), Figure(..), Sections(..), figures, formulas, tables, Item(..),
+	IndexComponent(..), IndexTree, IndexNode(..), IndexKind(..), IndexEntry(..), Formula(..),
+	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, formulaByAbbr, Paragraph(..), Note(..), Example(..),
+	chapterOfSection)
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), lookForCommand, concatRaws,
     renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texSpan, mapTeX)
 import qualified Data.IntMap as IntMap
@@ -256,6 +257,7 @@ abbrIsOnPage abbr (FigurePage Figure{..}) = abbr == figureAbbr
 abbrIsOnPage abbr (TablePage Table{..}) = abbr == tableAbbr
 abbrIsOnPage abbr (SectionPage sec)
 	| "fig:" `isPrefixOf` abbr = abbr `elem` (figureAbbr . snd . figures sec)
+	| "eq:" `isPrefixOf` abbr = abbr `elem` (formulaAbbr . snd . formulas sec)
 	| "tab:" `isPrefixOf` abbr = abbr `elem` (tableAbbr . snd . tables sec)
 	| otherwise = abbr `elem` (abbreviation . sections sec)
 abbrIsOnPage _ _ = False
@@ -450,6 +452,8 @@ instance Render LaTeXUnit where
 				, Just Table{..} <- tableByAbbr draft abbr = TextBuilder.fromString $ show tableNumber
 				| "fig:" `isPrefixOf` abbr
 				, Figure{..} <- figureByAbbr draft abbr = TextBuilder.fromString $ show figureNumber
+				| "eq:" `isPrefixOf` abbr
+				, f@Formula{..} <- formulaByAbbr draft abbr = TextBuilder.fromText $ fullFormulaNumber f
 				| otherwise = squareAbbr (not noTags) abbr
 			renderLabelRef sec =
 			   simpleRender2 anchor{
@@ -846,6 +850,16 @@ instance Render Example where
 			exNum = Text.pack $ show exampleNumber
 			link = anchor{aHref = "#" ++ i, aText = TextBuilder.fromText exNum }
 
+instance Render Formula where
+    render f@Formula{..} ctx =
+            xml "div" [("class", "formula"), ("id", formulaAbbr)] $
+                doRenderComplexMath [TeXMath Square ([tag] ++ formulaContent)] ctx
+        where tag = TeXComm "tag" "" [(FixArg, [TeXRaw (fullFormulaNumber f)])]
+
+fullFormulaNumber :: Formula -> Text
+fullFormulaNumber Formula{..} = Text.pack $ show chapterNum ++ "." ++ show formulaNumber
+  where chapterNum = sectionNumber $ chapterOfSection formulaSection
+
 nontermDef :: LaTeX -> Maybe Text
 nontermDef t
 	| [n] <- [n | ("grammarindex", [IndexComponent{distinctIndexSortKey=[TeXRaw n]}], _inum, Just DefinitionIndexEntry) <- indexPaths t] = Just n
@@ -866,6 +880,7 @@ instance Render Element where
 	render (TableElement t) = \ctx ->
 			renderTab False t ("./SectionToSection/" ++ tableAbbr t) False True ctx{idPrefixes=[tableAbbr t++"-"]}
 	render (FigureElement f) = renderFig False f ("./SectionToSection/" ++ figureAbbr f) False True
+	render (FormulaElement f) = render f
 	render (Tabbing t) =
 		xml "pre" [] . TextBuilder.fromText . htmlTabs . LazyText.toStrict . TextBuilder.toLazyText . render (preprocessPre t) -- todo: this is horrible
 	render Enumerated{..} = xml t [("class", Text.pack enumCmd)] .
@@ -969,7 +984,10 @@ abbrHref abbr RenderContext{..}
 	    _ -> urlChars abbr
 	| "fig:" `isPrefixOf` abbr =
 		let Figure{figureSection=Section{..}, ..} = figureByAbbr draft abbr
-		in"SectionToSection/" ++ urlChars abbr ++ "#" ++ urlChars figureAbbr
+		in "SectionToSection/" ++ urlChars abbr ++ "#" ++ urlChars figureAbbr
+	| "eq:" `isPrefixOf` abbr =
+		let Formula{formulaSection=Section{..}, ..} = formulaByAbbr draft abbr
+		in "SectionToSection/" ++ urlChars abbr ++ "#" ++ urlChars formulaAbbr
 	| "tab:" `isPrefixOf` abbr =
 		case tableByAbbr draft abbr of
 			Just Table{tableSection=Section{..}, ..} -> "SectionToSection/" ++ urlChars abbreviation ++ "#" ++ urlChars tableAbbr
@@ -1123,14 +1141,15 @@ removeAriaLabel :: Soup.Tag Text -> Soup.Tag Text
 removeAriaLabel (Soup.TagOpen x attrs) = Soup.TagOpen x (filter ((/= "aria-label") . fst) attrs)
 removeAriaLabel x = x
 
-renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderComplexMath math ctx
-    | inline = html
-    | otherwise = "<br>" ++ html
-    where
-        (formula, inline) = mathKey math
-        html = (if inComment ctx then TextBuilder.fromText . Soup.renderTags else highlightCodeInMath ctx) $
+doRenderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
+doRenderComplexMath math ctx =
+        (if inComment ctx then TextBuilder.fromText . Soup.renderTags else highlightCodeInMath ctx) $
           fixHiddenLinks $ map removeAriaLabel $ Soup.parseTags $ MathJax.render formula inline
+    where (formula, inline) = mathKey math
+
+renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
+renderComplexMath math ctx = (if inline then "" else "<br>") ++ doRenderComplexMath math ctx
+    where (_, inline) = mathKey math
 
 cssClasses :: ColumnSpec -> Text
 cssClasses (ColumnSpec alignment border _) =

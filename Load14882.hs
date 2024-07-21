@@ -125,7 +125,7 @@ indexCodeEnvs envs = go []
 
 data Numbers = Numbers
 	{ tableNr, figureNr, footnoteRefNr, footnoteNr, itemDeclNr
-	, nextIndexEntryNr, noteNr, exampleNr, nextSentenceNr :: Int }
+	, nextIndexEntryNr, noteNr, exampleNr, nextSentenceNr, formulaNr :: Int }
 
 class AssignNumbers a b | a -> b where
 	assignNumbers :: forall m . (Functor m, MonadFix m, MonadState Numbers m) => Section -> a -> m b
@@ -214,6 +214,14 @@ instance AssignNumbers RawElement Element where
 			, figureAbbr    = "fig:" ++ rawFigureAbbr
 			, figureSvg     = rawFigureSvg
 			, figureSection = section }
+	assignNumbers section RawFormula{..} = do
+	    Numbers{..} <- get
+	    put Numbers{formulaNr = formulaNr + 1, ..}
+	    return $ FormulaElement Formula
+	        { formulaNumber = formulaNr
+	        , formulaAbbr = "eq:" ++ rawFormulaAbbr
+	        , formulaContent = rawFormulaContent
+	        , formulaSection = section }
 	assignNumbers s RawTable{..} = do
 		Numbers{..} <- get
 		put Numbers{tableNr = tableNr+1, ..}
@@ -271,6 +279,8 @@ treeizeChapters :: forall m . (Functor m, MonadFix m, MonadState Numbers m) =>
 	Bool -> Int -> [LinearSection] -> m [Section]
 treeizeChapters _ _ [] = return []
 treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
+		nums <- get
+		put nums{formulaNr = 1}
 		sectionFootnotes <- assignNumbers newSec lsectionFootnotes
 		let
 			ie = rawIndexEntriesForSec newSec
@@ -582,7 +592,7 @@ load14882 extraMacros = do
 					)] <- allUnits secs]
 
 			secs' = map (resolveGrammarterms macros grammarNames) secs
-			chapters = evalState (treeizeChapters False 1 secs') (Numbers 1 1 1 1 0 0 1 1 1)
+			chapters = evalState (treeizeChapters False 1 secs') (Numbers 1 1 1 1 0 0 1 1 1 1)
 			allEntries :: [IndexEntry]
 			allEntries = chapters >>= sectionIndexEntries
 			index = mergeIndices $ map toIndex allEntries

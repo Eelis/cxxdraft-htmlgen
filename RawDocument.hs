@@ -55,6 +55,7 @@ data RawElement
 		, rawTableAbbr :: Abbreviation
 		, rawTableBody :: [Row [RawTexPara]] }
 	| RawTabbing LaTeX
+	| RawFormula { rawFormulaAbbr :: Abbreviation, rawFormulaContent :: LaTeX }
 	| RawFigure { rawFigureName :: LaTeX, rawFigureAbbr :: Abbreviation, rawFigureSvg :: Text }
 	deriving (Eq, Show)
 
@@ -88,6 +89,7 @@ instance AllUnits RawElement where
 	allUnits (RawCodeblock x) = allUnits x
 	allUnits (RawItemdescr x) = allUnits x
 	allUnits (RawEnumerated _ x) = allUnits x
+	allUnits (RawFormula _ x) = allUnits x
 	allUnits RawFigure{} = []
 	allUnits RawTable{..} = allUnits rawTableCaption ++ concatMap (allUnits . concat . map content) (map cells rawTableBody)
 
@@ -241,6 +243,7 @@ initialEnvs = Map.fromList $
 	, storeEnv "tabular" (Signature 1 Nothing)
 	, storeEnv "longtable" (Signature 1 Nothing)
 	, storeEnv "importgraphic" (Signature 3 Nothing)
+	, storeEnv "formula" (Signature 1 Nothing)
 	, storeEnv "minipage" (Signature 1 Nothing)
 	, storeEnv "thebibliography" (Signature 1 Nothing)
 	, codeEnv "indexeditemdecl" (Signature 1 Nothing)
@@ -308,6 +311,7 @@ parsePara u = RawTexPara . dropWhile isOnlySpace . fmap f . splitElems (trim (fi
 			| isFigure e
 			, [(FixArg, rawFigureName), (FixArg, [TeXRaw rawFigureAbbr]), (FixArg, [TeXRaw figureFile])] <- a
 				= RawFigure{rawFigureSvg=loadFigure figureFile, ..}
+			| k == "formula", [(FixArg, [TeXRaw rawFormulaAbbr])] <- a = RawFormula{rawFormulaContent = stuff, ..}
 			| isTable e
 			, ((_, cap) : (_, [TeXRaw abbr]) : (_, y) : _) <- a
 				= RawTable

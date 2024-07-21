@@ -5,12 +5,12 @@ module Document (
 	CellSpan(..), Cell(..), RowSepKind(..), Row(..), Element(..), Paragraph(..),
 	Section(..), Chapter(..), Draft(..), Table(..), Figure(..), Item(..), Footnote(..),
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
-	ColumnSpec(..), TextAlignment(..), normative,
+	ColumnSpec(..), TextAlignment(..), normative, Formula(..), chapterOfSection,
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
 	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
-	figures, tables, tableByAbbr, figureByAbbr, elemTex, footnotes, allElements,
-	LaTeX, makeAbbrMap) where
+	figures, tables, tableByAbbr, figureByAbbr, formulaByAbbr, elemTex, footnotes, allElements,
+	LaTeX, makeAbbrMap, formulas) where
 
 import LaTeXBase (LaTeXUnit(..), LaTeX, MathType(Dollar))
 import Data.Text (Text, replace)
@@ -66,6 +66,15 @@ data Figure = Figure
 instance Show Figure where
 	show _ = "<figure>"
 
+data Formula = Formula
+    { formulaNumber :: Int
+    , formulaAbbr :: Abbreviation
+    , formulaContent :: LaTeX
+    , formulaSection :: Section }
+
+instance Show Formula where
+    show _ = "<formula>"
+
 data Item = Item
 	{ itemNumber :: Maybe [String]
 	, itemLabel :: Maybe LaTeX
@@ -100,6 +109,7 @@ data Element
 	| TableElement Table
 	| Tabbing LaTeX
 	| FigureElement Figure
+	| FormulaElement Formula
 	| Codeblock LaTeXUnit
 	| Itemdescr [TeXPara] -- needed because there can be notes in itemdescr envs
 	| NoteElement Note
@@ -158,6 +168,11 @@ data Section = Section
 	}
 	deriving Show
 
+chapterOfSection :: Section -> Section
+chapterOfSection s@Section{..}
+    | null parents = s
+    | otherwise = last parents
+
 instance Eq Section where
 	x == y = abbreviation x == abbreviation y
 
@@ -167,6 +182,7 @@ data StablyNamedItem
 	= StablyNamedTable Table
 	| StablyNamedSection Section
 	| StablyNamedFigure Figure
+	| StablyNamedFormula Formula
 
 data Draft = Draft
 	{ commitUrl :: Text
@@ -184,6 +200,7 @@ stablyNamedItems :: Draft -> [(Abbreviation, StablyNamedItem)]
 stablyNamedItems d =
 	[(abbreviation s, StablyNamedSection s) | s <- sections d] ++
 	[(tableAbbr t, StablyNamedTable t) | p <- allParagraphs d, TableElement t <- allParaElems p] ++
+	[(formulaAbbr f, StablyNamedFormula f) | p <- allParagraphs d, FormulaElement f <- allParaElems p] ++
 	[(figureAbbr f, StablyNamedFigure f) | p <- allParagraphs d, FigureElement f <- allParaElems p]
 
 makeAbbrMap :: Draft -> Abbreviation -> Maybe StablyNamedItem
@@ -312,6 +329,9 @@ tables x = [(p, t) | p <- allParagraphs x, TableElement t <- allParaElems p]
 figures :: Sections a => a -> [(Paragraph, Figure)]
 figures x = [(p, f) | p <- allParagraphs x, FigureElement f <- allParaElems p]
 
+formulas :: Sections a => a -> [(Paragraph, Formula)]
+formulas x = [(p, f) | p <- allParagraphs x, FormulaElement f <- allParaElems p]
+
 footnotes :: Sections a => a -> [(Section, Footnote)]
 footnotes x = [(s, f) | s <- sections x, f <- sectionFootnotes s]
 
@@ -354,6 +374,7 @@ elemTex (TableElement Table{..}) = tableCaption ++ (tableBody >>= rowTex)
 		rowTex :: Row [TeXPara] -> LaTeX
 		rowTex r = content . cells r >>= (>>= texParaTex)
 elemTex (FigureElement _) = []
+elemTex (FormulaElement f) = formulaContent f
 elemTex (HtmlElement _) = []
 
 tableByAbbr :: Draft -> Abbreviation -> Maybe Table
@@ -366,6 +387,11 @@ figureByAbbr :: Draft -> Abbreviation -> Figure
 figureByAbbr d a = case abbrMap d a of
 	Just (StablyNamedFigure f) -> f
 	_ -> error $ "figureByAbbr: " ++ show a
+
+formulaByAbbr :: Draft -> Abbreviation -> Formula
+formulaByAbbr d a = case abbrMap d a of
+	Just (StablyNamedFormula f) -> f
+	_ -> error $ "formulaByAbbr: " ++ show a
 
 sectionByAbbr :: Draft -> Abbreviation -> Maybe Section
 sectionByAbbr d a = case abbrMap d a of
