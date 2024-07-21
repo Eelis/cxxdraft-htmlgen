@@ -443,7 +443,9 @@ instance Render LaTeXUnit where
 	render m@(TeXMath _ _            ) = renderMath [m]
 	render (TeXComm "commentellip" _ []) = const $ spanTag "comment" "/* ... */"
 	render (TeXComm "ensuremath" _ [(FixArg, x)]) = renderMath x
+	render (TeXComm "hyperref" _ [_, (FixArg, x)]) = render x
 	render (TeXComm "label" _ [(FixArg, [TeXRaw x])]) = render anchor{aId = x, aClass = "index"}
+	render (TeXComm "ref*" x y) = render (TeXComm "ref" x y)
 	render (TeXComm "ref" _ [(FixArg, concatRaws -> [TeXRaw abbr])]) = \ctx@RenderContext{..} ->
 		let
 			linkText :: TextBuilder.Builder

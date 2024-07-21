@@ -354,11 +354,14 @@ parseCode envname c = concatRaws . go Nothing
 		charLiteral (y : x) = first (y :) (charLiteral x)
 		charLiteral [] = ([], [])
 
+isCommandChar :: Char -> Bool
+isCommandChar c = isAlpha c || c == '*'
+
 tokenize :: String -> [Token]
 tokenize "" = []
 tokenize ('\\':'v':'e':'r':'b': delim : (break (== delim) -> (arg, _ : rest))) =
 	Token ("\\verb:" ++ arg) : tokenize rest
-tokenize ('\\' : (span isAlpha -> (cmd@(_:_), (span isSpace -> (ws, rest)))))
+tokenize ('\\' : (span isCommandChar -> (cmd@(_:_), (span isSpace -> (ws, rest)))))
 	= Token ('\\' : cmd ++ ws) : tokenize rest
 tokenize ('\\' : c : rest) = Token ['\\', c] : tokenize rest
 tokenize x@((isAlpha -> True): _) = let (a, b) = span isAlphaNum x in Token a : tokenize b

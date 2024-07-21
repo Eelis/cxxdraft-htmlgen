@@ -196,10 +196,10 @@ storeCmds =
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily parskip left right `")
-	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref mbox bibitem " ++
+	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"label newlength uline vspace value newcounter mathscr hyperref c uppercase iref operatorname " ++
+			"label newlength uline vspace value newcounter mathscr c uppercase iref operatorname " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
@@ -214,6 +214,7 @@ initialCmds = Map.fromList $
 	[ storeCmd "item" (Signature 0 (Just []))
 	, storeCmd "caption" (Signature 2 (Just []))
 	, storeCmd "index" (Signature 2 (Just []))
+	, storeCmd "hyperref" (Signature 2 (Just []))
 	, nullCmd "makebox" (Signature 2 (Just []))
 	, storeCmd "\n" (Signature 0 Nothing)
 	, storeCmd "nolinebreak" (Signature 0 (Just []))
