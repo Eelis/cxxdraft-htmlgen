@@ -1031,9 +1031,8 @@ renderMath [TeXMath Dollar (c@(TeXComm "noncxxtcode" _ _) : more)] ctx =
 renderMath m ctx
 	| noTags ctx = renderSimpleMath m ctx
 	| hasComplexMath True m = renderComplexMath (mapTeX replaceNonCxxTcode m) ctx
-	| otherwise = spanTag s $ renderSimpleMath m ctx
+	| otherwise = spanTag (mathKind m) $ renderSimpleMath m ctx
 	where
-		s = mathKind m
 		mathKind [TeXMath Square _] = "mathblock"
 		mathKind _ = "math"
 		replaceNonCxxTcode :: LaTeXUnit -> Maybe LaTeX
@@ -1150,7 +1149,7 @@ doRenderComplexMath math ctx =
     where (formula, inline) = mathKey math
 
 renderComplexMath :: LaTeX -> RenderContext -> TextBuilder.Builder
-renderComplexMath math ctx = (if inline then "" else "<br>") ++ doRenderComplexMath math ctx
+renderComplexMath math ctx = (if inline then "" else "<br>") ++ spanTag "math" (doRenderComplexMath math ctx)
     where (_, inline) = mathKey math
 
 cssClasses :: ColumnSpec -> Text
