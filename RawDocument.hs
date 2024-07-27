@@ -180,7 +180,7 @@ nullCmds =
 
 storeCmds :: [(Int, String)]
 storeCmds =
-	[ (0, "today def makeatletter bottomline makeatother Sec bmod long prime " ++
+	[ (0, "today def makeatletter bottomline makeatother Sec bmod mod long prime " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log " ++
 			"textup edef x BnfIndent par leq " ++
 			"leftmargini BnfInc BnfRest protect caret sum " ++
@@ -196,7 +196,7 @@ storeCmds =
 			"normalbaselineskip land lor mapsto normalfont textmu tablerefname figurerefname newline " ++
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily parskip left right `")
-	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem " ++
+	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem mathop " ++
 			"terminal literalterminal noncxxterminal renontermdef textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline vspace value newcounter mathscr c uppercase iref operatorname " ++
