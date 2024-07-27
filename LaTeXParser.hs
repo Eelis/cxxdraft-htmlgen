@@ -113,6 +113,7 @@ defaultCmds :: [(Text, Command)]
 defaultCmds =
 	[ ("newcommand", newCommandCommand)
 	, ("renewcommand", newCommandCommand)
+	, ("DeclareMathOperator", declareMathOperator)
 	, ("newcolumntype", newColumnTypeCommand)
 	, ("newenvironment", newEnvCommand)
 	, ("lstnewenvironment", newEnvCommand)
@@ -174,6 +175,15 @@ newCommandCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token ('
 		newMacros = newCommand True (defCmd (Text.pack name) sig body) mempty
 	in
 		ParseResult [] newMacros rest''
+
+declareMathOperator :: Command
+declareMathOperator = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token ('\\' : name) : Token "}" : rest) ->
+	let
+		Just (body, rest') = balanced ('{', '}') rest
+		newBody = [Token "\\operatorname", Token "{"] ++ body ++ [Token "}"]
+		newMacros = newCommand True (defCmd (Text.pack name) (Signature 0 Nothing) newBody) mempty
+	in
+		ParseResult [] newMacros rest'
 
 newColumnTypeCommand :: Command
 newColumnTypeCommand = normalCmd $ Command $ \Context{..} _ws (Token "{" : Token _ : Token "}" : rest) ->
