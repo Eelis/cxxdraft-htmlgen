@@ -55,7 +55,7 @@
 \newcommand{\libglobal}[1]{\indexedspan{\hiddenindexlink{#1}{libraryindex}{\idxcode{#1}}{}}{\indexlibraryglobal{#1}}}
 \newcommand{\libglobalrefx}[2]{\indexlink{\tcode{#1}}{libraryindex}{\idxcode{#2}}{}}
 \newcommand{\libglobalref}[1]{\libglobalrefx{#1}{#1}}
-\newcommand{\libmember}[2]{\indexedspan{#1}{\indexlibrarymember{#1}{#2}}}
+\newcommand{\libmember}[2]{\indexedspan{\hiddenindexlink{#1}{libraryindex}{\idxcode{#2}!\idxcode{#1}}{}}{\indexlibrarymember{#1}{#2}}}
 \newcommand{\libmemberrefx}[3]{\indexlink{\tcode{#1}}{libraryindex}{\idxcode{#2}!\idxcode{#3}}{}}
 \newcommand{\libheader}[1]{\indexlink{\indexedspan{\tcode{<#1>}}{\indexhdr{#1}}}{headerindex}{\idxhdr{#1}|idxbfpage}{}}
 \newcommand{\libheaderdef}[1]{\indexedspan{\tcode{<#1>}}{\indexheader{#1}}}
