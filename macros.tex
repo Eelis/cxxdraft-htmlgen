@@ -52,9 +52,11 @@
 \newcommand{\literaltcode}[1]{\tcode{#1}}
 \newcommand{\literalterminal}[1]{\terminal{##1}}
 \newcommand{\noncxxterminal}[1]{\terminal{##1}}
+\newcommand{\oldconceptref}[1]{\indexlink{\oldconcept{#1}}{generalindex}{\idxoldconcept{#1}}{}}
 
 %% replacements for existing macros:
 
+\newcommand{\defnoldconcept}[1]{\indexedspan{\oldconcept{#1}}{\indextext{\idxoldconcept{#1}}}}
 \newcommand{\indexdefn}[1]{\indextext{#1|idxbfpage}}
 \newcommand{\idxcode}[1]{#1@\tcode{#1}}
 \newcommand{\nontermdef}[1]{\hiddenindexlink{\indexedspan{#1\textnormal{:}}{\indexgrammar{\idxgram{#1}}}}{grammarindex}{\idxgram{#1}|idxbfpage}{}}
