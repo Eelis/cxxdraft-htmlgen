@@ -629,6 +629,7 @@ table.enumerate td:first-child {
     :target ul { background-color: #4b6345; }
     :target a:link { color: #9fcdff; }
     :target a:visited { color: #d39aff; }
+    :target a.hidden_link { text-decoration: none; color: inherit; }
     :target span.keyword { color: #32eade; }
     :target span.parenthesis { color: #ff4060; font-weight: bold; }
     :target span.curlybracket { color: #ff4060; font-weight: bold; }
