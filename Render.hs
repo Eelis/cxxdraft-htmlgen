@@ -480,7 +480,6 @@ instance Render LaTeXUnit where
 	    let f abbr = simpleRender2 anchor{aHref = abbrHref abbr ctx, aText = squareAbbr True abbr}
 	    in "<b>Affected " ++ (if length abbrs == 1 then "subclause" else "subclauses") ++ ":</b> "
 	        ++ commasAnd (map f abbrs)
-	render (TeXComm "renontermdef" _ x) = render (TeXComm "nontermdef" "" x)
 	render (TeXComm "weblink" _ [(FixArg, text), (FixArg, href)])
 		= render anchor
 			{ aText = simpleRender2 text

@@ -412,7 +412,7 @@ bnfGrammarterms macros links = mapTeX go . mapTeX wordify
 		wordify _ = Nothing
 
 		go :: LaTeXUnit -> Maybe LaTeX
-		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "index", "textnormal", "indexlink", "hiddenindexlink", "indexedspan", "renontermdef", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
+		go d@(TeXComm cmd _ _) | cmd `elem` ["tcode", "index", "textnormal", "indexlink", "hiddenindexlink", "indexedspan", "terminal", "literalterminal", "noncxxterminal"] = Just [d]
 		go (TeXRaw name)
 			| name `elem` links = Just $ fst $ RawDocument.doParse macros $ "\\grammarterm{" ++ name ++ "}"
 		go _ = Nothing
