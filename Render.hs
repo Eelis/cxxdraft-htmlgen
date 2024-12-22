@@ -390,7 +390,7 @@ abbrTitle abbr includeAbbr ctx
 	| otherwise = ""
 
 renderBreak :: RenderContext -> TextBuilder.Builder
-renderBreak ctx = if noTags ctx then "\n" else "<br/>"
+renderBreak ctx = if noTags ctx then "\n" else "<br>"
 
 renderIndexLink :: String -> [(ArgKind, [LaTeXUnit])] -> RenderContext -> TextBuilder.Builder
 renderIndexLink cmd [(FixArg, txt), (FixArg, [TeXRaw cat]), (FixArg, rawIndexPath), (FixArg, abbr_arg)] ctx

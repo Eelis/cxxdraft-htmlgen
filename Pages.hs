@@ -22,12 +22,12 @@ fileContent pathHome title extraHead body =
     "<html lang='en'>" ++
         "<head>" ++
             "<title>" ++ title ++ "</title>" ++
-            "<meta charset='UTF-8'/>" ++
-            "<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'/>" ++
-            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Serif'/>" ++
-            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans'/>" ++
-            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans+Mono'/>" ++
-            "<link rel='icon' href='icon.png'/>" ++
+            "<meta charset='UTF-8'>" ++
+            "<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "14882.css'>" ++
+            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Serif'>" ++
+            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans'>" ++
+            "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans+Mono'>" ++
+            "<link rel='icon' href='icon.png'>" ++
             extraHead ++
         "</head>" ++
         "<body><div class='wrapper'>" ++ body ++ "</div></body>" ++

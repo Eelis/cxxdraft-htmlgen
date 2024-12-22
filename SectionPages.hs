@@ -118,9 +118,9 @@ sectionFileContent sfs title body = pageContent sfs $ fileContent pathHome title
   where
     pathHome = if sfs == InSubdir then "../" else ""
     sectionPageCss =
-        "<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Normal'/>" ++
-        "<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'/>" ++
-        "<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "normative-only.css' title='Notes and examples hidden'/>"
+        "<link rel='stylesheet' type='text/css' href='" ++ pathHome ++ "expanded.css' title='Normal'>" ++
+        "<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "colored.css' title='Notes and examples colored'>" ++
+        "<link rel='alternate stylesheet' type='text/css' href='" ++ pathHome ++ "normative-only.css' title='Notes and examples hidden'>"
 
 writeSectionFile :: FilePath -> PageStyle -> TextBuilder.Builder -> TextBuilder.Builder -> IO ()
 writeSectionFile n sfs title body = writePage n sfs (sectionFileContent sfs title body)
