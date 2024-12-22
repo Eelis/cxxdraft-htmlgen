@@ -710,7 +710,7 @@ renderTab :: Bool -> Table -> Text -> Bool -> Bool -> RenderContext -> TextBuild
 renderTab stripTab Table{..} href boldCaption linkifyTableNum ctx =
 	xml "div" [("class", "numberedTable"), ("id", id_)] $ -- todo: multiple abbrs?
 		(if boldCaption then "<b>" else "") ++
-		"Table " ++ tableNumF (render tableNumber ctx) ++ ": " ++
+		"Table " ++ tableNumF (render tableNumber ctx) ++ " &mdash; " ++
 		render tableCaption ctx ++
 		"&emsp;" ++
 		render anchor{aText="[" ++ TextBuilder.fromText tableAbbr ++ "]", aHref=href} ctx ++
@@ -729,7 +729,7 @@ renderFig stripFig Figure{..} href boldCaption linkifyFigureNum ctx =
 	xml "div" [("class", "figure"), ("id", id_)] $
 		TextBuilder.fromText figureSvg ++ "<br>" ++
 		(if boldCaption then "<b>" else "") ++
-		"Figure " ++ figureNumF (render figureNumber ctx) ++ ": " ++
+		"Figure " ++ figureNumF (render figureNumber ctx) ++ " &mdash; " ++
 		render figureName ctx ++ "&emsp;&ensp;" ++
 		render anchor{aText=squareAbbr False figureAbbr, aHref=href} ctx ++
 		(if boldCaption then "</b>" else "")
@@ -1160,21 +1160,15 @@ cssStyle (ColumnSpec _ _ (Just w)) = Just $ "width:" ++ w
 cssStyle _ = Nothing
 
 renderTable :: [ColumnSpec] -> [Row [TeXPara]] -> RenderContext -> TextBuilder.Builder
-renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
+renderTable colspec a = \ctx -> xml "table" [] $ mconcat (renderRow ctx . zip [1..] a)
 	where
 		combine (ColumnSpec x False w) (ColumnSpec _ True _) = ColumnSpec x True w
 		combine x _ = x
 
-		renderRows :: [(Integer, Row [TeXPara])] -> RenderContext -> TextBuilder.Builder
-		renderRows [] _ = ""
-		renderRows ((rowNum, Row{..}) : rest) ctx =
-			xml "tr" ([("id", rowId)] ++ cls) (
-				xml "td" [("class", "hidden")] marginalizedLink ++
-				renderCols ctx' colspec 1 clines cells)
-			++ renderRows rest ctx
+		renderRow :: RenderContext -> (Integer, Row [TeXPara]) -> TextBuilder.Builder
+		renderRow ctx (rowNum, Row{..}) =
+			xml "tr" ([("id", rowId)] ++ cls) (renderCols ctx' rowId colspec 1 clines cells)
 			where
-				marginalizedLink = xml "div" [("class", "marginalizedparent")] (render link ctx)
-				link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars rowId, aText="🔗"}
 				rowId = mconcat (idPrefixes ctx) ++ "row-" ++ Text.pack (show rowNum)
 				ctx' = ctx{idPrefixes = idPrefixes ctx ++ ["row-" ++ Text.pack (show rowNum) ++ "-"]}
 				cls | RowSep <- rowSep = [("class", "rowsep")]
@@ -1184,9 +1178,9 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 					| Clines clns <- rowSep = clns
 					| otherwise = []
 
-		renderCols :: RenderContext -> [ColumnSpec] -> Int -> [(Int, Int)] -> [Cell [TeXPara]] -> TextBuilder.Builder
-		renderCols _ _ _ _ [] = ""
-		renderCols ctx (c : cs) colnum clines (Cell{..} : rest)
+		renderCols :: RenderContext -> Text -> [ColumnSpec] -> Int -> [(Int, Int)] -> [Cell [TeXPara]] -> TextBuilder.Builder
+		renderCols _ _ _ _ _ [] = ""
+		renderCols ctx rowId (c : cs) colnum clines (Cell{..} : rest)
 			| length cs < length rest = undefined
 			| Multicolumn w cs' <- cellSpan =
 				let
@@ -1196,14 +1190,16 @@ renderTable colspec a = xml "table" [] . renderRows (zip [1..] a)
 						| otherwise = w
 				in
 					renderCell colspan (cssClasses cs'' ++ clineClass colnum clines) (cssStyle cs'') cnt
-					++ renderCols ctx (drop (colspan - 1) cs) (colnum + colspan) clines rest
+					++ renderCols ctx rowId (drop (colspan - 1) cs) (colnum + colspan) clines rest
 			| otherwise =
 				renderCell 1 (cssClasses c ++ clineClass colnum clines) (cssStyle c) cnt
-				++ renderCols ctx cs (colnum + 1) clines rest
+				++ renderCols ctx rowId cs (colnum + 1) clines rest
 			where
-				cnt = renderLatexParas content ctx'
+				marginalizedLink = xml "div" [("class", "marginalizedparent")] (render link ctx)
+				link = anchor{aClass="itemDeclLink", aHref="#" ++ urlChars rowId, aText="🔗"}
+				cnt = (if colnum == 1 then marginalizedLink else "") ++ renderLatexParas content ctx'
 				ctx' = ctx{idPrefixes = idPrefixes ctx ++ ["column-" ++ Text.pack (show colnum) ++ "-"]}
-		renderCols _ [] _ _ (_ : _) = error "Too many columns"
+		renderCols _ _ [] _ _ (_ : _) = error "Too many columns"
 
 		clineClass n clines
 			| isJust $ find (\(begin, end) -> begin <= n && n <= end) clines =
