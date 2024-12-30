@@ -333,6 +333,7 @@ highlight ctx x
     | (TeXRaw "" : t) <- x = highlight ctx t
     | Just (lit, x') <- parseLiteral x = spanTag "literal" (render lit ctx) ++ highlight ctx x'
     | Just (comment, x') <- parseComment x = spanTag "comment" (render comment ctx{inComment=True, rawTilde=False}) ++ highlightLines ctx x'
+    | Just x' <- texStripPrefix "<new>" x = spanTag "operator""<" ++ "new" ++ spanTag "operator" ">" ++ highlight ctx x'
     -- keywords
     | (a, x') <- texSpan p x, a /= "" = (case () of
         _ | a `elem` keywords -> spanTag "keyword"
