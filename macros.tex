@@ -76,8 +76,10 @@
 \newcommand{\Range}[4]{#1\tcode{#3,\penalty2000{} #4}#2}
 \newcommand{\deflibconcept}[1]{\hiddenindexlink{\indexedspan{\cname{#1}}{\indexlibrary{\idxconcept{#1}}\indexconcept{\idxconcept{#1}|idxbfpage}}}{conceptindex}{\idxconcept{#1}|idxbfpage}{}}
 \newcommand{\defexposconcept}[1]{\hiddenindexlink{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}|idxbfpage}}}{conceptindex}{\idxexposconcept{#1}|idxbfpage}{}}
+\newcommand{\defexposconceptnc}[1]{\defexposconcept{#1}}
 \newcommand{\exposconcept}[1]{\indexlink{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#1}}}}{conceptindex}{\idxexposconcept{#1}|idxbfpage}{}}
 \newcommand{\exposconceptx}[2]{\indexedspan{\ecname{#1}}{\indexconcept{\idxexposconcept{#2}}}}
+\newcommand{\exposconceptnc}[1]{\exposconcept{#1}}
 \newcommand{\keyword}[1]{\indexedspan{\tcode{#1}}{\indextext{\idxcode{#1}}}}
 \newcommand{\itcorr}[1][]{}
 \newcommand{\diffdef}[1]{\break\diffhead{#1}}
