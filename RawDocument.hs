@@ -199,13 +199,13 @@ storeCmds =
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem mathop " ++
 			"terminal literalterminal noncxxterminal textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"label newlength uline value newcounter mathscr c uppercase iref operatorname " ++
+			"label newlength uline value newcounter mathscr c uppercase iref operatorname input " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength textcolor")
-	, (3, "multicolumn discretionary movedxrefii ifthenelse PackageError")
+	, (3, "multicolumn discretionary movedxrefii ifthenelse PackageError NewEnviron")
 	, (4, "movedxrefiii indexlink hiddenindexlink")
 	]
 
