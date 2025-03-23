@@ -337,7 +337,7 @@ highlight ctx x
     -- keywords
     | (a, x') <- texSpan p x, a /= "" = (case () of
         _ | a `elem` keywords -> spanTag "keyword"
-        _ | a `elem` ["defined", "__has_include", "__has_cpp_attribute", "_Pragma"] -> spanTag "preprocessordirective"
+        _ | a `elem` ["defined", "__has_include", "__has_embed", "__has_cpp_attribute", "_Pragma"] -> spanTag "preprocessordirective"
         _ | a `elem` ["nullptr", "true", "false"] -> spanTag "literal"
         _ | otherwise -> id) (render (TeXRaw a) ctx) ++ highlight ctx x'
     where p c = isAlphaNum c || c == '_'
