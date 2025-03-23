@@ -301,7 +301,7 @@ keywords = map Text.pack $ words $
     "reinterpret_cast mutable bool private protected inline constexpr consteval final volatile default explicit enum export asm " ++
     "typeid dynamic_cast throw if else for do while goto auto concept requires decltype try catch static_assert wchar_t " ++
     "case switch alignof break continue signed audit axiom override const register thread_local int float static module import " ++
-    "co_return co_await co_yield constinit"
+    "co_return co_await co_yield constinit contract_assert"
     -- todo: read the real keyword table instead
 
 highlightLines :: RenderContext -> LaTeX -> TextBuilder.Builder
