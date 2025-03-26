@@ -25,7 +25,7 @@ import Document (
 	IndexPath, indexKeyContent, tableByAbbr, figureByAbbr, formulaByAbbr, Paragraph(..), Note(..), Example(..),
 	chapterOfSection)
 import LaTeXBase (LaTeX, LaTeXUnit(..), ArgKind(..), MathType(..), lookForCommand, concatRaws,
-    renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texSpan, mapTeX)
+    renderLaTeX, trim, isMath, isCodeblock, texStripPrefix, texSpan, mapTeX, mapCommandName)
 import qualified Data.IntMap as IntMap
 import Data.Text (isPrefixOf)
 import qualified Data.Text.Lazy.Builder as TextBuilder
@@ -997,18 +997,23 @@ abbrHref abbr RenderContext{..}
 	| otherwise = linkToSectionHref SectionToSection abbr
 
 prepMath :: LaTeX -> String
-prepMath = Text.unpack . renderLaTeX . (>>= cleanup)
+prepMath = Text.unpack . renderLaTeX . (>>= cleanup) . replaceTcode
   where
+    replaceTcode = mapCommandName (\x -> if x == "tcode" then "texttt" else x)
     cleanupText :: LaTeX -> LaTeX -- MathJax does not support \, in \text
     cleanupText [] = []
     cleanupText (TeXComm "," _ [] : x) = TeXRaw " " : cleanupText x
     cleanupText (x : y) = cleanup x ++ cleanupText y
-
     cleanup :: LaTeXUnit -> LaTeX
-    cleanup (TeXComm "texttt" _ [(FixArg, [TeXComm "textit" "" x])]) =
+    cleanup (TeXComm "texttt" _ [(FixArg, TeXComm "texttt" "" [(FixArg, x)] : y)]) =
+            cleanup (TeXComm "texttt" "" [(FixArg, x ++ y)])
+    cleanup (TeXComm "texttt" _ [(FixArg, TeXRaw x : y)]) =
+            TeXComm "texttt" "" [(FixArg, [TeXRaw x])] : cleanup (TeXComm "texttt" "" [(FixArg, y)])
+    cleanup (TeXComm "texttt" _ [(FixArg, TeXComm "textit" "" x : y)]) =
         [TeXComm "class" "" [(FixArg, [TeXRaw "textit"]), (FixArg, [TeXComm "texttt" "" x])]]
+        ++ cleanup (TeXComm "texttt" "" [(FixArg, y)])
+        -- \texttt{\textit{x}y} -> \class{textit}{\texttt{x}}\texttt{y}
         -- MathJax does not support \textit inside \texttt
-    cleanup (TeXComm "tcode" _ x) = cleanup (TeXComm "texttt" "" (map (second (>>= cleanup)) x))
     cleanup (TeXComm "nontcode" _ x) = [TeXComm "texttt" "" (map (second (>>= cleanup)) x)]
     cleanup (TeXComm "ensuremath" _ [(FixArg, x)]) = x >>= cleanup
     cleanup (TeXComm "discretionary" _ _) = []

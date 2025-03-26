@@ -2,7 +2,7 @@
 
 module LaTeXBase
  ( MathType(..), LaTeXUnit(..), LaTeX, TeXArg, ArgKind(..), concatRaws, hasCommand, isJustRaw
- , matchCommand, lookForCommand, matchEnv, mapTeX, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
+ , matchCommand, lookForCommand, matchEnv, mapTeX, mapCommandName, renderLaTeX, mapTeXRaw, isTeXEnv, texSpan, unconsRaw
  , trim, trimr, triml, texStripInfix, isCodeblock, isMath, texStripPrefix, texStripAnyPrefix, AllUnits(..) ) where
 
 import Data.String (fromString)
@@ -73,6 +73,17 @@ mapTeX f = concatMap g
 		g (TeXEnv n a b) = [TeXEnv n (h . a) (mapTeX f b)]
 		g x = [x]
 		h = second (mapTeX f)
+
+mapCommandName :: (String -> String) -> LaTeX -> LaTeX
+mapCommandName f = concatMap g
+	where
+		g :: LaTeXUnit -> LaTeX
+		g (TeXComm c ws a) = [TeXComm (f c) ws (h . a)]
+		g (TeXBraces x) = [TeXBraces (mapCommandName f x)]
+		g (TeXMath t b) = [TeXMath t (mapCommandName f b)]
+		g (TeXEnv n a b) = [TeXEnv n (h . a) (mapCommandName f b)]
+		g x = [x]
+		h = second (mapCommandName f)
 
 renderLaTeX :: LaTeX -> Text
 renderLaTeX = mconcat . (renderUnit .)
