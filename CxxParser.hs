@@ -25,7 +25,7 @@ texStripHash x
     | otherwise = Nothing
 
 cppDirectives :: [Text]
-cppDirectives = Text.words "include define elifndef elifdef ifndef endif ifdef pragma error undef line elif warning else if"
+cppDirectives = Text.words "include define elifndef elifdef ifndef endif ifdef pragma error undef line elif warning else if embed"
 
 spanLiteralChars :: String -> Maybe (String, String {- rest without the closing ' -})
 spanLiteralChars [] = Nothing
