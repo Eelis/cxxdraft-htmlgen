@@ -1029,6 +1029,8 @@ prepMath = Text.unpack . renderLaTeX . (>>= cleanup) . replaceTcode
     cleanup x@(TeXRaw _) = [x]
     cleanup (TeXBraces x) = [TeXBraces (x >>= cleanup)]
     cleanup (TeXEnv x y z) = [TeXEnv x (map (second (>>= cleanup)) y) (z >>= cleanup)]
+    cleanup (TeXMath Dollar [c@(TeXComm "text" _ _)]) = cleanup c
+        -- because the draft sources have \bigoh{$\text{bla}$}, which MathJax doesn't support
     cleanup (TeXMath x y) = [TeXMath x (y >>= cleanup)]
     cleanup x@TeXLineBreak = [x]
 
