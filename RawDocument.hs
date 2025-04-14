@@ -173,7 +173,7 @@ doParse m t = (x, y)
 nullCmds :: [(Int, String)]
 nullCmds =
 	[ (0, "clearpage kill rmfamily hfill vfill nocorr small larger noindent itcorrwidth itletterwidth global")
-	, (1, "enlargethispage lstset newsavebox vspace")
+	, (1, "enlargethispage lstset newsavebox vspace input")
 	, (2, "glossary settowidth addtolength")
 	, (3, "definecolor")
 	]
@@ -199,7 +199,7 @@ storeCmds =
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem mathop " ++
 			"terminal literalterminal noncxxterminal textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"label newlength uline value newcounter mathscr c uppercase iref operatorname input " ++
+			"label newlength uline value newcounter mathscr c uppercase iref operatorname " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
