@@ -172,10 +172,11 @@ doParse m t = (x, y)
 
 nullCmds :: [(Int, String)]
 nullCmds =
-	[ (0, "clearpage kill rmfamily hfill vfill nocorr small larger noindent itcorrwidth itletterwidth global")
-	, (1, "enlargethispage lstset newsavebox vspace input")
-	, (2, "glossary settowidth addtolength")
-	, (3, "definecolor")
+	[ (0, "clearpage kill rmfamily hfill vfill nocorr small larger noindent itcorrwidth itletterwidth global bigskip begingroup endgroup")
+	, (1, "enlargethispage lstset newsavebox vspace input thispagestyle")
+	, (2, "glossary settowidth addtolength copypagestyle")
+	, (3, "definecolor makeheadrule")
+	, (4, "makeoddhead")
 	]
 
 storeCmds :: [(Int, String)]
@@ -199,7 +200,7 @@ storeCmds =
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem mathop " ++
 			"terminal literalterminal noncxxterminal textsl textsc textsf text term overline " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
-			"label newlength uline value newcounter mathscr c uppercase iref operatorname " ++
+			"label newlength uline value newcounter mathscr c uppercase iref operatorname textlarger " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
@@ -392,6 +393,7 @@ parseParas (break isParasEnd -> (extractFootnotes -> (stuff, fs), rest))
 			where (parsePara -> p, more) = break isParaEnd x
 
 parseSections :: Int -> LaTeX -> [LinearSection]
+parseSections level (TeXComm "textlarger" _ _ : more) = parseSections level more
 parseSections level
 	(TeXComm c _ args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
 	| ((FixArg, isJustRaw -> fromJust -> lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
