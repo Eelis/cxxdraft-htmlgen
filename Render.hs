@@ -67,6 +67,8 @@ simpleMacros =
 	, ("textregistered" , "&reg;")
 	, ("Cpp"            , "C++")
 	, ("sum"            , "∑")
+	, ("bot"            , "⊥")
+	, ("perp"           , "⊥")
 	, ("ell"            , "ℓ")
 	, ("shr"            , ">>")
 	, ("cv"             , "cv")

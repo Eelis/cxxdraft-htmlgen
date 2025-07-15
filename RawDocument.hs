@@ -183,7 +183,7 @@ storeCmds :: [(Int, String)]
 storeCmds =
 	[ (0, "today def makeatletter bottomline makeatother Sec bmod mod long prime " ++
 			"chapter section paragraph subparagraph fi otextup linebreak newpage log " ++
-			"textup edef x BnfIndent par leq " ++
+			"textup edef x BnfIndent par leq bot perp " ++
 			"leftmargini BnfInc BnfRest protect caret sum " ++
 			"xspace onelineskip textlangle textrangle tilde raggedright = " ++
 			"space copyright textregistered textbackslash hsize br Gamma " ++
