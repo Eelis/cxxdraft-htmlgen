@@ -332,6 +332,8 @@ highlightUnit ctx x = case x of
 highlight :: RenderContext -> LaTeX -> TextBuilder.Builder
 highlight ctx (TeXRaw kwd : TeXComm "-" "" [] : x)
     | kwd `elem` keywords = TextBuilder.fromText kwd ++ highlight ctx x
+highlight ctx (TeXRaw kwd : rest@(TeXComm "textit" _ [(FixArg, (TeXRaw (Text.uncons -> Just (isAlphaNum -> True, _)) : _))] : _))
+    | kwd `elem` keywords = TextBuilder.fromText kwd ++ highlight ctx rest
 highlight ctx x
     | Just x' <- texStripPrefix "\n" x = "\n" ++ highlightLines ctx x'
     | (TeXRaw "" : t) <- x = highlight ctx t
