@@ -19,6 +19,7 @@ div.wrapper {
 }
 
 div.texpara {
+	text-align: justify;
 	margin-top: 3pt;
 	margin-bottom: 3pt;
 }
