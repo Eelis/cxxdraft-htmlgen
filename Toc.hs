@@ -21,7 +21,7 @@ tocSection draft expanded s@Section{..} =
 	xml "div" [("id", abbreviation)] $ header ++ mconcat (tocSection draft expanded . subsections)
   where
   	header = h (min 4 $ 2 + length parents) $
-		secnum (if expanded then "#" ++ urlChars abbreviation else "") s ++ " "
+		secnum 0 (if expanded then "#" ++ urlChars abbreviation else "") s ++ " "
 		++ render ( sectionName ++ [TeXRaw " "]
 		          , (linkToSection (if expanded then SectionToSection else TocToSection) abbreviation){aClass="abbr_ref"})
 		          defaultRenderContext{page=if expanded then ExpandedTocPage else TocPage, inSectionTitle=True, draft=draft}
@@ -45,7 +45,7 @@ tocChapter draft expanded s@Section{abbreviation, sectionName, subsections, pare
 	      render anchor{aText = "Bibliography", aHref = href}
 	        defaultRenderContext{inSectionTitle=True, draft=draft}
 	  | otherwise =
-	      secnum (if expanded then "#" ++ urlChars abbreviation else "") s ++ " " ++
+	      secnum 0 (if expanded then "#" ++ urlChars abbreviation else "") s ++ " " ++
 	      render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True, draft=draft} ++
 	      (if expanded then "" else simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"})
 

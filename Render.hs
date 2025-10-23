@@ -11,7 +11,7 @@
 
 module Render (
 	Render(render), concatRender, renderTab, renderFig, renderIndex, simpleRender, simpleRender2, squareAbbr,
-	linkToSection, secnum, Page(..), parentLink,
+	linkToSection, secnum, Page(..), parentLink, abbrHref,
 	defaultRenderContext, isSectionPage,
 	RenderContext(..), renderLatexParas
 	) where
@@ -1285,11 +1285,11 @@ simpleRender = LazyText.toStrict . TextBuilder.toLazyText . simpleRender2
 simpleRender2 :: Render a => a -> TextBuilder.Builder
 simpleRender2 = flip render defaultRenderContext
 
-secnum :: Text -> Section -> TextBuilder.Builder
-secnum href se@Section{..} =
+secnum :: Int -> Text -> Section -> TextBuilder.Builder
+secnum reduceIndent href se@Section{..} =
 	simpleRender2 (anchor{aClass=c, aHref=href, aText=secnumText se, aStyle=Text.pack style})
 	where
-		style = "min-width:" ++ show (50 + length parents * 15) ++ "pt"
+		style = "min-width:" ++ show (50 + (length parents - reduceIndent) * 15) ++ "pt"
 		c	| chapter /= NormalChapter, null parents = "annexnum"
 			| otherwise = "secnum"
 

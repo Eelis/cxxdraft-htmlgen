@@ -23,8 +23,9 @@ import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as TextBuilder
+import LaTeXBase (LaTeXUnit(..))
 import Pages (writePage, pageContent, pagePath, PageStyle(..), fileContent, outputDir, Link(..))
-import Render (render, concatRender, simpleRender2, renderFig,
+import Render (render, concatRender, simpleRender2, renderFig, abbrHref,
 	defaultRenderContext, renderTab, RenderContext(..), Page(..),linkToSection, squareAbbr,
 	secnum, renderLatexParas, isSectionPage, parentLink, renderIndex)
 import Document
@@ -74,10 +75,22 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 			Nothing -> ctx
 renderParagraph _ = undefined
 
+tocSection :: RenderContext -> Section -> TextBuilder.Builder
+tocSection _ Section{sectionKind=DefinitionSection _} = ""
+tocSection ctx s@Section{..} = header ++ mconcat (tocSection ctx . subsections)
+  where
+    header = h (min 4 $ 1 + length parents) $
+        secnum 0 "" s ++ " "
+        ++ render ( sectionName ++ [TeXRaw " "]
+                  , anchor{ aHref = abbrHref abbreviation ctx, aText = squareAbbr True abbreviation, aClass="abbr_ref" })
+                  ctx{ inSectionTitle = True }
+        ++ "<div style='clear:right'></div>"
+
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (TextBuilder.Builder, Bool)
-renderSection context specific parasEmitted s@Section{..}
+renderSection context specific parasEmitted s@Section{parents=s_parents, ..}
 	| full = (, True) $
 		idDiv header ++
+		(if specific == Just s && not (null subsections) then toc else "") ++
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
@@ -98,16 +111,20 @@ renderSection context specific parasEmitted s@Section{..}
 			SectionPage parent -> parentLink parent abbreviation
 			_ -> abbreviation
 		full = specific == Nothing || specific == Just s
-		header = sectionHeader (min 4 $ 1 + length parents) s
+		reduceHeaderIndent = case page context of
+		    SectionPage p | specific == Nothing -> length (parents p) + 1
+		    _ -> 0
+		header = sectionHeader reduceHeaderIndent (min 4 $ 1 + length s_parents) s
 			(if specific == Nothing && isSectionPage (page context) then "#" ++ urlChars secOnPage else "")
 			abbr context
+		toc = "<hr>" ++ mconcat (tocSection context . subsections) ++ "<hr>"
 		abbr
-			| specific == Just s && not (null parents)
+			| specific == Just s && not (null s_parents)
 				= anchor
-			| Just sp <- specific, sp /= s, not (null parents)
+			| Just sp <- specific, sp /= s, not (null s_parents)
 				= anchor{aHref = "SectionToSection/" ++ urlChars abbreviation ++ "#" ++ parentLink s (Document.abbreviation sp)}
 			| otherwise = linkToSection
-					(if null parents then SectionToToc else SectionToSection)
+					(if null s_parents then SectionToToc else SectionToSection)
 					abbreviation
 		anysubcontent =
 			or $ map (snd . renderSection context specific True)
@@ -125,13 +142,13 @@ sectionFileContent sfs title body = pageContent sfs $ fileContent pathHome title
 writeSectionFile :: FilePath -> PageStyle -> TextBuilder.Builder -> TextBuilder.Builder -> IO ()
 writeSectionFile n sfs title body = writePage n sfs (sectionFileContent sfs title body)
 
-sectionHeader :: Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
-sectionHeader hLevel s@Section{..} secnumHref abbr_ref ctx
+sectionHeader :: Int -> Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
+sectionHeader reduceIndent hLevel s@Section{..} secnumHref abbr_ref ctx
     | isDef = xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
     | abbreviation == "bibliography" = h hLevel name
     | otherwise = h hLevel $ num ++ " " ++ name ++ " " ++ abbrR
   where
-    num = secnum secnumHref s
+    num = secnum reduceIndent secnumHref s
     abbrR = simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr False abbreviation}
     name = render sectionName ctx{inSectionTitle=True}
     isDef = isDefinitionSection sectionKind
@@ -181,7 +198,7 @@ writeTableFiles sfs draft =
 		let
 			context = defaultRenderContext{draft=draft, page=TablePage tab, nearestEnclosing=Right tableSection}
 			header :: Section -> TextBuilder.Builder
-			header sec = sectionHeader (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
+			header sec = sectionHeader 0 (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
 				where href="SectionToSection/" ++ urlChars (abbreviation sec) ++ "#" ++ urlChars tableAbbr
 			headers = mconcat $ map header $ reverse $ tableSection : parents tableSection
 		writeSectionFile (Text.unpack tableAbbr) sfs (TextBuilder.fromText $ "[" ++ tableAbbr ++ "]") $
@@ -193,7 +210,7 @@ writeFigureFiles sfs draft =
 		let
 			context = defaultRenderContext{draft=draft, page=FigurePage fig, nearestEnclosing=Right figureSection}
 			header :: Section -> TextBuilder.Builder
-			header sec = sectionHeader (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
+			header sec = sectionHeader 0 (min 4 $ 1 + length (parents sec)) sec "" anchor{aHref=href} context
 				where href="SectionToSection/" ++ urlChars (abbreviation sec) ++ "#" ++ urlChars figureAbbr
 			headers = mconcat $ map header $ reverse $ figureSection : parents figureSection
 		writeSectionFile (Text.unpack figureAbbr) sfs (TextBuilder.fromText $ "[" ++ figureAbbr ++ "]") $
