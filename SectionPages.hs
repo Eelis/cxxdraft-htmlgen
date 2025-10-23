@@ -77,7 +77,7 @@ renderParagraph _ = undefined
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (TextBuilder.Builder, Bool)
 renderSection context specific parasEmitted s@Section{..}
 	| full = (, True) $
-		idDiv $ header ++
+		idDiv header ++
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
