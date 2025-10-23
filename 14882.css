@@ -165,6 +165,7 @@ div.marginalizedparent {
 a.marginalized {
 	width: 15mm;
 	position: absolute;
+	top: 0.4mm;
 	font-size: 7pt;
 	text-align: right;
 }
