@@ -178,6 +178,10 @@ a.enumerated_item_num {
 }
 
 div.para {
+	position: relative;
+	left: -14mm;
+	padding-left: 14mm;
+	width: 100%;
 	margin-bottom: 6pt;
 	margin-top: 6pt;
 	text-align: justify;
