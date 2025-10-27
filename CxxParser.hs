@@ -27,24 +27,23 @@ texStripHash x
 cppDirectives :: [Text]
 cppDirectives = Text.words "include define elifndef elifdef ifndef endif ifdef pragma error undef line elif warning else if embed"
 
-spanLiteralChars :: String -> Maybe (String, String {- rest without the closing ' -})
-spanLiteralChars [] = Nothing
-spanLiteralChars ('\\' : '\'' : rest) = first ("\\'"++) . spanLiteralChars rest
-spanLiteralChars ('\'' : x) = Just ([], x)
-spanLiteralChars (c : rest) = first (c :) . spanLiteralChars rest
+spanLiteralChars :: String -> (String, String {- rest without the closing ' -})
+spanLiteralChars [] = ([], [])
+spanLiteralChars ('\\' : '\'' : rest) = first ("\\'"++) (spanLiteralChars rest)
+spanLiteralChars ('\'' : x) = ([], x)
+spanLiteralChars (c : rest) = first (c :) (spanLiteralChars rest)
 
-parseLiteralChars :: LaTeX -> Maybe (LaTeX, LaTeX)
-parseLiteralChars [] = Nothing
+parseLiteralChars :: LaTeX -> (LaTeX, LaTeX)
+parseLiteralChars [] = ([], [])
 parseLiteralChars (TeXRaw s : rest) = case spanLiteralChars (Text.unpack s) of
-    Nothing -> Nothing
-    Just (_, []) -> first (TeXRaw s :) . (parseLiteralChars rest)
-    Just (x, more) -> Just ([TeXRaw (Text.pack x)], TeXRaw (Text.pack more) : rest)
-parseLiteralChars (x : rest) = first (x :) . (parseLiteralChars rest)
+    (x, []) -> first (TeXRaw (Text.pack x) :) (parseLiteralChars rest)
+    (x, more) -> ([TeXRaw (Text.pack x)], TeXRaw (Text.pack more) : rest)
+parseLiteralChars (x : rest) = first (x :) (parseLiteralChars rest)
 
 parseCharLiteral :: LaTeX -> Maybe (LaTeX, LaTeX {- rest -})
 parseCharLiteral x
     | Just (pre, x') <- texStripAnyPrefix ["'", "u'", "L'", "U'", "u8'"] x
-    , Just (before, x'') <- parseLiteralChars x'
+    , (before, x'') <- parseLiteralChars x'
     , (suffix, x''') <- texSpan (\c -> isAlphaNum c || c == '_') x''
         = Just ([TeXRaw pre] ++ before ++ [TeXRaw $ "'" ++ suffix], x''')
     | otherwise = Nothing
