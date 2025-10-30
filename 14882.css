@@ -59,13 +59,14 @@ li {
 
 h1 {
 	line-height: 1;
+	font-size: 20pt;
 	margin-top: 10pt;
 	margin-bottom: 10pt;
 }
 
 h2 {
 	line-height: 1;
-	font-size: 14pt;
+	font-size: 16pt;
 	margin-top: 10pt;
 	margin-bottom: 10pt;
 }
@@ -78,6 +79,7 @@ h2::after {
 
 h3 {
 	line-height: 1;
+	font-size: 12pt;
 	margin-top: 10pt;
 	margin-bottom: 10pt;
 }
@@ -90,6 +92,7 @@ h3::after {
 
 h4 {
 	line-height: 1;
+	font-size: 11pt;
 	margin-top: 10pt;
 	margin-bottom: 10pt;
 }
