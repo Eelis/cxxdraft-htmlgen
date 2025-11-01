@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-tabs #-}
-{-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, TupleSections, ViewPatterns, NamedFieldPuns #-}
 
 module SectionPages
 	( writeSectionFiles
@@ -87,10 +87,10 @@ tocSection ctx s@Section{..} = header ++ mconcat (tocSection ctx . subsections)
         ++ "<div style='clear:right'></div>"
 
 renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (TextBuilder.Builder, Bool)
-renderSection context specific parasEmitted s@Section{parents=s_parents, ..}
+renderSection context specific parasEmitted s@Section{abbreviation, subsections, sectionFootnotes, paragraphs}
 	| full = (, True) $
 		idDiv header ++
-		(if specific == Just s && not (null subsections) then toc else "") ++
+		(if specific == Just s && any (not . isDefinitionSection . sectionKind) subsections then toc else "") ++
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
@@ -114,17 +114,17 @@ renderSection context specific parasEmitted s@Section{parents=s_parents, ..}
 		reduceHeaderIndent = case page context of
 		    SectionPage p | specific == Nothing -> length (parents p) + 1
 		    _ -> 0
-		header = sectionHeader reduceHeaderIndent (min 4 $ 1 + length s_parents) s
+		header = sectionHeader reduceHeaderIndent (min 4 $ 1 + length (parents s)) s
 			(if specific == Nothing && isSectionPage (page context) then "#" ++ urlChars secOnPage else "")
 			abbr context
 		toc = "<hr>" ++ mconcat (tocSection context . subsections) ++ "<hr>"
 		abbr
-			| specific == Just s && not (null s_parents)
+			| specific == Just s && not (null (parents s))
 				= anchor
-			| Just sp <- specific, sp /= s, not (null s_parents)
+			| Just sp <- specific, sp /= s, not (null (parents s))
 				= anchor{aHref = "SectionToSection/" ++ urlChars abbreviation ++ "#" ++ parentLink s (Document.abbreviation sp)}
 			| otherwise = linkToSection
-					(if null s_parents then SectionToToc else SectionToSection)
+					(if null (parents s) then SectionToToc else SectionToSection)
 					abbreviation
 		anysubcontent =
 			or $ map (snd . renderSection context specific True)
