@@ -30,6 +30,7 @@ cppDirectives = Text.words "include define elifndef elifdef ifndef endif ifdef p
 spanLiteralChars :: String -> (String, String {- rest without the closing ' -})
 spanLiteralChars [] = ([], [])
 spanLiteralChars ('\\' : '\'' : rest) = first ("\\'"++) (spanLiteralChars rest)
+spanLiteralChars ('\\' : '\\' : rest) = first ("\\\\"++) (spanLiteralChars rest)
 spanLiteralChars ('\'' : x) = ([], x)
 spanLiteralChars (c : rest) = first (c :) (spanLiteralChars rest)
 
