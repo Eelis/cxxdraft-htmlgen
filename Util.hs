@@ -65,6 +65,7 @@ greekAlphabet =
 	, ("zeta"           , 'ζ')
 
 	, ("Gamma"          , 'Γ')
+	, ("Sigma"          , 'Σ')
 	, ("Pi"             , 'Π') ]
 
 mapLast :: (a -> a) -> [a] -> [a]
