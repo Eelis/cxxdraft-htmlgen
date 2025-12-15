@@ -265,6 +265,7 @@ indexKeyContent = mconcat . map ikc
 		ikc (TeXComm "idxcode" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "noncxxtcode" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "indexedspan" _ [(_, x), _]) = indexKeyContent x
+		ikc (TeXComm "text" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "texttt" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textit" _ [(_, x)]) = indexKeyContent x
 		ikc (TeXComm "textsc" _ [(_, x)]) = indexKeyContent x
