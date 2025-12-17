@@ -27,7 +27,8 @@ fileContent pathHome title extraHead body =
             "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Serif'>" ++
             "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans'>" ++
             "<link rel='stylesheet' type='text/css' href='https://fonts.googleapis.com/css2?family=Noto+Sans+Mono'>" ++
-            "<link rel='icon' href='icon.png'>" ++
+            "<link rel='icon' href='icon-light.png' media='(prefers-color-scheme: light)'>" ++
+            "<link rel='icon' href='icon-dark.png' media='(prefers-color-scheme: dark)'>" ++
             extraHead ++
         "</head>" ++
         "<body><div class='wrapper'>" ++ body ++ "</div></body>" ++
