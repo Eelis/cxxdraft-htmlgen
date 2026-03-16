@@ -205,7 +205,7 @@ storeCmds =
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
 	, (2, "pnum definition addtocounter setcounter frac " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
-			"equal setlength textcolor")
+			"equal setlength textcolor providecommand")
 	, (3, "multicolumn discretionary movedxrefii ifthenelse PackageError NewEnviron")
 	, (4, "movedxrefiii indexlink hiddenindexlink")
 	]
