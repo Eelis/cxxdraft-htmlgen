@@ -44,7 +44,8 @@ import Data.Maybe (isJust, fromJust)
 import Pages (Link(..))
 import Sentences (linkifyFullStop)
 import Util ((.), (++), replace, Text, xml, spanTag, anchor, Anchor(..), greekAlphabet,
-    urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy, mapHead)
+    urlChars, intercalateBuilders, replaceXmlChars, spanJust, h, partitionBy, mapHead,
+    toSuperScriptChar)
 import CxxParser (parseCppDirective, parseLiteral, parseComment)
 
 kill, literal :: [String]
@@ -550,8 +551,7 @@ instance Render LaTeXUnit where
 		(spanTag "mathsf" "lshift" ++) . xml "sub" [("class", "math")] . render content
 	render (TeXComm "verb" _ [(FixArg, a)]) = \c -> xml "code" [] $ render a c{rawTilde=True, rawHyphens=True}
 	render (TeXComm "footnoteref" _ [(FixArg, [TeXRaw n])]) = \ctx -> flip render ctx $ anchor
-		{ aClass = "footnoteref"
-		, aText  = TextBuilder.fromText n
+		{ aText  = TextBuilder.fromString $ toSuperScriptChar . Text.unpack n
 		, aId    = "footnoteref-" ++ n
 		, aTitle = (!! 3) $ iterate (Text.replace "  " " ")
 				 $ Text.replace "\n" " "

@@ -412,12 +412,6 @@ span.textsuperscript {
 	line-height: 0;
 }
 
-.footnoteref {
-	vertical-align: super;
-	font-size: smaller;
-	line-height: 0;
-}
-
 .footnote {
 	font-size: 8pt;
 }

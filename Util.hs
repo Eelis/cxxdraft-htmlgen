@@ -5,7 +5,7 @@ module Util (
 	mconcat, (.), (++), Text, replace, xml, spanTag, h, getDigit, startsWith, urlChars,
 	anchor, Anchor(..), writeFile, readFile, greekAlphabet, mapLast, mapHead, stripInfix, dropTrailingWs,
 	textStripInfix, textSubRegex, splitOn, intercalateBuilders, replaceXmlChars, stripAnyPrefix, trimString,
-	spanJust, measure, partitionBy
+	spanJust, measure, partitionBy, toSuperScriptChar
 	) where
 
 import Prelude hiding ((.), (++), writeFile)
@@ -154,3 +154,16 @@ measure f = do
 
 partitionBy :: (Ord b, Eq b) => (a -> b) -> [a] -> [(b, [a])]
 partitionBy f l = Map.assocs $ Map.fromListWith (flip (++)) [(f x, [x]) | x <- l]
+
+toSuperScriptChar :: Char -> Char
+toSuperScriptChar '0' = '⁰'
+toSuperScriptChar '1' = '¹'
+toSuperScriptChar '2' = '²'
+toSuperScriptChar '3' = '³'
+toSuperScriptChar '4' = '⁴'
+toSuperScriptChar '5' = '⁵'
+toSuperScriptChar '6' = '⁶'
+toSuperScriptChar '7' = '⁷'
+toSuperScriptChar '8' = '⁸'
+toSuperScriptChar '9' = '⁹'
+toSuperScriptChar _ = error "toSuperScriptChar"
