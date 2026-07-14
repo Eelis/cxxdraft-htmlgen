@@ -23,7 +23,7 @@ import System.Process (readProcess)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as TextBuilder
-import LaTeXBase (LaTeXUnit(..))
+import LaTeXBase (LaTeXUnit(..), ArgKind(..))
 import Pages (writePage, pageContent, pagePath, PageStyle(..), fileContent, outputDir, Link(..))
 import Render (render, concatRender, simpleRender2, renderFig, abbrHref,
 	defaultRenderContext, renderTab, RenderContext(..), Page(..),linkToSection, squareAbbr,
@@ -76,8 +76,9 @@ renderParagraph ctx@RenderContext{nearestEnclosing=Left Paragraph{..}, draft=Dra
 renderParagraph _ = undefined
 
 tocSection :: RenderContext -> Section -> TextBuilder.Builder
-tocSection _ Section{sectionKind=DefinitionSection _} = ""
-tocSection ctx s@Section{..} = header ++ mconcat (tocSection ctx . subsections)
+tocSection ctx s@Section{..}
+    | showSectionKindInToc sectionKind = header ++ mconcat (tocSection ctx . subsections)
+    | otherwise = ""
   where
     header = h (min 4 $ 1 + length parents) $
         secnum 0 "" s ++ " "
@@ -90,7 +91,7 @@ renderSection :: RenderContext -> Maybe Section -> Bool -> Section -> (TextBuild
 renderSection context specific parasEmitted s@Section{abbreviation, subsections, sectionFootnotes, paragraphs}
 	| full = (, True) $
 		idDiv header ++
-		(if specific == Just s && any (not . isDefinitionSection . sectionKind) subsections then toc else "") ++
+		(if specific == Just s && any (showSectionKindInToc . sectionKind) subsections then toc else "") ++
 		mconcat (map
 			(\p -> renderParagraph (context{nearestEnclosing=Left p,idPrefixes=if parasEmitted then [secOnPage ++ "-"] else []}))
 			paragraphs) ++
@@ -144,14 +145,17 @@ writeSectionFile n sfs title body = writePage n sfs (sectionFileContent sfs titl
 
 sectionHeader :: Int -> Int -> Section -> Text -> Anchor -> RenderContext -> TextBuilder.Builder
 sectionHeader reduceIndent hLevel s@Section{..} secnumHref abbr_ref ctx
-    | isDef = xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
+    | DefinitionSection _ <- sectionKind =
+        xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
     | abbreviation == "bibliography" = h hLevel name
+    | BehaviorSection _ cat ab <- sectionKind =
+        h hLevel $ num ++ abbrR ++ xml "div" [("class", "behaviorspecifiedin")] ("Specified in: " ++
+            render (TeXComm "ref" "" [(FixArg, [TeXRaw $ cat ++ "x:" ++ ab])]) ctx)
     | otherwise = h hLevel $ num ++ " " ++ name ++ " " ++ abbrR
   where
     num = secnum reduceIndent secnumHref s
     abbrR = simpleRender2 abbr_ref{aClass = "abbr_ref", aText = squareAbbr False abbreviation}
     name = render sectionName ctx{inSectionTitle=True}
-    isDef = isDefinitionSection sectionKind
 
 writeFiguresFile :: PageStyle -> Draft -> IO ()
 writeFiguresFile sfs draft = writeSectionFile "fig" sfs "14882: Figures" $

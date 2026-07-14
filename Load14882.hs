@@ -266,6 +266,7 @@ instance AssignNumbers RawFootnote Footnote where
 lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
 lsectionLevel (lsectionKind -> DefinitionSection l) = l
+lsectionLevel (lsectionKind -> BehaviorSection l _ _) = l
 lsectionLevel _ = 0
 
 paraNumbers :: [Bool] -> [Maybe Int]

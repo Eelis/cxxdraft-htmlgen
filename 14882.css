@@ -188,6 +188,11 @@ div.para {
 	min-height: 1.2em;
 }
 
+div.behaviorspecifiedin {
+	margin-top: 6pt;
+	margin-bottom: -4pt;
+}
+
 div.section { text-align: justify; }
 div.sentence { display: inline; }
 

@@ -7,7 +7,7 @@ module Document (
 	IndexPath, IndexComponent(..), IndexCategory, Index, IndexTree, IndexNode(..),
 	ColumnSpec(..), TextAlignment(..), normative, Formula(..), chapterOfSection,
 	IndexEntry(..), IndexKind(..), Note(..), Example(..), TeXPara(..), Sentence(..),
-	texParaTex, texParaElems, XrefDelta, sectionByAbbr, isDefinitionSection, Abbreviation,
+	texParaTex, texParaElems, XrefDelta, sectionByAbbr, showSectionKindInToc, Abbreviation,
 	indexKeyContent, indexCatName, Sections(sections), SectionKind(..), mergeIndices, SourceLocation(..),
 	figures, tables, tableByAbbr, figureByAbbr, formulaByAbbr, elemTex, footnotes, allElements,
 	LaTeX, makeAbbrMap, formulas) where
@@ -126,13 +126,15 @@ normative _ = True
 data SectionKind
 	= NormalSection { _level :: Int }
 	| DefinitionSection { _level :: Int }
+	| BehaviorSection { _level :: Int, behaviorSectionCategory :: Text, behaviorSectionAbbr :: Text }
 	| InformativeAnnexSection
 	| NormativeAnnexSection
 	deriving (Eq, Show)
 
-isDefinitionSection :: SectionKind -> Bool
-isDefinitionSection (DefinitionSection _) = True
-isDefinitionSection _ = False
+showSectionKindInToc :: SectionKind -> Bool
+showSectionKindInToc (DefinitionSection _) = False
+showSectionKindInToc (BehaviorSection _ _ _) = False
+showSectionKindInToc _ = True
 
 data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
 	deriving (Eq, Show)

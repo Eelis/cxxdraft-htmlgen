@@ -13,12 +13,13 @@ import LaTeXBase (LaTeXUnit(..))
 import Pages (Link(..), fileContent, applyPageStyle, PageStyle(..), outputDir, writePage)
 import Render (secnum, linkToSection, simpleRender2, RenderContext(..), render, defaultRenderContext, Page(..))
 import Util
-import Document (Section(..), Draft(..), SectionKind(..), indexCatName, isDefinitionSection)
+import Document (Section(..), Draft(..), indexCatName, showSectionKindInToc)
 
 tocSection :: Draft -> Bool -> Section -> TextBuilder.Builder
-tocSection _ _ Section{sectionKind=DefinitionSection _} = ""
-tocSection draft expanded s@Section{..} =
-	xml "div" [("id", abbreviation)] $ header ++ mconcat (tocSection draft expanded . subsections)
+tocSection draft expanded s@Section{..}
+    | showSectionKindInToc sectionKind =
+        xml "div" [("id", abbreviation)] $ header ++ mconcat (tocSection draft expanded . subsections)
+    | otherwise = ""
   where
   	header = h (min 4 $ 2 + length parents) $
 		secnum 0 (if expanded then "#" ++ urlChars abbreviation else "") s ++ " "
@@ -35,7 +36,7 @@ tocChapter draft expanded s@Section{abbreviation, sectionName, subsections, pare
   where
 	href
 	    | expanded = "SectionToSection/" ++ urlChars abbreviation
-	    | otherwise = (if any (not . isDefinitionSection . sectionKind) subsections then "#" else "TocToSection/") ++ urlChars abbreviation
+	    | otherwise = (if any (showSectionKindInToc . sectionKind) subsections then "#" else "TocToSection/") ++ urlChars abbreviation
 	link = anchor{
 		aClass = "folded_abbr_ref",
 		aText = TextBuilder.fromText $ "[" ++ abbreviation ++ "]",

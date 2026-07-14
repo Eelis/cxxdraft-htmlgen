@@ -1271,7 +1271,9 @@ htmlTabs :: Text -> Text
 htmlTabs = replace "\t" "&#9;" -- todo: still necessary?
 
 linkToSectionHref :: Link -> Abbreviation -> Text
-linkToSectionHref link abbr = Text.pack (show link) ++ "/" ++ urlChars abbr
+linkToSectionHref link abbr =
+    (if Text.any (== ':') abbr then "./" else "") ++
+    Text.pack (show link) ++ "/" ++ urlChars abbr
 
 linkToSection :: Link -> Abbreviation -> Anchor
 linkToSection link abbr = anchor{ aHref = linkToSectionHref link abbr, aText = squareAbbr True abbr }

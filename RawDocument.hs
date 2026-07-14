@@ -136,6 +136,7 @@ isParaEnd x = isParasEnd x
 isParasEnd :: LaTeXUnit -> Bool
 isParasEnd (TeXComm "definition" _ _) = True
 isParasEnd (TeXComm "rSec" _ _) = True
+isParasEnd (TeXComm "behaviordescription" _ _) = True
 isParasEnd (TeXComm "infannex" _ _) = True
 isParasEnd (TeXComm "normannex" _ _) = True
 isParasEnd _ = False
@@ -203,7 +204,7 @@ storeCmds =
 			"label newlength uline value newcounter mathscr c uppercase iref operatorname textlarger " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
 			"removedxref deprxref textsuperscript rlap mathrel mathbin nopnumdiffref color ucode uname")
-	, (2, "pnum definition addtocounter setcounter frac " ++
+	, (2, "pnum definition addtocounter setcounter frac behaviordescription " ++
 			"binom infannex normannex parbox link weblink indexedspan movedxref movedxrefs " ++
 			"equal setlength textcolor providecommand")
 	, (3, "multicolumn discretionary movedxrefii ifthenelse PackageError NewEnviron")
@@ -400,6 +401,8 @@ parseSections level
 		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
 		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
 		("definition", [name, abbr]) -> (abbr, name, DefinitionSection (level + 1), level)
+		("behaviordescription", [(FixArg, [TeXRaw abbr]), (FixArg, [TeXRaw k])]) ->
+		    ((FixArg, [TeXRaw $ k ++ ":" ++ abbr]), (FixArg, [TeXRaw ""]), BehaviorSection (level + 1) k abbr, level)
 		("rSec", [(FixArg, [TeXRaw (Text.unpack -> read -> l)]), abbr, name]) ->
 			(abbr, name, NormalSection l, l)
 		_ -> error $ "not a section command: " ++ show (c, args)
