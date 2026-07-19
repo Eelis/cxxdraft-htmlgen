@@ -13,7 +13,7 @@ import LaTeXBase (LaTeXUnit(..))
 import Pages (Link(..), fileContent, applyPageStyle, PageStyle(..), outputDir, writePage)
 import Render (secnum, linkToSection, simpleRender2, RenderContext(..), render, defaultRenderContext, Page(..))
 import Util
-import Document (Section(..), Draft(..), indexCatName, showSectionKindInToc)
+import Document (Section(..), Draft(..), SectionKind(..), indexCatName, showSectionKindInToc)
 
 tocSection :: Draft -> Bool -> Section -> TextBuilder.Builder
 tocSection draft expanded s@Section{..}
@@ -34,6 +34,7 @@ tocChapter draft expanded s@Section{abbreviation, sectionName, subsections, pare
 	h (min 4 $ 2 + length parents) header ++
 	xml "div" [("class", "tocChapter")] (mconcat (tocSection draft expanded . subsections))
   where
+	ctx = defaultRenderContext{ inSectionTitle = True, draft = draft }
 	href
 	    | expanded = "SectionToSection/" ++ urlChars abbreviation
 	    | otherwise = (if any (showSectionKindInToc . sectionKind) subsections then "#" else "TocToSection/") ++ urlChars abbreviation
@@ -42,12 +43,11 @@ tocChapter draft expanded s@Section{abbreviation, sectionName, subsections, pare
 		aText = TextBuilder.fromText $ "[" ++ abbreviation ++ "]",
 		aHref = href}
 	header
-	  | abbreviation == "bibliography" =
-	      render anchor{aText = "Bibliography", aHref = href}
-	        defaultRenderContext{inSectionTitle=True, draft=draft}
+	  | sectionKind s == UnnumberedChapter =
+	      render anchor{aText = render sectionName ctx, aHref = href} ctx
 	  | otherwise =
 	      secnum 0 (if expanded then "#" ++ urlChars abbreviation else "") s ++ " " ++
-	      render (sectionName ++ [TeXRaw " "], link) defaultRenderContext{inSectionTitle=True, draft=draft} ++
+	      render (sectionName ++ [TeXRaw " "], link) ctx ++
 	      (if expanded then "" else simpleRender2 (linkToSection TocToSection abbreviation){aClass="unfolded_abbr_ref"})
 
 tocHeader :: UTCTime -> Text -> Text

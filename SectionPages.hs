@@ -147,7 +147,7 @@ sectionHeader :: Int -> Int -> Section -> Text -> Anchor -> RenderContext -> Tex
 sectionHeader reduceIndent hLevel s@Section{..} secnumHref abbr_ref ctx
     | DefinitionSection _ <- sectionKind =
         xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
-    | abbreviation == "bibliography" = h hLevel name
+    | sectionKind == UnnumberedChapter = h hLevel name
     | BehaviorSection _ cat ab <- sectionKind =
         h hLevel $ num ++ abbrR ++ xml "div" [("class", "behaviorspecifiedin")] ("Specified in: " ++
             render (TeXComm "ref" "" [(FixArg, [TeXRaw $ cat ++ "x:" ++ ab])]) ctx)
@@ -191,9 +191,15 @@ writeFootnotesFile sfs draft = writeSectionFile "footnotes" sfs "14882: Footnote
 
 writeSingleSectionFile :: PageStyle -> Draft -> String -> IO ()
 writeSingleSectionFile sfs draft abbr = do
-	let Just section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
-	let baseFilename = Text.unpack abbreviation
-	writeSectionFile baseFilename sfs (squareAbbr False abbreviation) $ mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
+	let
+	  Just section@Section{..} = Document.sectionByAbbr draft (Text.pack abbr)
+	  baseFilename = Text.unpack abbreviation
+	  ctx = defaultRenderContext{ draft = draft, page = SectionPage section}
+	  title
+	    | sectionKind == UnnumberedChapter = render sectionName ctx
+	    | otherwise = squareAbbr False abbreviation
+	writeSectionFile baseFilename sfs title $ mconcat $
+	    fst . renderSection ctx (Just section) False . chapters draft
 	putStrLn $ "  " ++ baseFilename
 
 writeTableFiles :: PageStyle -> Draft -> IO ()
@@ -228,7 +234,9 @@ writeSectionFiles sfs draft = flip map (zip names contents) $ \(n, content) -> d
 		secs = Document.sections draft
 		renSec section@Section{..} = (Text.unpack abbreviation, sectionFileContent sfs title body)
 		  where
-			title = squareAbbr False abbreviation
+			title
+			    | sectionKind == UnnumberedChapter = render sectionName defaultRenderContext{draft=draft}
+			    | otherwise = squareAbbr False abbreviation
 			body = mconcat $ fst . renderSection (defaultRenderContext{draft=draft,page=SectionPage section}) (Just section) False . chapters draft
 		fullbody = mconcat $ fst . renderSection defaultRenderContext{draft=draft, page=FullPage} Nothing True . chapters draft
 		fullfile = ("full", sectionFileContent sfs "14882" fullbody)

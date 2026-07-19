@@ -139,6 +139,7 @@ isParasEnd (TeXComm "rSec" _ _) = True
 isParasEnd (TeXComm "behaviordescription" _ _) = True
 isParasEnd (TeXComm "infannex" _ _) = True
 isParasEnd (TeXComm "normannex" _ _) = True
+isParasEnd (TeXComm "chapter" _ _) = True
 isParasEnd _ = False
 
 isJunk :: LaTeXUnit -> Bool
@@ -183,7 +184,7 @@ nullCmds =
 storeCmds :: [(Int, String)]
 storeCmds =
 	[ (0, "today def makeatletter bottomline makeatother Sec bmod mod long prime " ++
-			"chapter section paragraph subparagraph fi otextup linebreak newpage log " ++
+			"section paragraph subparagraph fi otextup linebreak newpage log " ++
 			"textup edef x BnfIndent par leq bot perp Sigma " ++
 			"leftmargini BnfInc BnfRest protect caret sum " ++
 			"xspace onelineskip textlangle textrangle tilde raggedright = " ++
@@ -199,7 +200,7 @@ storeCmds =
 			"obeyspaces bnfindent vdots tabcolsep columnbreak emergencystretch commentellip " ++
 			"gamma widowpenalties sffamily parskip left right `")
 	, (1, "hspace footnote textit textrm textnormal texttt textbf ensuremath ref ref* mbox bibitem mathop " ++
-			"terminal literalterminal noncxxterminal textsl textsc textsf text term overline " ++
+			"terminal literalterminal noncxxterminal textsl textsc textsf text term overline chapter " ++
 			"tcode noncxxtcode literaltcode footnotetext microtypesetup cline mathtt mathit mathrm mathsf " ++
 			"label newlength uline value newcounter mathscr c uppercase iref operatorname textlarger " ++
 			"phantom hphantom sqrt ln emph minipage url indexescape changeglossnumformat textasciitilde " ++
@@ -405,6 +406,8 @@ parseSections level
 		    ((FixArg, [TeXRaw $ k ++ ":" ++ abbr]), (FixArg, [TeXRaw ""]), BehaviorSection (level + 1) k abbr, level)
 		("rSec", [(FixArg, [TeXRaw (Text.unpack -> read -> l)]), abbr, name]) ->
 			(abbr, name, NormalSection l, l)
+		("chapter", [n@(FixArg, [TeXRaw name])]) ->
+		    ((FixArg, [TeXRaw $ Text.toLower name]), n, UnnumberedChapter, 0)
 		_ -> error $ "not a section command: " ++ show (c, args)
 	= LinearSection{..} : parseSections level' more
 parseSections _ [] = []

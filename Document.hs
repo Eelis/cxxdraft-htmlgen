@@ -129,6 +129,7 @@ data SectionKind
 	| BehaviorSection { _level :: Int, behaviorSectionCategory :: Text, behaviorSectionAbbr :: Text }
 	| InformativeAnnexSection
 	| NormativeAnnexSection
+	| UnnumberedChapter
 	deriving (Eq, Show)
 
 showSectionKindInToc :: SectionKind -> Bool

@@ -106,11 +106,14 @@ breakSentence (e@(RawLatexElement (TeXRaw (textStripInfix "." -> (Just ((++ ".")
             (pre', post'') = case stripPrefix ")" post' of
                 Just z -> (pre ++ ")" , Text.stripStart z)
                 Nothing -> (pre, post')
-            more' = if post'' == "" then more else RawLatexElement (TeXRaw post'') : more
+            (pre'', post''') = case stripPrefix "]" post'' of
+                Just z -> (pre' ++ "]" , Text.stripStart z)
+                Nothing -> (pre', post'')
+            more' = if post''' == "" then more else RawLatexElement (TeXRaw post''') : more
             (maybefootnote, more'') = case more' of
                 fn@(RawLatexElement (TeXComm "footnoteref" _ _)) : z -> ([fn], z)
                 _ -> ([], more')
-            sentence = [RawLatexElement (TeXRaw pre')] ++ maybefootnote
+            sentence = [RawLatexElement (TeXRaw pre'')] ++ maybefootnote
         in
             Just (sentence, more'')
     | Just ((++ ".") -> pre', post') <- textStripInfix "." post = f (pre ++ pre') post'
@@ -169,6 +172,7 @@ instance LinkifyFullStop LaTeX where
             | Just m' <- linkifyFullStop link m = Just [TeXMath kind m']
         inUnit (TeXRaw (Text.dropWhileEnd (=='\n') -> Text.stripSuffix "." -> Just s)) = Just [TeXRaw s, link]
         inUnit (TeXRaw (Text.stripSuffix ".)" -> Just s)) = Just [TeXRaw s, link, TeXRaw ")"]
+        inUnit (TeXRaw (Text.stripSuffix ".]" -> Just s)) = Just [TeXRaw s, link, TeXRaw "]"]
         inUnit (TeXRaw (Text.stripSuffix ".''" -> Just s)) = Just [TeXRaw s, link, TeXRaw "''"]
         inUnit _ = Nothing
 

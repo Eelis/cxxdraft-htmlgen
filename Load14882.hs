@@ -267,6 +267,7 @@ lsectionLevel :: LinearSection -> Int
 lsectionLevel (lsectionKind -> NormalSection l) = l
 lsectionLevel (lsectionKind -> DefinitionSection l) = l
 lsectionLevel (lsectionKind -> BehaviorSection l _ _) = l
+lsectionLevel (lsectionKind -> UnnumberedChapter) = 0
 lsectionLevel _ = 0
 
 paraNumbers :: [Bool] -> [Maybe Int]
@@ -289,7 +290,8 @@ treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 		let pn = paraNumbers $ paraNumbered . lsectionParagraphs
 		paragraphs <- forM (zip pn lsectionParagraphs) $ assignNumbers newSec
 		subsections <- treeizeSections 1 chapter [newSec] lsubsections
-		(newSec :) . treeizeChapters annexes' (sectionNumber + 1) more'
+		let increment = if lsectionKind == UnnumberedChapter then 0 else 1
+		(newSec :) . treeizeChapters annexes' (sectionNumber + increment) more'
 	where
 		sectionNumber = if annexes' /= annexes then 0 else secNumber
 		annexes' = chapter /= NormalChapter
@@ -492,6 +494,7 @@ trackPnums file = Text.pack . unlines . map (uncurry f) . zip [1..] . lines . Te
 
 getFileList :: IO [FilePath]
 getFileList =
+	("preface" :) .
 	(\\ ["front", "back"]) .
 	map (Text.unpack . Text.dropEnd 1 . Text.drop (Text.length pre)) .
 	filter (pre `isPrefixOf`) .
@@ -564,7 +567,7 @@ parseFiles m = do
 	bib <- fst . parseFile m .
 	       fst . fromJust .
 	       textStripInfix "\\clearpage" .
-	       ("\\rSec0[bibliography]{Bibliography}\n" ++) .
+	       ("\\chapter{Bibliography}\n" ++) .
 	       readFile "back.tex"
 
 	first (++ bib) . go files m
