@@ -1289,16 +1289,13 @@ simpleRender2 = flip render defaultRenderContext
 
 secnum :: Int -> Text -> Section -> TextBuilder.Builder
 secnum reduceIndent href se@Section{..} =
-	simpleRender2 (anchor{aClass=c, aHref=href, aText=secnumText se, aStyle=Text.pack style})
+	simpleRender2 (anchor{aClass="secnum", aHref=href, aText=secnumText se, aStyle=Text.pack style})
 	where
 		style = "min-width:" ++ show (50 + (length parents - reduceIndent) * 15) ++ "pt"
-		c	| chapter /= NormalChapter, null parents = "annexnum"
-			| otherwise = "secnum"
 
 secnumText :: Section -> TextBuilder.Builder
 secnumText Section{sectionNumber=n,..}
-	| chapter == InformativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(informative)"
-	| chapter == NormativeAnnex, null parents = "Annex " ++ chap ++ "&emsp;(normative)"
+	| AnnexChapter _ <- chapter, null parents = "Annex&ensp;" ++ chap ++ "&emsp;"
 	| otherwise = intercalateBuilders "." (chap : simpleRender2 . tail ns)
 	where
 		ns = reverse $ n : sectionNumber . parents

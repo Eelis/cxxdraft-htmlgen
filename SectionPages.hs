@@ -148,6 +148,10 @@ sectionHeader reduceIndent hLevel s@Section{..} secnumHref abbr_ref ctx
     | DefinitionSection _ <- sectionKind =
         xml "h4" [("style", "margin-bottom:3pt")] $ num ++ abbrR ++ name
     | sectionKind == UnnumberedChapter = h hLevel name
+    | null parents, AnnexSection norm <- sectionKind =
+        xml "div" [("class", "annexnum")] (h hLevel $ TextBuilder.fromString $ "Annex " ++ [['A'..] !! sectionNumber]) ++
+        xml "div" [("class", "annexnormativity")] (if norm then "(normative)" else "(informative)") ++
+        h hLevel (name ++ " " ++ abbrR)
     | BehaviorSection _ cat ab <- sectionKind =
         h hLevel $ num ++ abbrR ++ xml "div" [("class", "behaviorspecifiedin")] ("Specified in: " ++
             render (TeXComm "ref" "" [(FixArg, [TeXRaw $ cat ++ "x:" ++ ab])]) ctx)

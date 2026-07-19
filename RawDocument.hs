@@ -399,8 +399,8 @@ parseSections level (TeXComm "textlarger" _ _ : more) = parseSections level more
 parseSections level
 	(TeXComm c _ args : (parseParas -> (lsectionParagraphs, lsectionFootnotes, more)))
 	| ((FixArg, isJustRaw -> fromJust -> lsectionAbbreviation), (FixArg, lsectionName), lsectionKind, level') <- case (c, args) of
-		("normannex", [abbr, name]) -> (abbr, name, NormativeAnnexSection, level)
-		("infannex", [abbr, name]) -> (abbr, name, InformativeAnnexSection, level)
+		("normannex", [abbr, name]) -> (abbr, name, AnnexSection True, level)
+		("infannex", [abbr, name]) -> (abbr, name, AnnexSection False, level)
 		("definition", [name, abbr]) -> (abbr, name, DefinitionSection (level + 1), level)
 		("behaviordescription", [(FixArg, [TeXRaw abbr]), (FixArg, [TeXRaw k])]) ->
 		    ((FixArg, [TeXRaw $ k ++ ":" ++ abbr]), (FixArg, [TeXRaw ""]), BehaviorSection (level + 1) k abbr, level)

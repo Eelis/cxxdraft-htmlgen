@@ -297,8 +297,7 @@ treeizeChapters annexes secNumber (LinearSection{..} : more) = mdo
 		annexes' = chapter /= NormalChapter
 		parents = []
 		chapter
-			| lsectionKind == InformativeAnnexSection = InformativeAnnex
-			| lsectionKind == NormativeAnnexSection = NormativeAnnex
+			| AnnexSection n <- lsectionKind = AnnexChapter n
 			| otherwise = NormalChapter
 		abbreviation = lsectionAbbreviation
 		sectionName = lsectionName

@@ -127,8 +127,7 @@ data SectionKind
 	= NormalSection { _level :: Int }
 	| DefinitionSection { _level :: Int }
 	| BehaviorSection { _level :: Int, behaviorSectionCategory :: Text, behaviorSectionAbbr :: Text }
-	| InformativeAnnexSection
-	| NormativeAnnexSection
+	| AnnexSection { annexSectionNormative :: Bool }
 	| UnnumberedChapter
 	deriving (Eq, Show)
 
@@ -137,7 +136,7 @@ showSectionKindInToc (DefinitionSection _) = False
 showSectionKindInToc (BehaviorSection _ _ _) = False
 showSectionKindInToc _ = True
 
-data Chapter = NormalChapter | InformativeAnnex | NormativeAnnex
+data Chapter = NormalChapter | AnnexChapter { annexChapterNormative :: Bool }
 	deriving (Eq, Show)
 
 data SourceLocation = SourceLocation
